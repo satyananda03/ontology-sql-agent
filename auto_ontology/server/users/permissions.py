@@ -8,9 +8,9 @@ Illumex asks Frontegg which permissions each of a group's roles grants, then
 returns that set on the group. There is no Frontegg here. A group carries one
 of the two roles an account already has, and this module is the expansion.
 
-The lists are generated into this package from ``frontend/auth/access.json``,
-which the Next.js auth layer imports directly, so a group's ``permissions``
-and an account's role describe one vocabulary. Better Auth's built-in
+The lists live in this package's ``access.json``. A UI that gates on roles
+should read the same file, so a group's ``permissions`` and an account's role
+describe one vocabulary. Better Auth's built-in
 ``user`` and ``session`` statements are not in the file: those govern account
 administration, which stays on the account's own role and is not something a
 group grants.

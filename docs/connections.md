@@ -6,24 +6,24 @@ SPDX-License-Identifier: Apache-2.0
 
 # Connections and credential storage
 
-Auto-Ontology reads source databases from two places: connections added in the
-UI, and the `CONNECTION_STRINGS` environment variable. Use one per deployment,
-because the two code paths order them differently:
+Source databases are PostgreSQL only. The backend reads them from two places:
+connections stored through the API, and the `CONNECTION_STRINGS` environment
+variable. Use one per deployment, because the two code paths order them
+differently:
 
-- **Answering questions** uses UI-managed connections when any exist, and falls
+- **Answering questions** uses stored connections when any exist, and falls
   back to `CONNECTION_STRINGS`.
-- **Ingestion** uses `CONNECTION_STRINGS` whenever it's set, and reads
-  UI-managed connections only when it's empty.
+- **Ingestion** uses `CONNECTION_STRINGS` whenever it's set, and reads stored
+  connections only when it's empty.
 
-## Connections added in the UI
+## Connections stored through the API
 
-Add connections under **Settings → Connections**, or through the API
-(`POST /api/connections/test`, then `POST /api/connections`; permission
-`connection:manage`).
+Add a connection with `POST /api/connections/test`, then `POST /api/connections`
+(permission `connection:manage`).
 
-Each connection can be scoped with a schema allowlist plus
-`table_allow_regex` / `table_deny_regex`, applied at catalog extraction. Deny
-wins, and names are unqualified and case-sensitive.
+Each connection can carry `table_allow_regex` / `table_deny_regex`, applied at
+catalog extraction. Deny wins, and names are unqualified and case-sensitive.
+Schemas are scoped with `ingest.yaml`, below.
 
 Where the credentials live depends on whether Vault is configured:
 
@@ -36,33 +36,18 @@ Where the credentials live depends on whether Vault is configured:
 ## `CONNECTION_STRINGS`
 
 A comma- or newline-separated list of connection URLs supplied at deploy time
-(`.env` for Docker Compose, `--set connectionStrings=...` for Helm). It carries
+(`.env` for Docker Compose). It carries
 no schema or table filters of its own; use `ingest.yaml` below. `GET /api/connections/source`
 reports whether it is set.
 
-The URL scheme selects the connector:
-
-| Engine        | Scheme                      | Add in the UI |
-| ------------- | --------------------------- | :-----------: |
-| PostgreSQL    | `postgresql://`, `postgres://` | yes        |
-| MySQL         | `mysql://`                  | yes           |
-| Databricks    | `databricks://`             | yes           |
-| Snowflake     | `snowflake://`              | yes           |
-| ClickHouse    | `clickhouse://`             | yes           |
-| Trino         | `trino://`                  | yes           |
-| Apache Kyuubi | `kyuubi://`                 | yes           |
-| HeavyDB       | `heavydb://`                | yes           |
-| DuckDB        | `duckdb://`                 | no            |
-| SQLite        | `sqlite://`                 | no            |
-
-The registry lives in
+Use a `postgresql://` or `postgres://` URL. The registry lives in
 [`auto_ontology/connectors/registry.py`](../auto_ontology/connectors/registry.py).
 
 ## Limit ingestion with `ingest.yaml`
 
 To ingest only part of a database, copy `ingest.example.yaml` to `ingest.yaml` at
-the repo root (or point `INGEST_CONFIG_FILE` at it). It works with every connector,
-including PostgreSQL, whichever way the connection was added:
+the repo root (or point `INGEST_CONFIG_FILE` at it). It applies whichever way the
+connection was added:
 
 ```yaml
 databases:

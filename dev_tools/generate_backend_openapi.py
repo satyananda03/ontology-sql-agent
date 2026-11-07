@@ -4,11 +4,9 @@
 
 """Dump the FastAPI apps' OpenAPI specs to ``docs/openapi/``.
 
-These describe the *internal* surface: the Python services are ClusterIP-only
-and reachable solely through the Next.js proxy. They are committed so the
-frontend generator (``frontend/scripts/generate-openapi.ts``) can merge their
-request/response schemas into the public spec without a running server, and so
-CI can diff them for drift.
+They are committed so API changes show up in review, and so the specs can be
+read without a running server. ``dev_tools/tests/test_openapi.py`` fails when
+they are stale.
 
 Usage (from the repo root)::
 
@@ -42,8 +40,8 @@ def main() -> int:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     for name, spec in _specs().items():
         target = OUTPUT_DIR / name
-        # sort_keys keeps the committed file stable across runs so the CI drift
-        # check only fires on real changes.
+        # sort_keys keeps the committed file stable across runs, so the drift
+        # test only fires on real changes.
         target.write_text(json.dumps(spec, indent=2, sort_keys=True) + "\n")
         ops = sum(len(methods) for methods in spec["paths"].values())
         print(f"{target.relative_to(REPO_ROOT)}: {len(spec['paths'])} paths, {ops} ops")

@@ -19,83 +19,6 @@
         "title": "Body_import_model_api_model_import_post",
         "type": "object"
       },
-      "ChatCancelResponse": {
-        "additionalProperties": true,
-        "properties": {
-          "cancelled": {
-            "title": "Cancelled",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "cancelled"
-        ],
-        "title": "ChatCancelResponse",
-        "type": "object"
-      },
-      "ChatRequest": {
-        "description": "Payload sent by the frontend to start a chat completion.",
-        "properties": {
-          "conversation_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Stable thread UUID. When supplied, prior completed turns for it are loaded and the new turn \u2014 including the chart/table bubble, once ready \u2014 is persisted to it. An unknown UUID creates the conversation; one owned by another user is rejected with 404. Omitting it runs the question statelessly, with no history and no chart step.",
-            "title": "Conversation Id"
-          },
-          "evidence": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Optional authoritative evidence supplied separately from the question.",
-            "title": "Evidence"
-          },
-          "prediction": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Prediction"
-          },
-          "question": {
-            "minLength": 1,
-            "title": "Question",
-            "type": "string"
-          },
-          "target_db": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Catalog database UUID or database name used to scope retrieval and SQL.",
-            "title": "Target Db"
-          }
-        },
-        "required": [
-          "question"
-        ],
-        "title": "ChatRequest",
-        "type": "object"
-      },
       "ColumnAttribute": {
         "additionalProperties": true,
         "description": "A ColumnAttribute of a Term.\n\n``primary_column`` is the HAS_ATTRIBUTE owner and ``referenced_columns``\nthe SEMANTIC_FK sources; both are absent from the patch response, which\nechoes only the fields it wrote.",
@@ -1327,19 +1250,6 @@
         "title": "DataResponse[IdRef]",
         "type": "object"
       },
-      "DataResponse_PqlAnalysis_": {
-        "additionalProperties": true,
-        "properties": {
-          "data": {
-            "$ref": "#/components/schemas/PqlAnalysis"
-          }
-        },
-        "required": [
-          "data"
-        ],
-        "title": "DataResponse[PqlAnalysis]",
-        "type": "object"
-      },
       "DataResponse_PublicConnection_": {
         "additionalProperties": true,
         "properties": {
@@ -1442,19 +1352,6 @@
           "data"
         ],
         "title": "DataResponse[SqlValidationResult]",
-        "type": "object"
-      },
-      "DataResponse_SsoFederationState_": {
-        "additionalProperties": true,
-        "properties": {
-          "data": {
-            "$ref": "#/components/schemas/SsoFederationState"
-          }
-        },
-        "required": [
-          "data"
-        ],
-        "title": "DataResponse[SsoFederationState]",
         "type": "object"
       },
       "DataResponse_TableExplorationDetails_": {
@@ -3107,33 +3004,6 @@
         "title": "PagedListResponse[CustomAnalysis]",
         "type": "object"
       },
-      "PagedListResponse_PqlAnalysis_": {
-        "additionalProperties": true,
-        "properties": {
-          "count": {
-            "title": "Count",
-            "type": "integer"
-          },
-          "data": {
-            "items": {
-              "$ref": "#/components/schemas/PqlAnalysis"
-            },
-            "title": "Data",
-            "type": "array"
-          },
-          "total": {
-            "title": "Total",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "data",
-          "count",
-          "total"
-        ],
-        "title": "PagedListResponse[PqlAnalysis]",
-        "type": "object"
-      },
       "PagedListResponse_Rule_": {
         "additionalProperties": true,
         "properties": {
@@ -3242,79 +3112,6 @@
         "title": "PagedListResponse[Tag]",
         "type": "object"
       },
-      "PqlAnalysis": {
-        "additionalProperties": true,
-        "description": "A verified PQL few-shot. The PQL text is a property, not a child node.",
-        "properties": {
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "pql": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pql"
-          }
-        },
-        "required": [
-          "id"
-        ],
-        "title": "PqlAnalysis",
-        "type": "object"
-      },
-      "PqlAnalysisCreate": {
-        "properties": {
-          "description": {
-            "title": "Description",
-            "type": "string"
-          },
-          "name": {
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "pql": {
-            "minLength": 1,
-            "title": "Pql",
-            "type": "string"
-          }
-        },
-        "required": [
-          "name",
-          "description",
-          "pql"
-        ],
-        "title": "PqlAnalysisCreate",
-        "type": "object"
-      },
       "PublicConnection": {
         "additionalProperties": true,
         "description": "A UI-managed connection with its credentials stripped.\n\n``connection`` is absent from the delete response, which echoes only the\ndatabase name it tore down; the list and create reads carry the full\ncredential-free config.",
@@ -3344,7 +3141,7 @@
       },
       "Rule": {
         "additionalProperties": true,
-        "description": "A saved search, and the tags to apply to everything it matches.\n\n``search_term``, ``text_match_option`` and ``filters`` are the global-search\nrequest the rule replays; together they are what the rule *is*, which is why\nthey are required rather than optional like most of this module \u2014 a rule\nmissing any of the three matches nothing.\n\n``tags`` carry the name to show and the id to act by, both read from the tag\ntable on every read rather than from what the write that saved them sent \u2014\nso a renamed tag reads back renamed here, and a caller posting whole tag\nobjects is answered with the tags as they are rather than as it sent them.\nSee ``RuleTagRef`` in ``auto_ontology/server/rules/router.py``. The ids are checked\nagainst that table, so a rule cannot apply a tag that does not exist.\n\n``created_by`` is the id of the user who saved it, read from the trusted\ngateway header rather than from the request body \u2014 see\n``auto_ontology/server/chat/identity.py``. ``modified_by`` is the same for whoever\nlast renamed it, and null until somebody has \u2014 which is the same fact as\n``modified`` still equalling ``created``, and null again for a rename whose\nrequest carried no identity to record.\n\n``created`` and ``modified`` follow the convention :class:`Tag` sets: a\ntimezone-aware ``datetime`` serialised as ISO 8601, from one clock.",
+        "description": "A saved search, and the tags to apply to everything it matches.\n\n``search_term``, ``text_match_option`` and ``filters`` are the global-search\nrequest the rule replays; together they are what the rule *is*, which is why\nthey are required rather than optional like most of this module \u2014 a rule\nmissing any of the three matches nothing.\n\n``tags`` carry the name to show and the id to act by, both read from the tag\ntable on every read rather than from what the write that saved them sent \u2014\nso a renamed tag reads back renamed here, and a caller posting whole tag\nobjects is answered with the tags as they are rather than as it sent them.\nSee ``RuleTagRef`` in ``auto_ontology/server/rules/router.py``. The ids are checked\nagainst that table, so a rule cannot apply a tag that does not exist.\n\n``created_by`` is the id of the user who saved it, read from the trusted\ngateway header rather than from the request body \u2014 see\n``auto_ontology/server/identity.py``. ``modified_by`` is the same for whoever\nlast renamed it, and null until somebody has \u2014 which is the same fact as\n``modified`` still equalling ``created``, and null again for a rename whose\nrequest carried no identity to record.\n\n``created`` and ``modified`` follow the convention :class:`Tag` sets: a\ntimezone-aware ``datetime`` serialised as ISO 8601, from one clock.",
         "properties": {
           "created": {
             "format": "date-time",
@@ -4643,39 +4440,6 @@
           "sql"
         ],
         "title": "SqlValidationResult",
-        "type": "object"
-      },
-      "SsoFederationBody": {
-        "properties": {
-          "enabled": {
-            "title": "Enabled",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "enabled"
-        ],
-        "title": "SsoFederationBody",
-        "type": "object"
-      },
-      "SsoFederationState": {
-        "additionalProperties": true,
-        "description": "The one flag ``PATCH /connections/{database_name}/sso-federation`` sets.\n\nThe route deliberately echoes just the flag rather than the connection, so\na caller never has to re-send credentials to toggle it.",
-        "properties": {
-          "database_name": {
-            "title": "Database Name",
-            "type": "string"
-          },
-          "sso_federation": {
-            "title": "Sso Federation",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "database_name",
-          "sso_federation"
-        ],
-        "title": "SsoFederationState",
         "type": "object"
       },
       "StatusResponse": {
@@ -6341,136 +6105,6 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/api/chat/cancel": {
-      "post": {
-        "description": "Abort the in-flight run for ``conversation_id``, if any.\n\nBacks the chat UI's Stop button. Without this, stopping only detached\nthe browser while the agent kept running and holding the slot, so the\nvery next question in the same conversation was rejected with 409.\n\nKilling the worker makes ``PrewarmedWorker.events()`` return rather\nthan raise, so ``_pump`` appends no error event: the run's buffer ends\nwith whatever steps completed and the stream closes with ``[DONE]``.\nConsumers therefore see a run that stopped without an answer, and the\nconversation keeps its user turn with no assistant reply.",
-        "operationId": "chat_cancel_api_chat_cancel_post",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "conversation_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Conversation Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ChatCancelResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Chat Cancel",
-        "tags": [
-          "chat"
-        ]
-      }
-    },
-    "/api/chat/completions": {
-      "post": {
-        "description": "Run the text-to-SQL agent and stream OpenAI-style SSE frames back.\n\nEmits a ``sql`` event once the agent has a validated query, just before it\nexecutes, so callers can show the SQL while it runs. Emits the final SQL\nand formatted answer as a ``result`` event, then \u2014 if that\nanswer has an executed result \u2014 generates and persists the chart/table\nbubble itself and streams it back as a ``charts`` event before the stream\ncloses with ``[DONE]``. Callers that only care about the text/SQL answer\ncan still stop reading after ``result``; the chart step and its\npersistence happen server-side regardless of whether anyone keeps\nlistening (see ``_build_charts_event``).\n\nRequires a compiled semantic layer; without one the request is rejected with\n409 rather than run against a bare schema. ``conversation_id`` persists the\nturn and claims that conversation's single run slot \u2014 a second concurrent\nrequest for the same conversation gets 409 too. Omitting ``conversation_id``\nruns the question statelessly: no history, no persisted turn, and no chart\nstep (``_build_charts_event`` needs a conversation to save into).",
-        "operationId": "chat_completions_api_chat_completions_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ChatRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "text/event-stream": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "description": "Server-sent events; the stream ends with `data: [DONE]`"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Chat Completions",
-        "tags": [
-          "chat"
-        ]
-      }
-    },
-    "/api/chat/watch": {
-      "get": {
-        "description": "Reattach to an in-flight run for ``conversation_id``, if any.\n\nPurely a passive observer: it never submits a question, never touches\n``client_alive``/``cancelled`` (so it can't trigger or block the 409\n\"Conversation in progress\" logic in `_try_claim_slot`), and has no\neffect on the run if it disconnects. This is what lets a reloaded or\nreopened browser tab recover the live progress UI (and, once it lands,\nthe final answer) for a run it didn't itself start \u2014 replaying every\nbuffered step from the beginning, then tailing new ones as they arrive.\n\nIf nothing is running for this conversation, the stream ends\nimmediately with `[DONE]` and no events, which the frontend treats\nidentically to \"nothing to resume\" \u2014 no separate status endpoint\nneeded.",
-        "operationId": "chat_watch_api_chat_watch_get",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "conversation_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Conversation Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "text/event-stream": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "description": "Server-sent events; the stream ends with `data: [DONE]`"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Chat Watch",
-        "tags": [
-          "chat"
-        ]
-      }
-    },
     "/api/columns/{table_id}": {
       "get": {
         "description": "Columns for a table.\n\nColumns come back ordered by ordinal position, and *skip*/*limit* select\none page of that order; ``total`` reports how many the table has in full,\nso a pager knows when to stop asking. Omitting *limit* returns every\ncolumn, which is what the lazy catalog tree loads.",
@@ -6550,7 +6184,7 @@
     },
     "/api/connections": {
       "get": {
-        "description": "List every configured database connection, credential-free.\n\nCredentials \u2014 passwords, private keys and the Kyuubi truststore password \u2014\nare stripped from each connection object, so the payload is safe to render\nin the UI. ``database_name`` doubles as the connection's identity in the\nother routes here.",
+        "description": "List every configured database connection, credential-free.\n\nCredentials are stripped from each connection object, so the payload is safe to render\nin the UI. ``database_name`` doubles as the connection's identity in the\nother routes here.",
         "operationId": "list_connections_api_connections_get",
         "responses": {
           "200": {
@@ -6570,7 +6204,7 @@
         ]
       },
       "post": {
-        "description": "Register a database connection and return it credential-free.\n\nThe connection is validated on the way in; anything the driver rejects comes\nback as 422 with the failure message rather than a 500. Call\n``POST /connections/test`` first to check credentials and list the schemas\navailable for the picker.",
+        "description": "Register a database connection and return it credential-free.\n\nThe connection is validated on the way in; anything the driver rejects comes\nback as 422 with the failure message rather than a 500. Call\n``POST /connections/test`` first to check credentials.",
         "operationId": "create_connection_api_connections_post",
         "requestBody": {
           "content": {
@@ -6635,7 +6269,7 @@
     },
     "/api/connections/test": {
       "post": {
-        "description": "Validate a connection and return its schemas (for the schema picker).\n\nSet ``replacing`` to the ``database_name`` of the connection an edit is\nabout to overwrite. Without it the test rejects the connection for already\nexisting, and blank credentials stay blank instead of being taken from the\nstored connection the way ``PUT /connections/{database_name}`` would.",
+        "description": "Validate a connection by connecting and pinging it.\n\n``schemas`` is always empty: the Postgres connector does not enumerate\nschemas. Scope ingestion with ``ingest.yaml`` instead.\n\nSet ``replacing`` to the ``database_name`` of the connection an edit is\nabout to overwrite. Without it the test rejects the connection for already\nexisting, and blank credentials stay blank instead of being taken from the\nstored connection the way ``PUT /connections/{database_name}`` would.",
         "operationId": "test_connection_api_connections_test_post",
         "requestBody": {
           "content": {
@@ -6720,7 +6354,7 @@
         ]
       },
       "put": {
-        "description": "Rewrite a connection's settings and return it credential-free.\n\n``database`` and ``type`` are the connection's identity and cannot change \u2014\nsending different ones is a 422. Credentials left blank keep their stored\nvalue, since the UI is never given them to send back. Re-ingest is\ntriggered only when the ``schemas`` allowlist changed.\n\n404 when no connection carries that ``database_name``.",
+        "description": "Rewrite a connection's settings and return it credential-free.\n\n``database`` and ``type`` are the connection's identity and cannot change \u2014\nsending different ones is a 422. Credentials left blank keep their stored\nvalue, since the UI is never given them to send back. Re-ingest is\ntriggered only when the table allow/deny patterns changed.\n\n404 when no connection carries that ``database_name``.",
         "operationId": "update_connection_api_connections__database_name__put",
         "parameters": [
           {
@@ -6768,61 +6402,6 @@
           }
         },
         "summary": "Update Connection",
-        "tags": [
-          "connections"
-        ]
-      }
-    },
-    "/api/connections/{database_name}/sso-federation": {
-      "patch": {
-        "description": "Toggle whether chat runs this connection's SQL as the signed-in user.",
-        "operationId": "set_sso_federation_api_connections__database_name__sso_federation_patch",
-        "parameters": [
-          {
-            "description": "Catalog database name, which doubles as the connection's identity.",
-            "in": "path",
-            "name": "database_name",
-            "required": true,
-            "schema": {
-              "description": "Catalog database name, which doubles as the connection's identity.",
-              "title": "Database Name",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SsoFederationBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DataResponse_SsoFederationState_"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Set Sso Federation",
         "tags": [
           "connections"
         ]
@@ -8184,229 +7763,6 @@
         "summary": "List Owners",
         "tags": [
           "users"
-        ]
-      }
-    },
-    "/api/pql-analyses": {
-      "get": {
-        "description": "PqlAnalysis nodes ``{id, name, description, pql}``.\n\n*query*, ``skip`` and ``limit`` behave as they do on ``/custom-analyses``:\na name filter over a page of the name order, with ``total`` counting\nevery match rather than the rows on this page.",
-        "operationId": "list_pql_analyses_api_pql_analyses_get",
-        "parameters": [
-          {
-            "description": "Case-insensitive substring filter on the analysis name.",
-            "in": "query",
-            "name": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Case-insensitive substring filter on the analysis name.",
-              "title": "Query"
-            }
-          },
-          {
-            "description": "Rows to skip before the page starts.",
-            "in": "query",
-            "name": "skip",
-            "required": false,
-            "schema": {
-              "default": 0,
-              "description": "Rows to skip before the page starts.",
-              "minimum": 0,
-              "title": "Skip",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Page size, at most 100. Omit to return every matching row in one response.",
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "maximum": 100,
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Page size, at most 100. Omit to return every matching row in one response.",
-              "title": "Limit"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PagedListResponse_PqlAnalysis_"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "List Pql Analyses",
-        "tags": [
-          "datasources",
-          "connectors"
-        ]
-      },
-      "post": {
-        "description": "Create a new PqlAnalysis (verified PQL example) and embed it.\n\nReturns 409 when ``name`` or ``pql`` is already used by another PqlAnalysis.\nThe PQL text is stored as-is \u2014 it is validated against the prediction graph at\npredict time, not here.",
-        "operationId": "create_pql_analysis_api_pql_analyses_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PqlAnalysisCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DataResponse_PqlAnalysis_"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Create Pql Analysis",
-        "tags": [
-          "datasources",
-          "connectors"
-        ]
-      }
-    },
-    "/api/pql-analyses/{analysis_id}": {
-      "delete": {
-        "description": "Delete a PqlAnalysis (with its VDB embedding).\n\nReturns 404 when no PqlAnalysis with ``analysis_id`` exists.",
-        "operationId": "delete_pql_analysis_api_pql_analyses__analysis_id__delete",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "analysis_id",
-            "required": true,
-            "schema": {
-              "title": "Analysis Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DataResponse_IdRef_"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Delete Pql Analysis",
-        "tags": [
-          "datasources",
-          "connectors"
-        ]
-      },
-      "put": {
-        "description": "Replace a PqlAnalysis (matched by id) and re-embed it.\n\nReturns 404 when no PqlAnalysis with ``analysis_id`` exists, and 409 when\n``name`` or ``pql`` is already taken by a different PqlAnalysis.",
-        "operationId": "update_pql_analysis_api_pql_analyses__analysis_id__put",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "analysis_id",
-            "required": true,
-            "schema": {
-              "title": "Analysis Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PqlAnalysisCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DataResponse_PqlAnalysis_"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Update Pql Analysis",
-        "tags": [
-          "datasources",
-          "connectors"
         ]
       }
     },

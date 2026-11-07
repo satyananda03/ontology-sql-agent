@@ -10,23 +10,32 @@ import subprocess
 from pathlib import Path
 from zipfile import ZipFile
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
-PERMISSION_RESOURCE = "auto_ontology/server/users/access.json"
+
+# Read at runtime, so a wheel without them fails on first use rather than install.
+DATA_FILES = (
+    "auto_ontology/server/users/access.json",
+    "ontology_sql_agent/prompts.yaml",
+)
 
 
-def test_wheel_contains_the_permission_resource(tmp_path: Path) -> None:
+@pytest.fixture(scope="module")
+def wheel(tmp_path_factory: pytest.TempPathFactory) -> ZipFile:
+    out = tmp_path_factory.mktemp("wheel")
     subprocess.run(
-        ["uv", "build", "--wheel", "--out-dir", str(tmp_path)],
+        ["uv", "build", "--wheel", "--out-dir", str(out)],
         cwd=ROOT,
         check=True,
         capture_output=True,
         text=True,
     )
-    wheels = list(tmp_path.glob("*.whl"))
+    wheels = list(out.glob("*.whl"))
     assert len(wheels) == 1
+    return ZipFile(wheels[0])
 
-    with ZipFile(wheels[0]) as wheel:
-        packaged = wheel.read(PERMISSION_RESOURCE)
 
-    source = (ROOT / "frontend" / "auth" / "access.json").read_bytes()
-    assert packaged == source
+@pytest.mark.parametrize("path", DATA_FILES)
+def test_wheel_ships_runtime_data_files(wheel: ZipFile, path: str) -> None:
+    assert wheel.read(path) == (ROOT / path).read_bytes()

@@ -13,14 +13,13 @@ from importlib.metadata import PackageNotFoundError, version as _pkg_version
 def get_app_version() -> str:
     """Return the app version for logs and UX.
 
-    Prefers the ``APP_VERSION`` env var (injected by the Helm chart from the
-    chart version, so it matches the version shown in the frontend header),
-    then falls back to the installed package version, then ``"unknown"``.
+    Prefers the ``APP_VERSION`` env var, then the installed package version,
+    then ``"unknown"``.
     """
     env_version = os.environ.get("APP_VERSION")
     if env_version:
         return env_version
     try:
-        return _pkg_version("auto-ontology-server")
+        return _pkg_version("ontology-sql-agent")
     except PackageNotFoundError:
         return "unknown"

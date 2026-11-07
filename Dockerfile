@@ -3,15 +3,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # ---------------------------------------------------------------------------
-# Auto Ontology FastAPI backend image
+# Ontology SQL agent backend image (FastAPI server, ingestion service, migrations)
 # ---------------------------------------------------------------------------
 # Build:
 #
-#   docker build -t auto-ontology:latest .
+#   docker build -t ontology-sql-agent:latest .
 #
 # Run:
 #
-#   docker run --rm -p 3001:3001 --env-file .env auto-ontology:latest
+#   docker run --rm -p 3001:3001 --env-file .env ontology-sql-agent:latest
 #
 # ---------------------------------------------------------------------------
 
@@ -54,7 +54,6 @@ WORKDIR /app
 
 # Copy lock + project metadata first to maximise layer caching.
 COPY pyproject.toml uv.lock .python-version ./
-COPY vendor/ vendor/
 
 # Resolve and install the dependency closure into /opt/venv.
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -87,9 +86,9 @@ WORKDIR /app
 COPY --from=builder /opt/python /opt/python
 COPY --from=builder /opt/venv /opt/venv
 COPY --chown=auto_ontology:auto_ontology auto_ontology/ ./auto_ontology/
-COPY --chown=auto_ontology:auto_ontology onto_sql/ ./onto_sql/
+COPY --chown=auto_ontology:auto_ontology ontology_sql_agent/ ./ontology_sql_agent/
 COPY --chown=auto_ontology:auto_ontology pyproject.toml ./
-# Fail the image build if the generated permission resource is absent or invalid.
+# Fail the image build if the packaged permission resource is absent or invalid.
 RUN python -c "from auto_ontology.server.users.permissions import permissions_for_role; assert 'group:read' in permissions_for_role('admin')"
 # Schema migrations for the `public` schema, run by the `migrate` mode below.
 COPY --chown=auto_ontology:auto_ontology alembic/ ./alembic/
@@ -110,8 +109,7 @@ case "$mode" in
     exec python -m auto_ontology.ingestion_service
     ;;
   migrate)
-    # Owns `public` only. Prisma owns `frontend` and migrates separately;
-    # the two are independent and may run in either order.
+    # Owns `public` only; the review UI migrates its own `frontend` schema.
     exec alembic upgrade head
     ;;
   *)
@@ -129,18 +127,8 @@ USER auto_ontology
 
 EXPOSE 3001
 
-# `/api/health/live`, not `/api/health`. The latter is the *readiness* probe:
-# it queries Postgres and returns 503 when the database is unreachable. Docker
-# has no notion of readiness -- HEALTHCHECK produces one binary container state
-# -- so pointing it there makes a database blip mark this container unhealthy,
-# and anything gating on `condition: service_healthy` (the frontend, in
-# docker-compose.yml) then refuses to start behind a backend that is running
-# perfectly well.
-#
-# Restarting this process cannot fix an unreachable database, which is the whole
-# reason the health router splits the two and the Helm chart points its
-# livenessProbe at /api/health/live and only its readinessProbe at /api/health.
-# Readiness stays available on /api/health for the things that can act on it.
+# `/api/health/live`, not `/api/health`: the latter is the readiness probe and
+# returns 503 while Postgres is unreachable, which a restart cannot fix.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen(f'http://127.0.0.1:{__import__(\"os\").environ.get(\"PORT\",\"3001\")}/api/health/live', timeout=3).status == 200 else 1)"
 

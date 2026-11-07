@@ -4,8 +4,7 @@
 
 """A group's permissions are its role, expanded from the shared access file.
 
-``frontend/auth/access.json`` is also what the Next.js auth layer imports, so
-these tests only have to pin the differences that matter: an admin group can
+These tests only have to pin the differences that matter: an admin group can
 manage groups and zones, a viewer group cannot, and a viewer group's
 permissions are a subset of an admin's.
 """
@@ -18,8 +17,6 @@ import pytest
 
 from auto_ontology.server.users import permissions as permissions_module
 from auto_ontology.server.users.permissions import permissions_for_role
-
-ROOT = Path(__file__).resolve().parents[4]
 
 
 def test_an_admin_group_can_manage_groups() -> None:
@@ -59,15 +56,6 @@ def test_builtin_account_permissions_are_not_on_a_group() -> None:
     granted = set(permissions_for_role("admin"))
     assert not any(
         item.startswith("user:") or item.startswith("session:") for item in granted
-    )
-
-
-def test_packaged_resource_matches_the_frontend_source() -> None:
-    source = ROOT / "frontend" / "auth" / "access.json"
-    packaged = ROOT / "auto_ontology" / "server" / "users" / "access.json"
-    assert packaged.read_bytes() == source.read_bytes(), (
-        "Regenerate the packaged permission resource with: "
-        "uv run python -m dev_tools.generate_permission_resource"
     )
 
 

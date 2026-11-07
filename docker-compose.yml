@@ -5,7 +5,6 @@
 services:
   postgres:
     image: pgvector/pgvector:pg17
-    container_name: postgres
     restart: unless-stopped
     ports:
       - "${POSTGRES_PORT}:5432"
@@ -21,27 +20,9 @@ services:
       timeout: 5s
       retries: 10
 
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: pgadmin
-    restart: unless-stopped
-    ports:
-      - "5050:80"
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
-      PGADMIN_CONFIG_SERVER_MODE: "True"
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-    depends_on:
-      - postgres
-
-  auto-ontology:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: auto-ontology:latest
-    container_name: auto-ontology
+  backend:
+    build: .
+    image: ontology-sql-agent:latest
     restart: unless-stopped
     ports:
       - "3001:3001"
@@ -53,31 +34,22 @@ services:
       POSTGRES_PORT: "5432"
       INGESTION_SERVICE_URL: http://ingestion-service:3002
     depends_on:
-      postgres:
-        condition: service_started
-      # Without this the backend starts before Alembic has run and 500s
-      # (UndefinedTable) on every catalog call. auto-ontology-migrate waits for
-      # `service_healthy`, a stronger gate than this service's
-      # `service_started`, so the backend would otherwise always win the race.
-      auto-ontology-migrate:
+      # Without the migration the backend 500s (UndefinedTable) on every
+      # catalog call.
+      migrate:
         condition: service_completed_successfully
       ingestion-service:
         condition: service_started
 
   ingestion-service:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: auto-ontology:latest
-    container_name: auto-ontology-ingestion-service
+    build: .
+    image: ontology-sql-agent:latest
     restart: unless-stopped
     command: ["ingestion_service"]
     ports:
       - "3002:3002"
-    # The image healthcheck targets the backend (:3001/api/health/live); the
-    # ingestion service serves its own on :3002. Liveness, not /health — that
-    # one probes Postgres, and a container healthcheck gated on a dependency
-    # marks this unhealthy over a blip a restart cannot fix.
+    # The image healthcheck targets the backend's :3001; this service serves
+    # its own liveness probe on :3002.
     healthcheck:
       test:
         [
@@ -93,24 +65,24 @@ services:
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
+    volumes:
+      # Which schemas and tables to ingest: copy ingest.example.yaml to
+      # ingest.yaml first. Refusing to start without it beats the default of
+      # creating an empty directory there, which would ingest everything.
+      - type: bind
+        source: ./ingest.yaml
+        target: /app/ingest.yaml
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on:
-      postgres:
-        condition: service_started
-      auto-ontology-migrate:
+      migrate:
         condition: service_completed_successfully
 
-  # One-shot Job: apply the backend's Alembic migrations, which own the
-  # `public` schema (catalog + semantic tier). Separate from frontend-migrate
-  # because the two own different schemas: Alembic owns `public`, Prisma owns
-  # `frontend`, and Alembic's autogenerate is filtered to its own so it can
-  # never propose dropping a Prisma table. Ordering between the two does not
-  # matter.
-  auto-ontology-migrate:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: auto-ontology:latest
-    container_name: auto-ontology-migrate
+  # One-shot: apply the Alembic migrations that own the `public` schema.
+  migrate:
+    build: .
+    image: ontology-sql-agent:latest
     env_file:
       - .env
     environment:
@@ -122,56 +94,5 @@ services:
       postgres:
         condition: service_healthy
 
-  # One-shot Job: sync the Postgres schema from prisma/schema.prisma via
-  # prisma/migrate.sh (mirrors the Helm `frontend-migrate` hook). The wrapper
-  # empties conversation_analytics IFF it predates the required user_id column,
-  # then runs `prisma db push` without --accept-data-loss, so it still refuses
-  # to drop tables outside the Prisma schema.
-  frontend-migrate:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        PYTHON_API_URL: ${PYTHON_API_URL:-http://auto-ontology:3001}
-    image: auto-ontology-frontend:latest
-    container_name: auto-ontology-frontend-migrate
-    working_dir: /app/migrate
-    env_file:
-      - .env
-    environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: "5432"
-    command: ["sh", "prisma/migrate.sh"]
-    restart: "no"
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-  auto-ontology-frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        PYTHON_API_URL: ${PYTHON_API_URL:-http://auto-ontology:3001}
-    image: auto-ontology-frontend:latest
-    container_name: auto-ontology-frontend
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    env_file:
-      - .env
-    environment:
-      PYTHON_API_URL: ${PYTHON_API_URL:-http://auto-ontology:3001}
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: "5432"
-    depends_on:
-      # Healthy (not just started): the frontend's seed-admin syncs the admin
-      # user to the backend at boot and fails if :3001 isn't accepting yet.
-      auto-ontology:
-        condition: service_healthy
-      frontend-migrate:
-        condition: service_completed_successfully
-
 volumes:
   postgres_data:
-  pgadmin_data:

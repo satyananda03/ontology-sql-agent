@@ -30,7 +30,7 @@ import pytest
 
 from auto_ontology.infra.postgres import FRONTEND_SCHEMA
 
-#: Tables Prisma owns. Kept in sync with `frontend/prisma/schema.prisma`.
+#: Tables the review UI owns in the `frontend` schema (Prisma upstream).
 PRISMA_TABLES = (
     "conversations",
     "messages",
@@ -113,82 +113,3 @@ def test_known_readers_qualify_and_interpolate(module: str) -> None:
                 f"{module}: {{FRONTEND_SCHEMA}} appears in a non-f-string"
             )
             break
-
-
-def test_prisma_table_list_matches_the_prisma_schema() -> None:
-    """If a model is added with an @@map, this list has to learn about it.
-
-    Without this the scan above quietly stops covering new tables.
-    """
-    schema_file = _AUTO_ONTOLOGY_ROOT.parent / "frontend" / "prisma" / "schema.prisma"
-    if not schema_file.exists():  # backend-only checkout
-        pytest.skip("frontend/prisma/schema.prisma not present")
-
-    mapped = set(re.findall(r'@@map\("([^"]+)"\)', schema_file.read_text()))
-    # session/account/apikey stay out of this list: the backend does not query
-    # them. `user` is included because the role lookup does.
-    missing = set(PRISMA_TABLES) - mapped
-    assert not missing, (
-        f"PRISMA_TABLES names tables absent from schema.prisma: {sorted(missing)}"
-    )
-
-
-def test_all_prisma_models_declare_the_frontend_schema() -> None:
-    """Every model must carry @@schema("frontend").
-
-    A model without it lands wherever Prisma's default points, which is how the
-    tables would drift back apart.
-
-    No model may name any other schema either, and that is the load-bearing
-    half: `db push` reconciles every schema the datasource lists, so a model
-    declaring `public` means the datasource has to list `public`, and Prisma
-    then treats Auto Ontology's own tables as drift. It proposed dropping
-    `alembic_version` the one time this was tried.
-    """
-    schema_file = _AUTO_ONTOLOGY_ROOT.parent / "frontend" / "prisma" / "schema.prisma"
-    if not schema_file.exists():
-        pytest.skip("frontend/prisma/schema.prisma not present")
-
-    text = schema_file.read_text()
-    # Each model, paired with the `@@schema` inside its own block. Matched
-    # together rather than as two separate scans: counting them separately says
-    # a model is missing its annotation but never which one.
-    declared = re.findall(
-        r'^model\s+(\w+)\s*\{(?:[^{}]|\{[^{}]*\})*?@@schema\("([^"]+)"\)',
-        text,
-        re.MULTILINE,
-    )
-    models = re.findall(r"^model\s+(\w+)\s*\{", text, re.MULTILINE)
-    assert len(declared) == len(models), (
-        f"{len(models)} model(s) but {len(declared)} @@schema annotation(s): "
-        f"{sorted(set(models) - {name for name, _ in declared})} missing one"
-    )
-
-    misplaced = {name: schema for name, schema in declared if schema != FRONTEND_SCHEMA}
-    assert not misplaced, (
-        f"models declare schemas other than {FRONTEND_SCHEMA!r}: {misplaced}"
-    )
-
-
-def test_the_datasource_manages_only_the_frontend_schema() -> None:
-    """`db push` reconciles every schema the datasource names.
-
-    Naming `public` there hands Prisma Auto Ontology's own tables: the first `db push`
-    after it was added stopped with "You are about to drop the
-    `alembic_version` table", and would have taken the rest with
-    `--accept-data-loss`.
-    """
-    schema_file = _AUTO_ONTOLOGY_ROOT.parent / "frontend" / "prisma" / "schema.prisma"
-    if not schema_file.exists():
-        pytest.skip("frontend/prisma/schema.prisma not present")
-
-    block = re.search(r"datasource\s+db\s*\{(.*?)\}", schema_file.read_text(), re.S)
-    assert block, "no datasource block in schema.prisma"
-    schemas = re.findall(
-        r'"([^"]+)"', re.search(r"schemas\s*=\s*\[([^\]]*)\]", block.group(1)).group(1)
-    )
-    assert schemas == [FRONTEND_SCHEMA], (
-        f"the Prisma datasource manages {schemas}; it must manage only "
-        f"[{FRONTEND_SCHEMA!r}] — anything else is a Auto Ontology schema Prisma will "
-        f"propose dropping tables from"
-    )

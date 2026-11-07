@@ -50,7 +50,7 @@ def _build_state(
     import auto_ontology.server.settings_dal as settings_dal
     import auto_ontology.utils as utils
 
-    glossary = [{"acronym": "PR", "definition": "pelaku kreatif"}]
+    glossary = [{"name": "PR", "description": "pelaku kreatif"}]
     monkeypatch.setattr(connectors_module, "get_connectors", lambda: connectors)
     monkeypatch.setattr(settings_dal, "fetch_acronyms", lambda: glossary)
     monkeypatch.setattr(utils, "get_data_objects_retriever", lambda: "data")

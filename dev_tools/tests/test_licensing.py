@@ -2,7 +2,7 @@
 # All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""OSRB licensing checks: SPDX headers and the notice files shipped in images."""
+"""Licensing check: every tracked source file carries an SPDX header."""
 
 from __future__ import annotations
 
@@ -12,17 +12,6 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-
-# The frontend and MCP images are built from their own directories, so each
-# carries a copy of the root notice files to put under /licenses/.
-NOTICE_FILES = (
-    "LICENSE",
-    "THIRD_PARTY_NOTICES.md",
-    "CONTAINER_THIRD_PARTY_NOTICES.md",
-    "OPEN_SOURCE_NOTICE",
-    "OPEN_SOURCE_NOTICE.license",
-)
-IMAGE_CONTEXTS = ("frontend", "mcp")
 
 # Files that cannot carry a comment header, are generated, or are third-party
 # data. A `<file>.license` sidecar also satisfies the check.
@@ -48,12 +37,9 @@ EXEMPT_SUFFIXES = {
 }
 EXEMPT_NAMES = {
     "LICENSE",
-    "pnpm-lock.yaml",
     "uv.lock",
     ".python-version",
-    "next-env.d.ts",
 }
-EXEMPT_PREFIXES = ("vendor/",)
 
 
 def _tracked_files() -> list[str]:
@@ -68,7 +54,6 @@ def _needs_header(path: str) -> bool:
     return not (
         p.suffix.lower() in EXEMPT_SUFFIXES
         or p.name in EXEMPT_NAMES
-        or path.startswith(EXEMPT_PREFIXES)
         or (ROOT / f"{path}.license").exists()
     )
 
@@ -86,17 +71,4 @@ def test_every_source_file_has_an_spdx_header() -> None:
         head = full.read_bytes()[:2000].decode("utf-8", errors="ignore")
         if "SPDX-License-Identifier" not in head:
             missing.append(path)
-    assert not missing, (
-        "Add the NVIDIA SPDX header (see CONTRIBUTING.md) to:\n  "
-        + "\n  ".join(missing)
-    )
-
-
-@pytest.mark.parametrize("context", IMAGE_CONTEXTS)
-@pytest.mark.parametrize("name", NOTICE_FILES)
-def test_image_context_notice_copies_match_root(context: str, name: str) -> None:
-    root_copy = (ROOT / name).read_bytes()
-    context_copy = ROOT / context / name
-    assert context_copy.is_file() and context_copy.read_bytes() == root_copy, (
-        f"{context}/{name} must match the root {name}; run: cp {name} {context}/{name}"
-    )
+    assert not missing, "Add an SPDX header to:\n  " + "\n  ".join(missing)
