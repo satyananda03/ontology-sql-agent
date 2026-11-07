@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# Copy to ingest.yaml to limit what ingestion reads. See docs/connections.md.
+# No passwords here: connections stay in CONNECTION_STRINGS or Settings.
+databases:
+  # The database name from the connection string.
+  sales_db:
+    # Omit to ingest every schema the database user can read.
+    schemas:
+      - analytics
+    # Table names to skip, in any listed schema.
+    exclude_tables:
+      - tmp_import
