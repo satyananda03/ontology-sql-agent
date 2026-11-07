@@ -1,0 +1,93 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# Draft questions for the ICCN warehouse. Review each SQL: it defines "correct".
+# `sql: null` marks a question the data cannot answer. `note` records a judgement
+# call worth checking during review.
+questions:
+  - {id: lookup-01, category: lookup, question: siapa saja researcher di bidang pariwisata,
+     note: "Topic match approximated by keywords. Semantic search may rightly find more.",
+     sql: "SELECT p.nama_pendaftar FROM iccn_dwh.detail_program_riset r JOIN iccn_dwh.fact_partisipasi_program p USING (partisipasi_id) WHERE r.field_of_expertise ~* 'wisata|tourism'"}
+  - {id: lookup-02, category: lookup, question: siapa researcher dari Bali,
+     note: "Uses kota because provinsi holds the research scope for RISET rows.",
+     sql: "SELECT nama_pendaftar FROM iccn_dwh.fact_partisipasi_program WHERE jenis_program = 'RISET' AND kota ~* 'bali|denpasar'"}
+  - {id: lookup-03, category: lookup, question: siapa korda di jawa timur,
+     sql: "SELECT DISTINCT j.korda FROM iccn_dwh.fact_sebaran_jejaring j JOIN iccn_dwh.dim_wilayah w USING (wilayah_id) WHERE w.provinsi = 'JAWA TIMUR' AND j.korda IS NOT NULL"}
+  - {id: lookup-04, category: lookup, question: daftar nama program yang tersedia,
+     sql: "SELECT nama_program FROM iccn_dwh.dim_program"}
+  - {id: lookup-05, category: lookup, question: tampilkan semua kategori berita,
+     sql: "SELECT nama_kategori FROM iccn_dwh.dim_kategori"}
+  - {id: lookup-06, category: lookup, question: festival apa saja yang berskala internasional,
+     sql: "SELECT festival_name FROM iccn_dwh.detail_program_festival WHERE festival_level ILIKE '%internasional%'"}
+  - {id: lookup-07, category: lookup, question: daftar dokumen dari google drive di knowledge base,
+     sql: "SELECT title FROM iccn_dwh.iccn_knowledge_stats WHERE source_type ILIKE '%drive%' AND deleted_at IS NULL"}
+  - {id: lookup-08, category: lookup, question: apa saja kabupaten atau kota di provinsi bali,
+     sql: "SELECT kabupaten_kota FROM iccn_dwh.dim_wilayah WHERE provinsi = 'BALI'"}
+  - {id: lookup-09, category: lookup, question: pelaku ekraf mana saja yang punya HKI merek,
+     note: "Must join on sumber_id. Joining on pelaku_id silently loses rows.",
+     sql: "SELECT DISTINCT p.nama_usaha FROM iccn_dwh.fact_pelaku_ekraf p JOIN iccn_dwh.bridge_pelaku_hki b ON b.sumber_pelaku_id = p.sumber_id WHERE b.jenis_hki = 'Merek'"}
+  - {id: lookup-10, category: lookup, question: "siapa saja pendaftar program IP dari kategori karakter dan cerita",
+     sql: "SELECT p.nama_pendaftar FROM iccn_dwh.detail_program_ip i JOIN iccn_dwh.fact_partisipasi_program p USING (partisipasi_id) WHERE i.ip_category = 'KARAKTER & CERITA'"}
+  - {id: count-01, category: count, question: berapa jumlah researcher,
+     sql: "SELECT count(*) FROM iccn_dwh.fact_partisipasi_program WHERE jenis_program = 'RISET'"}
+  - {id: count-02, category: count, question: berapa jumlah pendaftar per jenis program,
+     sql: "SELECT jenis_program, count(*) FROM iccn_dwh.fact_partisipasi_program GROUP BY 1"}
+  - {id: count-03, category: count, question: berapa jumlah member ICCN yang berdomisili di bali,
+     sql: "SELECT count(*) FROM iccn_dwh.dim_user WHERE domisili_provinsi = 'BALI'"}
+  - {id: count-04, category: count, question: berapa jumlah pelaku ekraf per subsektor,
+     sql: "SELECT subsektor, count(*) FROM iccn_dwh.fact_pelaku_ekraf GROUP BY 1"}
+  - {id: count-05, category: count, question: berapa jumlah jejaring ICCN per provinsi,
+     sql: "SELECT w.provinsi, count(*) FROM iccn_dwh.fact_sebaran_jejaring j JOIN iccn_dwh.dim_wilayah w USING (wilayah_id) GROUP BY 1"}
+  - {id: count-06, category: count, question: berapa jumlah IP per kategori,
+     sql: "SELECT ip_category, count(*) FROM iccn_dwh.detail_program_ip GROUP BY 1"}
+  - {id: count-07, category: count, question: berapa jumlah berita per kategori,
+     sql: "SELECT k.nama_kategori, count(*) FROM iccn_dwh.fact_berita b JOIN iccn_dwh.dim_kategori k USING (kategori_id) WHERE b.deleted_at IS NULL GROUP BY 1"}
+  - {id: count-08, category: count, question: berapa jumlah HKI per jenis,
+     sql: "SELECT jenis_hki, count(*) FROM iccn_dwh.bridge_pelaku_hki GROUP BY 1"}
+  - {id: count-09, category: count, question: berapa jumlah event yang aktif,
+     sql: "SELECT count(*) FROM iccn_dwh.fact_event WHERE is_active AND deleted_at IS NULL"}
+  - {id: count-10, category: count, question: berapa jumlah dokumen di knowledge base per sumber,
+     sql: "SELECT source_type, count(*) FROM iccn_dwh.iccn_knowledge_stats WHERE deleted_at IS NULL GROUP BY 1"}
+  - {id: aggregate-01, category: aggregate, question: berapa total tenaga kerja IKM per kabupaten kota,
+     sql: "SELECT kabupaten_kota, sum(total_tenaga_kerja) FROM iccn_dwh.fact_insight_ikm GROUP BY 1"}
+  - {id: aggregate-02, category: aggregate, question: berapa total nilai produksi IKM,
+     sql: "SELECT sum(total_nilai_produksi) FROM iccn_dwh.fact_insight_ikm"}
+  - {id: aggregate-03, category: aggregate, question: berapa total UMKM aktif per kabupaten kota,
+     sql: "SELECT kabupaten_kota, sum(jumlah_umkm_aktif) FROM iccn_dwh.fact_insight_umkm GROUP BY 1"}
+  - {id: aggregate-04, category: aggregate, question: berapa total views seluruh berita yang terbit,
+     sql: "SELECT sum(views) FROM iccn_dwh.fact_berita WHERE status = 'published' AND deleted_at IS NULL"}
+  - {id: aggregate-05, category: aggregate, question: berapa total UMKM digital di tiap provinsi,
+     note: "Needs a join to dim_wilayah. The foreign key was not in the classic dictionary.",
+     sql: "SELECT w.provinsi, sum(u.jumlah_umkm_digital) FROM iccn_dwh.fact_insight_umkm u JOIN iccn_dwh.dim_wilayah w USING (wilayah_id) GROUP BY 1"}
+  - {id: rank-01, category: rank, question: tampilkan 5 berita dengan views terbanyak,
+     note: "Compares titles without order, because ties in views can reorder them.",
+     sql: "SELECT judul FROM iccn_dwh.fact_berita WHERE deleted_at IS NULL ORDER BY views DESC NULLS LAST LIMIT 5"}
+  - {id: rank-02, category: rank, question: subsektor apa yang paling banyak pelaku ekrafnya,
+     sql: "SELECT subsektor FROM iccn_dwh.fact_pelaku_ekraf GROUP BY 1 ORDER BY count(*) DESC LIMIT 1"}
+  - {id: rank-03, category: rank, question: kabupaten mana yang paling banyak jumlah IKM nya,
+     sql: "SELECT kabupaten_kota FROM iccn_dwh.fact_insight_ikm GROUP BY 1 ORDER BY sum(jumlah_ikm) DESC LIMIT 1"}
+  - {id: time-01, category: time, question: berapa jumlah pendaftar per tahun,
+     sql: "SELECT w.tahun, count(*) FROM iccn_dwh.fact_partisipasi_program p JOIN iccn_dwh.dim_waktu w USING (tanggal_id) GROUP BY 1"}
+  - {id: time-02, category: time, question: berapa jumlah berita yang terbit per bulan di tahun 2026,
+     sql: "SELECT w.bulan, count(*) FROM iccn_dwh.fact_berita b JOIN iccn_dwh.dim_waktu w USING (tanggal_id) WHERE w.tahun = 2026 AND b.status = 'published' AND b.deleted_at IS NULL GROUP BY 1"}
+  - {id: time-03, category: time, question: berapa jumlah event per tahun,
+     sql: "SELECT w.tahun, count(*) FROM iccn_dwh.fact_event e JOIN iccn_dwh.dim_waktu w ON e.tanggal_id_mulai = w.tanggal_id WHERE e.deleted_at IS NULL GROUP BY 1"}
+  - {id: join-01, category: join, question: berapa jumlah pendaftar per nama program,
+     sql: "SELECT d.nama_program, count(*) FROM iccn_dwh.fact_partisipasi_program p JOIN iccn_dwh.dim_program d USING (program_id) GROUP BY 1"}
+  - {id: join-02, category: join, question: siapa saja pendaftar festival yang melibatkan komunitas lokal,
+     sql: "SELECT p.nama_pendaftar FROM iccn_dwh.detail_program_festival f JOIN iccn_dwh.fact_partisipasi_program p USING (partisipasi_id) WHERE f.involves_local_community"}
+  - {id: join-03, category: join, question: berapa jumlah pelaku ekraf yang punya HKI,
+     note: "Must join on sumber_id, and count each actor once.",
+     sql: "SELECT count(DISTINCT p.pelaku_id) FROM iccn_dwh.fact_pelaku_ekraf p JOIN iccn_dwh.bridge_pelaku_hki b ON b.sumber_pelaku_id = p.sumber_id"}
+  - {id: topic-01, category: topic, question: researcher yang meneliti bidang kesenian dari wilayah mana saja,
+     note: "Topic match approximated by keywords. Semantic search may rightly find more.",
+     sql: "SELECT DISTINCT p.kota FROM iccn_dwh.detail_program_riset r JOIN iccn_dwh.fact_partisipasi_program p USING (partisipasi_id) WHERE r.field_of_expertise ~* 'seni|musik|tari|teater' OR r.focus_domain ~* 'seni|musik|tari|teater'"}
+  - {id: topic-02, category: topic, question: berita tentang pariwisata berkelanjutan,
+     note: "Topic match approximated by keywords. Semantic search may rightly find more.",
+     sql: "SELECT judul FROM iccn_dwh.fact_berita WHERE deleted_at IS NULL AND (judul ~* 'pariwisata|wisata' OR content ~* 'pariwisata berkelanjutan')"}
+  - {id: topic-03, category: topic, question: event yang membahas ekonomi kreatif,
+     note: "Topic match approximated by keywords. Semantic search may rightly find more.",
+     sql: "SELECT nama_event FROM iccn_dwh.fact_event WHERE deleted_at IS NULL AND (nama_event ~* 'ekonomi kreatif|ekraf' OR description ~* 'ekonomi kreatif|ekraf')"}
+  - {id: unanswerable-01, category: unanswerable, question: berapa total dana hibah yang dicairkan ICCN tahun ini, sql: null}
+  - {id: unanswerable-02, category: unanswerable, question: berapa harga saham perusahaan mitra ICCN, sql: null}
+  - {id: unanswerable-03, category: unanswerable, question: siapa presiden indonesia saat ini, sql: null}
