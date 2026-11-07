@@ -61,7 +61,6 @@ def build_id_map() -> dict[str, str]:
         fetch_schemas_by_ids,
         fetch_schemas_for_database,
     )
-    from auto_ontology.dal.pql_analyses import list_pql_analyses
     from auto_ontology.dal.sql_attributes import list_sql_attributes
     from auto_ontology.dal.terms import (
         fetch_all_terms,
@@ -96,8 +95,6 @@ def build_id_map() -> dict[str, str]:
         id_map[attribute["id"]] = f"<sqlattr:{attribute['name']}>"
     for analysis in list_custom_analyses():
         id_map[analysis["id"]] = f"<analysis:{analysis['name']}>"
-    for analysis in list_pql_analyses():
-        id_map[analysis["id"]] = f"<pql:{analysis['name']}>"
     for zone in list_zones():
         id_map[zone["id"]] = f"<zone:{zone['name']}>"
 
@@ -270,7 +267,6 @@ ZERO_ARG_READS: tuple[tuple[str, str], ...] = (
     ("datasources", "fetch_all_tables_without_term"),
     ("datasources", "fetch_join_edges"),
     ("datasources", "fetch_sorted_tables"),
-    ("pql_analyses", "list_pql_analyses"),
     ("sql_attributes", "list_sql_attributes"),
     ("terms", "fetch_terms_with_sqls"),
     ("terms", "semantic_layer_calculated"),
@@ -322,7 +318,6 @@ def _fixture_ids() -> dict[str, Any]:
         fetch_schemas_by_ids,
         fetch_schemas_for_database,
     )
-    from auto_ontology.dal.pql_analyses import list_pql_analyses
     from auto_ontology.dal.sql_attributes import list_sql_attributes
     from auto_ontology.dal.terms import fetch_all_terms
     from auto_ontology.dal.zones import list_zones
@@ -367,7 +362,6 @@ def _fixture_ids() -> dict[str, Any]:
     terms = fetch_all_terms()
     attributes = list_sql_attributes()
     analyses = list_custom_analyses()
-    pql = list_pql_analyses()
     zones = list_zones()
 
     ids: dict[str, Any] = {
@@ -376,15 +370,13 @@ def _fixture_ids() -> dict[str, Any]:
         "attr_film_id": _column_attribute_id("film id"),
         "sqlattr_revenue": first(attributes, name="total revenue"),
         "analysis_top_films": first(analyses, name="Top rented films"),
-        "pql_churn": pql[0]["id"] if pql else None,
         "zone_film": first(zones, name="Film domain"),
-        "zone_cross": first(zones, name="Cross database"),
+        "zone_schema_and_table": first(zones, name="Schema and table"),
         "zone_retired": first(zones, name="Retired zone"),
     }
 
     for name in ("film", "rental", "customer", "payment", "inventory", "category"):
         ids[f"table_{name}"] = table("pagila", "public", name)
-    ids["table_track"] = table("chinook", "main", "Track")
 
     for table_name, column_name in (
         ("film", "film_id"),
@@ -397,7 +389,7 @@ def _fixture_ids() -> dict[str, Any]:
             "pagila", "public", table_name, column_name
         )
 
-    for name in ("Film", "Customer", "Payment", "Track"):
+    for name in ("Film", "Customer", "Payment"):
         ids[f"term_{name}"] = first(terms, name=name)
 
     missing = sorted(key for key, value in ids.items() if value is None)
@@ -436,7 +428,6 @@ def capture_arg_reads(cap: Capture, ids: dict[str, Any]) -> None:
         custom_analyses,
         datasources,
         exploration,
-        pql_analyses,
         sql_attributes,
         terms,
         users,
@@ -650,7 +641,7 @@ def capture_arg_reads(cap: Capture, ids: dict[str, Any]) -> None:
         lambda: sql_attributes.find_attr_by_name("no such attribute", None),
     )
 
-    # -- custom / pql analyses --------------------------------------------
+    # -- custom analyses ---------------------------------------------------
     run(
         "custom_analyses.get_custom_analysis_by_id",
         lambda: custom_analyses.get_custom_analysis_by_id(analysis),
@@ -666,18 +657,6 @@ def capture_arg_reads(cap: Capture, ids: dict[str, Any]) -> None:
     run(
         "custom_analyses.find_analysis_by_name",
         lambda: custom_analyses.find_analysis_by_name("Top rented films", None),
-    )
-    run(
-        "pql_analyses.get_pql_analysis_by_id",
-        lambda: pql_analyses.get_pql_analysis_by_id(ids["pql_churn"]),
-    )
-    run(
-        "pql_analyses.fetch_pql_analyses_by_ids",
-        lambda: pql_analyses.fetch_pql_analyses_by_ids([ids["pql_churn"]]),
-    )
-    run(
-        "pql_analyses.find_pql_analysis_by_name",
-        lambda: pql_analyses.find_pql_analysis_by_name("Customer churn", None),
     )
 
     # -- exploration -------------------------------------------------------

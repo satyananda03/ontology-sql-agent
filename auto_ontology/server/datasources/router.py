@@ -12,7 +12,6 @@ from pydantic import BaseModel, Field
 from auto_ontology.server.custom_analyses import service as custom_analyses_dal
 from auto_ontology.server.datasources import service as dal
 from auto_ontology.server.pagination import LIMIT_QUERY, SKIP_QUERY
-from auto_ontology.server.pql_analyses import service as pql_analyses_dal
 from auto_ontology.dal.owners import edit_subject
 from auto_ontology.server.models import NodeUpdateResult
 from auto_ontology.server.owners import enforce_edit, owner_from_body
@@ -21,8 +20,6 @@ from auto_ontology.server.responses import (
     CustomAnalysisResponse,
     DatabaseListResponse,
     IdResponse,
-    PqlAnalysisPageResponse,
-    PqlAnalysisResponse,
     SchemasPayload,
     SqlValidationResponse,
     TableColumnsPageResponse,
@@ -45,12 +42,6 @@ class CustomAnalysisCreate(BaseModel):
     name: str = Field(..., min_length=1)
     description: str
     sql: str = Field(..., min_length=1)
-
-
-class PqlAnalysisCreate(BaseModel):
-    name: str = Field(..., min_length=1)
-    description: str
-    pql: str = Field(..., min_length=1)
 
 
 router = APIRouter()
@@ -273,100 +264,6 @@ def delete_custom_analysis(analysis_id: str) -> dict:
         raise HTTPException(
             status_code=404,
             detail=f"CustomAnalysis {analysis_id!r} not found",
-        )
-    return {"data": row}
-
-
-# ---------------------------------------------------------------------------
-# PQL analyses (/api/pql-analyses) — verified PQL few-shots for prediction
-# ---------------------------------------------------------------------------
-
-
-@router.get("/pql-analyses", response_model=PqlAnalysisPageResponse)
-def list_pql_analyses(
-    query: str | None = Query(
-        default=None,
-        description="Case-insensitive substring filter on the analysis name.",
-    ),
-    skip: int = SKIP_QUERY,
-    limit: int | None = LIMIT_QUERY,
-) -> dict:
-    """PqlAnalysis nodes ``{id, name, description, pql}``.
-
-    *query*, ``skip`` and ``limit`` behave as they do on ``/custom-analyses``:
-    a name filter over a page of the name order, with ``total`` counting
-    every match rather than the rows on this page.
-    """
-    rows = pql_analyses_dal.list_pql_analyses(search=query, skip=skip, limit=limit)
-    total = (
-        pql_analyses_dal.count_pql_analyses(search=query)
-        if skip or limit is not None
-        else len(rows)
-    )
-    return {**_count_payload(rows), "total": total}
-
-
-@router.post("/pql-analyses", status_code=201, response_model=PqlAnalysisResponse)
-def create_pql_analysis(body: PqlAnalysisCreate) -> dict:
-    """Create a new PqlAnalysis (verified PQL example) and embed it.
-
-    Returns 409 when ``name`` or ``pql`` is already used by another PqlAnalysis.
-    The PQL text is stored as-is — it is validated against the prediction graph at
-    predict time, not here.
-    """
-    try:
-        row = pql_analyses_dal.create_pql_analysis(
-            name=body.name,
-            description=body.description,
-            pql=body.pql,
-        )
-    except (
-        pql_analyses_dal.PqlAnalysisNameConflict,
-        pql_analyses_dal.PqlAnalysisPqlConflict,
-    ) as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    return {"data": row}
-
-
-@router.put("/pql-analyses/{analysis_id}", response_model=PqlAnalysisResponse)
-def update_pql_analysis(analysis_id: str, body: PqlAnalysisCreate) -> dict:
-    """Replace a PqlAnalysis (matched by id) and re-embed it.
-
-    Returns 404 when no PqlAnalysis with ``analysis_id`` exists, and 409 when
-    ``name`` or ``pql`` is already taken by a different PqlAnalysis.
-    """
-    try:
-        row = pql_analyses_dal.update_pql_analysis(
-            analysis_id=analysis_id,
-            name=body.name,
-            description=body.description,
-            pql=body.pql,
-        )
-    except (
-        pql_analyses_dal.PqlAnalysisNameConflict,
-        pql_analyses_dal.PqlAnalysisPqlConflict,
-    ) as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-
-    if row is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"PqlAnalysis {analysis_id!r} not found",
-        )
-    return {"data": row}
-
-
-@router.delete("/pql-analyses/{analysis_id}", response_model=IdResponse)
-def delete_pql_analysis(analysis_id: str) -> dict:
-    """Delete a PqlAnalysis (with its VDB embedding).
-
-    Returns 404 when no PqlAnalysis with ``analysis_id`` exists.
-    """
-    row = pql_analyses_dal.delete_pql_analysis(analysis_id)
-    if row is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"PqlAnalysis {analysis_id!r} not found",
         )
     return {"data": row}
 

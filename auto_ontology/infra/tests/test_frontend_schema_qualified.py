@@ -85,15 +85,14 @@ def test_no_unqualified_prisma_table_references() -> None:
 @pytest.mark.parametrize(
     "module",
     [
-        "auto_ontology/server/chat/conversation_dal.py",
-        "auto_ontology/server/chat/settings_dal.py",
+        "auto_ontology/server/settings_dal.py",
         # The `configurations` reader that ingestion_service/config.py delegates
         # to; it owns the SQL, so it is the file that has to qualify.
         "auto_ontology/infra/feature_flags.py",
     ],
 )
 def test_known_readers_qualify_and_interpolate(module: str) -> None:
-    """The three known readers must actually interpolate the constant.
+    """The known readers must actually interpolate the constant.
 
     Guards the specific way this can regress silently: writing
     ``"... FROM {FRONTEND_SCHEMA}.acronyms"`` without the ``f`` prefix is a

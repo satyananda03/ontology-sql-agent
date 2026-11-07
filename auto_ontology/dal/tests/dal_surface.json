@@ -19,9 +19,6 @@
     "set_semantic_fk_join_default": "(source_table_id: 'str', target_attribute_id: 'str', selected_column_id: 'str') -> 'None'",
     "update_column_attribute": "(attr_id: 'str', term_id: 'str', *, name: 'str | None' = None, description: 'str | None' = None, certified: 'bool | None' = None, modified_by: 'str | None' = None, touch: 'bool' = False) -> 'dict[str, Any] | None'"
   },
-  "candidates": {
-    "expand_info": "(ids_and_labels: 'list | None') -> 'dict'"
-  },
   "connections": {
     "clear_connection": "(*, database_name: 'str') -> 'None'",
     "insert_connection": "(*, connection: 'str', database_name: 'str') -> 'dict[str, Any]'",
@@ -128,19 +125,6 @@
     "tag_attributes_of_tagged_columns": "(tag_id: 'str') -> 'tuple[int, int]'",
     "untag_attributes_of_column": "(column_id: 'str', tag_id: 'str') -> 'None'",
     "untag_attributes_of_columns_being_deleted": "(column_ids: 'list[str]') -> 'None'"
-  },
-  "pql_analyses": {
-    "PqlAnalysisNameConflict": "class(Exception)",
-    "PqlAnalysisPqlConflict": "class(Exception)",
-    "count_pql_analyses": "(*, search: 'str | None' = None) -> 'int'",
-    "delete_pql_analysis_node": "(analysis_id: 'str') -> 'None'",
-    "embed_pql_analyses": "(embed_params: \"'EmbedParams'\", vdb: \"'PostgresVDB'\", analysis_id: 'str | None' = None, database_name: 'str | None' = None) -> 'None'",
-    "fetch_pql_analyses_by_ids": "(analysis_ids: 'list[str]') -> 'dict[str, dict[str, str]]'",
-    "find_pql_analysis_by_name": "(name: 'str', exclude_id: 'str | None') -> 'dict[str, str] | None'",
-    "find_pql_analysis_by_pql": "(pql: 'str', exclude_id: 'str | None') -> 'dict[str, str] | None'",
-    "get_pql_analysis_by_id": "(analysis_id: 'str') -> 'str | None'",
-    "list_pql_analyses": "(*, search: 'str | None' = None, skip: 'int' = 0, limit: 'int | None' = None) -> 'list[dict[str, Any]]'",
-    "upsert_pql_analysis_node": "(analysis_id: 'str', name: 'str', description: 'str', pql: 'str') -> 'None'"
   },
   "reset": {
     "ResetResult": "class(object)",

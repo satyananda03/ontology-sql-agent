@@ -7,10 +7,8 @@
 from __future__ import annotations
 
 import os
-import sqlite3
 import uuid
 from collections.abc import Iterator
-from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -22,7 +20,6 @@ from sqlalchemy.exc import OperationalError  # noqa: E402
 
 from auto_ontology.catalog.store.rows import upsert_row  # noqa: E402
 from auto_ontology.catalog.write import populate_pks  # noqa: E402
-from auto_ontology.connectors.sqlite import SQLiteDatabase  # noqa: E402
 from auto_ontology.dal import schema as s  # noqa: E402
 from auto_ontology.dal.session import store  # noqa: E402
 
@@ -86,25 +83,6 @@ def test_a_key_listed_alphabetically_is_stored_in_key_order(db_name: str) -> Non
 
     assert _stored_pk(ids["LINEITEM"]) == ["L_ORDERKEY", "L_LINENUMBER"]
     assert _stored_pk(ids["PARTSUPP"]) == ["PS_PARTKEY", "PS_SUPPKEY"]
-
-
-def test_a_sqlite_key_declared_out_of_column_order_is_stored_in_key_order(
-    db_name: str, tmp_path: Path
-) -> None:
-    """SQLite reports a table's key columns in the table's column order."""
-    path = tmp_path / "shop.sqlite"
-    conn = sqlite3.connect(path)
-    conn.execute(
-        "CREATE TABLE line (item_id INTEGER, order_id INTEGER, "
-        "PRIMARY KEY (order_id, item_id))"
-    )
-    conn.commit()
-    conn.close()
-    ids = _tables(db_name, "main", "line")
-
-    populate_pks(SQLiteDatabase(f"sqlite:///{path}").get_pks(), db_name)
-
-    assert _stored_pk(ids["line"]) == ["order_id", "item_id"]
 
 
 def test_rows_without_a_position_keep_the_order_they_arrived_in(db_name: str) -> None:

@@ -5,9 +5,8 @@
 """Read user-configured acronyms and custom prompts from the Auto Ontology metadata DB.
 
 The frontend manages these via Prisma (`acronyms` and `prompts` tables in the
-same Postgres instance the backend uses); the chat router pulls them on every
-request and injects them into the text-to-SQL agent payload, so the client no
-longer needs to ship them on the wire.
+same Postgres instance the backend uses). The SQL agent reads the glossary on
+every question, and the metadata endpoint returns both.
 """
 
 from __future__ import annotations
@@ -38,42 +37,15 @@ def fetch_acronyms() -> list[dict[str, str]]:
                 )
                 return [dict(row) for row in cur.fetchall()]
     except Exception:
-        # Settings are best-effort: a DB hiccup here must not break chat.
+        # Settings are best-effort: a DB hiccup here must not break a question.
         logger.exception("Failed to fetch acronyms; continuing with empty list")
         return []
-
-
-def is_visualization_enabled() -> bool:
-    """Instance-wide "Visualize SQL Results" toggle (Settings > Agent Settings).
-
-    Reads the same ``configurations`` row the frontend's
-    ``isVisualizationEnabled`` (Prisma) checks, so both sides agree on the
-    setting without a round trip through the Next.js API. A missing row or a
-    DB hiccup both count as enabled — the feature is on by default and a
-    transient read failure shouldn't silently suppress every chart.
-    """
-    try:
-        with psycopg.connect(
-            get_postgres_connection_string(), connect_timeout=3
-        ) as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    f"SELECT value FROM {FRONTEND_SCHEMA}.configurations "
-                    "WHERE key = %s",
-                    ("visualization_enabled",),
-                )
-                row = cur.fetchone()
-        return row is None or row[0] != "false"
-    except Exception:
-        logger.exception("Failed to read visualization setting; defaulting to enabled")
-        return True
 
 
 def fetch_custom_prompts() -> str:
     """Return all stored prompts joined into one string (blank if none).
 
-    The agent embeds this verbatim into the system prompt
-    (see ``auto_ontology.retrieval.text_to_sql.main._build_state``).
+    Served by the metadata endpoint; the SQL agent does not read them.
     """
     try:
         with psycopg.connect(

@@ -12,7 +12,6 @@ from types import SimpleNamespace
 import pytest
 from pytest import LogCaptureFixture
 
-from auto_ontology.connectors.databricks import AUTH_SSO_FEDERATION, AUTH_STORED_TOKEN
 from auto_ontology.infra.feature_flags import DEFAULT_SQL_QUERY_TIMEOUT_SECONDS
 from auto_ontology.retrieval.text_to_sql import chat_sql
 from auto_ontology.retrieval.text_to_sql.chat_sql import (
@@ -33,49 +32,24 @@ def configured_timeout(monkeypatch: pytest.MonkeyPatch) -> list[int]:
     return stored
 
 
-def test_logs_sso_federated_credential(caplog: LogCaptureFixture) -> None:
-    connector = SimpleNamespace(database_name="kdc_ca1", auth_mode=AUTH_SSO_FEDERATION)
-
-    with caplog.at_level(logging.INFO, logger=_LOGGER):
-        log_chat_sql(connector, "SELECT 1")
-
-    assert f"[kdc_ca1] Executing chat SQL as {AUTH_SSO_FEDERATION}:\nSELECT 1" in [
-        r.getMessage() for r in caplog.records
-    ]
-
-
-def test_logs_stored_token_credential(caplog: LogCaptureFixture) -> None:
-    connector = SimpleNamespace(database_name="kdc_ca1", auth_mode=AUTH_STORED_TOKEN)
-
-    with caplog.at_level(logging.INFO, logger=_LOGGER):
-        log_chat_sql(connector, "SELECT 1")
-
-    assert f"[kdc_ca1] Executing chat SQL as {AUTH_STORED_TOKEN}:\nSELECT 1" in [
-        r.getMessage() for r in caplog.records
-    ]
-
-
-def test_omits_credential_for_connectors_without_auth_mode(
-    caplog: LogCaptureFixture,
-) -> None:
-    """Postgres et al. have one fixed credential — don't imply otherwise."""
+def test_logs_database_and_sql(caplog: LogCaptureFixture) -> None:
     connector = SimpleNamespace(database_name="mydb")
 
     with caplog.at_level(logging.INFO, logger=_LOGGER):
         log_chat_sql(connector, "SELECT 1")
 
-    messages = [r.getMessage() for r in caplog.records]
-    assert "[mydb] Executing chat SQL:\nSELECT 1" in messages
-    assert not any("as the" in m for m in messages)
+    assert "[mydb] Executing chat SQL:\nSELECT 1" in [
+        r.getMessage() for r in caplog.records
+    ]
 
 
 def test_probe_queries_are_labelled(caplog: LogCaptureFixture) -> None:
-    connector = SimpleNamespace(database_name="kdc_ca1", auth_mode=AUTH_STORED_TOKEN)
+    connector = SimpleNamespace(database_name="kdc_ca1")
 
     with caplog.at_level(logging.INFO, logger=_LOGGER):
         log_chat_sql(connector, "SELECT 1", kind="probe SQL")
 
-    assert any("Executing probe SQL as" in r.getMessage() for r in caplog.records)
+    assert any("Executing probe SQL:" in r.getMessage() for r in caplog.records)
 
 
 def test_unknown_database_name_does_not_crash(caplog: LogCaptureFixture) -> None:

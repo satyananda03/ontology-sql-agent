@@ -4,67 +4,23 @@
 
 """Assert the fixture databases have the shapes the refactor's tests rely on.
 
-Every claim in ``dev_tools/fixtures/sql/README.md`` about what Pagila and Chinook cover
+Every claim in ``dev_tools/fixtures/sql/README.md`` about what Pagila covers
 is load-bearing: golden captures, the ``find_join_path`` suite, and the
 schema-scoped zone tests are all written against these shapes. Three of the
 original assumptions turned out to be wrong when first checked, which is why
 they are asserted here rather than described in prose and trusted.
 
-The Postgres half needs a live server and is skipped without one. The SQLite
-half needs nothing — it builds the database from vendored SQL in-process.
+These need a live Postgres server and are skipped without one.
 """
 
 from __future__ import annotations
 
 import os
-import sqlite3
 from pathlib import Path
 
 import pytest
 
-from dev_tools.fixtures import build_sqlite_fixtures
-
 SQL_DIR = Path(__file__).resolve().parents[1] / "sql"
-
-
-# --------------------------------------------------------------------------
-# Chinook (SQLite) — no server required
-# --------------------------------------------------------------------------
-
-
-@pytest.fixture(scope="module")
-def chinook() -> sqlite3.Connection:
-    db = build_sqlite_fixtures.build(build_sqlite_fixtures.FIXTURES[0])
-    con = sqlite3.connect(db)
-    yield con
-    con.close()
-
-
-def test_chinook_builds_from_vendored_sql(chinook: sqlite3.Connection) -> None:
-    tables = [
-        r[0]
-        for r in chinook.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-        )
-    ]
-    assert len(tables) == 11, tables
-
-
-def test_chinook_has_a_self_referencing_fk(chinook: sqlite3.Connection) -> None:
-    """``Employee.ReportsTo`` — Pagila's ``public`` schema has no self-reference.
-
-    ``find_join_path``'s cycle-termination test needs one that lives in the
-    same schema as its target.
-    """
-    fks = list(chinook.execute('PRAGMA foreign_key_list("Employee")'))
-    assert any(fk[2] == "Employee" for fk in fks), fks
-
-
-def test_chinook_has_enough_rows_for_sample_values(
-    chinook: sqlite3.Connection,
-) -> None:
-    """``store_column_sample_values`` is meaningless on a handful of rows."""
-    assert chinook.execute("SELECT count(*) FROM Track").fetchone()[0] > 3000
 
 
 # --------------------------------------------------------------------------

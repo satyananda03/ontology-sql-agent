@@ -19,7 +19,6 @@ from auto_ontology.server.responses import (
     ConnectionListResponse,
     ConnectionResponse,
     ConnectionTestResponse,
-    SsoFederationResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -67,8 +66,7 @@ def is_env_source() -> bool:
 def list_connections() -> dict:
     """List every configured database connection, credential-free.
 
-    Credentials — passwords, private keys and the Kyuubi truststore password —
-    are stripped from each connection object, so the payload is safe to render
+    Credentials are stripped from each connection object, so the payload is safe to render
     in the UI. ``database_name`` doubles as the connection's identity in the
     other routes here.
     """
@@ -78,7 +76,10 @@ def list_connections() -> dict:
 
 @router.post("/connections/test", response_model=ConnectionTestResponse)
 def test_connection(body: ConnectionTestBody) -> dict:
-    """Validate a connection and return its schemas (for the schema picker).
+    """Validate a connection by connecting and pinging it.
+
+    ``schemas`` is always empty: the Postgres connector does not enumerate
+    schemas. Scope ingestion with ``ingest.yaml`` instead.
 
     Set ``replacing`` to the ``database_name`` of the connection an edit is
     about to overwrite. Without it the test rejects the connection for already
@@ -105,8 +106,7 @@ def create_connection(body: ConnectionBody) -> dict:
 
     The connection is validated on the way in; anything the driver rejects comes
     back as 422 with the failure message rather than a 500. Call
-    ``POST /connections/test`` first to check credentials and list the schemas
-    available for the picker.
+    ``POST /connections/test`` first to check credentials.
     """
     try:
         row = service.create_connection(connection=body.connection)
@@ -135,7 +135,7 @@ def update_connection(
     ``database`` and ``type`` are the connection's identity and cannot change —
     sending different ones is a 422. Credentials left blank keep their stored
     value, since the UI is never given them to send back. Re-ingest is
-    triggered only when the ``schemas`` allowlist changed.
+    triggered only when the table allow/deny patterns changed.
 
     404 when no connection carries that ``database_name``.
     """
@@ -154,38 +154,6 @@ def update_connection(
         ) from exc
 
     return {"data": _serialize_connection(row)}
-
-
-class SsoFederationBody(BaseModel):
-    enabled: bool
-
-
-@router.patch(
-    "/connections/{database_name}/sso-federation",
-    response_model=SsoFederationResponse,
-)
-def set_sso_federation(
-    body: SsoFederationBody,
-    database_name: str = Path(
-        description=(
-            "Catalog database name, which doubles as the connection's identity."
-        )
-    ),
-) -> dict:
-    """Toggle whether chat runs this connection's SQL as the signed-in user."""
-    try:
-        row = service.set_sso_federation(
-            database_name=database_name, enabled=body.enabled
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Failed to update connection: {exc}",
-        ) from exc
-
-    return {"data": row}
 
 
 @router.delete("/connections/{database_name}", response_model=ConnectionResponse)

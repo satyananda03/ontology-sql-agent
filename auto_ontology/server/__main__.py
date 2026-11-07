@@ -27,8 +27,6 @@ logger = logging.getLogger(__name__)
 from auto_ontology.version import get_app_version  # noqa: E402
 from auto_ontology.dal import close_store  # noqa: E402
 from auto_ontology.dal.schema_version import require_current_schema  # noqa: E402
-from auto_ontology.server.chat.router import router as chat_router  # noqa: E402
-from auto_ontology.server.chat.worker import get_pool, shutdown_pool  # noqa: E402
 from auto_ontology.server.connections.router import router as connections_router  # noqa: E402
 from auto_ontology.server.datasources.router import router as datasources_router  # noqa: E402
 from auto_ontology.server.exploration.router import router as exploration_router  # noqa: E402
@@ -58,16 +56,9 @@ async def lifespan(_app: FastAPI):
     # lifespan runs only when the app is actually served, which covers both
     # documented commands: `python -m auto_ontology.server` and `uvicorn ... --factory`.
     require_current_schema()
-
-    # Kick off the chat worker pool's initial warm spawn at boot. The pool
-    # itself is lazy on first use, but eagerly initialising here means the
-    # very first chat request doesn't pay a cold start.
-    get_pool()
     try:
         yield
     finally:
-        # Tear down warm subprocesses before exiting so we don't leak them.
-        shutdown_pool()
         close_store()
 
 
@@ -96,7 +87,6 @@ def create_app() -> FastAPI:
     )
     app.include_router(exploration_router, prefix="/api", tags=["exploration"])
     app.include_router(connections_router, prefix="/api", tags=["connections"])
-    app.include_router(chat_router, prefix="/api", tags=["chat"])
     app.include_router(metadata_router, prefix="/api", tags=["metadata"])
     app.include_router(health_router, prefix="/api", tags=["health"])
     app.include_router(sql_attributes_router, prefix="/api", tags=["sql-attributes"])

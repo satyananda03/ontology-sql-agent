@@ -51,7 +51,6 @@ __all__ = [
     "GraphLink",
     "IdRef",
     "NodeUpdateResult",
-    "PqlAnalysis",
     "PublicConnection",
     "Rule",
     "RuleFilters",
@@ -61,7 +60,6 @@ __all__ = [
     "SqlAttribute",
     "SqlExpressionValidationResult",
     "SqlValidationResult",
-    "SsoFederationState",
     "TableColumns",
     "TableExplorationDetails",
     "TableExplorationTerm",
@@ -510,7 +508,7 @@ class Rule(ApiModel):
 
     ``created_by`` is the id of the user who saved it, read from the trusted
     gateway header rather than from the request body — see
-    ``auto_ontology/server/chat/identity.py``. ``modified_by`` is the same for whoever
+    ``auto_ontology/server/identity.py``. ``modified_by`` is the same for whoever
     last renamed it, and null until somebody has — which is the same fact as
     ``modified`` still equalling ``created``, and null again for a rename whose
     request carried no identity to record.
@@ -693,15 +691,6 @@ class SqlValidationResult(ApiModel):
 
     valid: bool
     sql: str
-
-
-class PqlAnalysis(ApiModel):
-    """A verified PQL few-shot. The PQL text is a property, not a child node."""
-
-    id: str
-    name: str | None = None
-    description: str | None = None
-    pql: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -1142,17 +1131,6 @@ class PublicConnection(ApiModel):
 
     database_name: str
     connection: dict[str, Any] | None = None
-
-
-class SsoFederationState(ApiModel):
-    """The one flag ``PATCH /connections/{database_name}/sso-federation`` sets.
-
-    The route deliberately echoes just the flag rather than the connection, so
-    a caller never has to re-send credentials to toggle it.
-    """
-
-    database_name: str
-    sso_federation: bool
 
 
 # ---------------------------------------------------------------------------

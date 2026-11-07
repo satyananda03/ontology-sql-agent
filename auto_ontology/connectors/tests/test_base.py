@@ -108,17 +108,10 @@ def test_get_queries_defaults_to_24_hours() -> None:
     assert inspect.signature(SQLDatabase.get_queries).parameters["hours"].default == 24
 
 
-def test_every_shipped_connector_subclasses_the_base() -> None:
-    shipped = [
-        connectors.DatabricksDatabase,
-        connectors.DuckDBDatabase,
-        connectors.HeavyDBDatabase,
-        connectors.PostgresDatabase,
-        connectors.SnowflakeDatabase,
-    ]
-    for cls in shipped:
-        assert issubclass(cls, SQLDatabase), cls.__name__
-        assert not cls.__abstractmethods__, f"{cls.__name__} is still abstract"
+def test_the_shipped_connector_subclasses_the_base() -> None:
+    cls = connectors.PostgresDatabase
+    assert issubclass(cls, SQLDatabase)
+    assert not cls.__abstractmethods__, "PostgresDatabase is still abstract"
 
 
 def test_the_base_is_re_exported_from_the_package() -> None:

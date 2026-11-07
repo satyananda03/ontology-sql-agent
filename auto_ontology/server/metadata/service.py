@@ -24,7 +24,7 @@ from auto_ontology.retrieval.entity_coverage.state import (
     DEFAULT_MAX_DISTANCE,
     EntityCoveragePayload,
 )
-from auto_ontology.server.chat.settings_dal import fetch_acronyms, fetch_custom_prompts
+from auto_ontology.server.settings_dal import fetch_acronyms, fetch_custom_prompts
 from auto_ontology.connectors.registry import get_connectors
 from auto_ontology.utils.retriever import (
     get_data_objects_retriever,

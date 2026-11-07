@@ -5,7 +5,6 @@
 from auto_ontology.retrieval.text_to_sql.formatters_util import (
     format_semantic_context,
     format_tables_for_prompt,
-    format_used_schema_for_prompt,
     qualify_table,
 )
 
@@ -74,60 +73,6 @@ def test_prompt_renders_two_level_name_for_mysql_tables() -> None:
     )
     assert "table\ndw.SIS_DEPARTMENT" in rendered
     assert "dw.dw." not in rendered
-
-
-def test_used_schema_context_keeps_details_only_for_referenced_columns() -> None:
-    rendered = format_used_schema_for_prompt(
-        [
-            {
-                "name": "orders",
-                "schema_name": "public",
-                "description": "Purchase records.",
-                "pk": ["id"],
-                "columns": [
-                    {
-                        "name": "total",
-                        "data_type": "numeric",
-                        "description": "Order total.",
-                        "sample_values": ["12.50"],
-                    },
-                    {"name": "unused", "data_type": "text"},
-                ],
-            }
-        ],
-        used_tables=["public.orders"],
-        used_columns=["public.orders.total"],
-    )
-
-    assert "TABLES USED IN SQL:" in rendered
-    assert "- public.orders | description: Purchase records." in rendered
-    assert "primary key: ['id']" in rendered
-    assert "COLUMNS USED IN SQL:" in rendered
-    assert "public.orders.total (numeric) - Order total." in rendered
-    assert "sample values: 12.50" in rendered
-    assert "unused" not in rendered
-
-
-def test_used_schema_context_marks_semantic_fk() -> None:
-    rendered = format_used_schema_for_prompt(
-        [
-            {
-                "name": "orders",
-                "schema_name": "public",
-                "columns": [
-                    {
-                        "name": "customer_id",
-                        "data_type": "integer",
-                        "semantic_fk": "public.customers.id",
-                    }
-                ],
-            }
-        ],
-        used_tables=["public.orders"],
-        used_columns=["public.orders.customer_id"],
-    )
-
-    assert "foreign_key: public.customers.id" in rendered
 
 
 def test_available_tables_mark_semantic_fk_on_ordinary_columns() -> None:
@@ -445,3 +390,44 @@ def test_legacy_rows_spell_the_same_table_in_both_sections() -> None:
 
     assert "lakehouse.lakehouse.clusters" in tables_section
     assert "Table: lakehouse.lakehouse.clusters" in hint
+
+
+def test_format_semantic_context_includes_datatype_tags():
+    primary_attribute = {
+        "schema_name": "",
+        "table_name": "aliens",
+        "col_name": "notes",
+        "attr_name": "AlienNotes",
+        "datatype": "jsonb",
+    }
+    attribute_join_paths = [
+        {
+            "attr_name": "SpeciesName",
+            "col_name": "name",
+            "schema_name": "",
+            "table_name": "species",
+            "datatype": "text",
+            "path": [],
+        }
+    ]
+
+    result = format_semantic_context(primary_attribute, attribute_join_paths)
+
+    assert "[jsonb]" in result
+    assert "[text]" in result
+
+
+def test_format_semantic_context_omits_tag_when_datatype_unknown():
+    """Attrs not yet re-ingested with datatype must render exactly as before
+    — no stray tag/bracket artifacts.
+    """
+    primary_attribute = {
+        "schema_name": "",
+        "table_name": "aliens",
+        "col_name": "notes",
+        "attr_name": "AlienNotes",
+    }
+
+    result = format_semantic_context(primary_attribute, [])
+
+    assert "[" not in result

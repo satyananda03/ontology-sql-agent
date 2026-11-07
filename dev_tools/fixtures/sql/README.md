@@ -13,18 +13,15 @@ docker compose up -d postgres
 uv run --no-sync python -m dev_tools.fixtures.seed_fixtures
 ```
 
-Idempotent — re-running skips anything already loaded. To rebuild a Postgres
-fixture from scratch, drop the database first; for SQLite, delete the
-`.sqlite`.
+Idempotent — re-running skips anything already loaded. To rebuild a fixture
+from scratch, drop the database first.
 
 | Fixture | Engine | Source | Licence |
 |---|---|---|---|
 | `pagila` | Postgres | [devrimgunduz/pagila] `pagila-v3.1.0`, trimmed | MIT |
 | `pagila_analytics` | Postgres | Auto-Ontology-authored addendum to `pagila` | — |
-| `chinook` | SQLite | [lerocha/chinook-database], unmodified | MIT |
 
 [devrimgunduz/pagila]: https://github.com/devrimgunduz/pagila
-[lerocha/chinook-database]: https://github.com/lerocha/chinook-database
 
 ## Why these, and not a small hand-written schema
 
@@ -45,13 +42,10 @@ it has the shapes the code special-cases:
 | 2 cross-schema FKs | Join paths that cross a schema boundary. |
 | 1000 films / 4581 inventory rows | `store_column_sample_values` and `store_column_uniqueness` are meaningless on a handful of rows. |
 
-Chinook exists to make the set **multi-database and multi-dialect**. Several
-behaviours are untestable with only one database: cross-database rejection in
-`find_join_path` (`auto_ontology/dal/attributes.py:404`), `delete_by_database` scoping,
-per-database pgvector collection resets, and zones spanning databases. It also
-drives `auto_ontology/connectors/sqlite.py` and a second sqlglot dialect through the
-parsers, and carries a self-referencing FK (`Employee.ReportsTo`) that Pagila
-has nowhere.
+**One database only.** Upstream paired Pagila with a SQLite Chinook database;
+it went with the SQLite connector. Behaviours that need a second database —
+cross-database rejection in `find_join_path`, zones spanning databases — are
+not covered by this fixture.
 
 ## How `pagila.sql` was produced
 
@@ -82,9 +76,8 @@ Recorded because the refactor plan asserted these before they were checked, and
 three were wrong:
 
 - Pagila has **no self-referencing foreign key**. There is no `staff.reports_to`
-  — that is Sakila/Northwind. Chinook's `Employee.ReportsTo` covers the
-  same-schema case; `analytics.category_rollup.parent_rollup_id` covers it in a
-  non-public schema.
+  — that is Sakila/Northwind. `analytics.category_rollup.parent_rollup_id`
+  covers it, in a non-public schema.
 - Upstream Pagila is **single-schema**. The second schema is
   `pagila_analytics.sql`, authored here — see that file's header for why the
   `Schema` tier and the `-Schema` exclusion in `find_join_path` are untestable

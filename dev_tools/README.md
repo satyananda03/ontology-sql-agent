@@ -27,7 +27,7 @@ database covers and why.
 
 ```bash
 docker compose up -d postgres
-uv run --no-sync python -m dev_tools.fixtures.seed_fixtures          # pagila + chinook
+uv run --no-sync python -m dev_tools.fixtures.seed_fixtures          # pagila
 uv run --no-sync alembic upgrade head
 uv run --no-sync python -m dev_tools.fixtures.seed_graph_fixture --reset
 uv run --no-sync pytest auto_ontology dev_tools -q

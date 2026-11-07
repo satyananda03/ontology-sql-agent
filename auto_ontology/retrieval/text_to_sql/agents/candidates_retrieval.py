@@ -39,7 +39,6 @@ from auto_ontology.retrieval.data_access.semantic_search import search_semantic_
 from auto_ontology.utils.llm_invoke import invoke_with_structured_output
 from auto_ontology.retrieval.text_to_sql.base import BaseAgent
 from auto_ontology.retrieval.text_to_sql.models import (
-    CandidateFilterModel,
     ColumnAttributeSpec,
     CombinedCandidateFilterModel,
     CustomAnalysisFilterModel,
@@ -196,51 +195,6 @@ def _covered_entities(column_hits: list[dict]) -> set[str]:
 # ---------------------------------------------------------------------------
 # LLM intent filter
 # ---------------------------------------------------------------------------
-
-_FILTER_PROMPT_TEMPLATE = """\
-You are selecting the single best candidate that matches a user's question.
-
-User question: {question}
-Entity being searched: {entity}
-
-Candidates:
-{candidates_block}
-
-Return the ID of the single best matching candidate.
-Return null if none genuinely match the intent of the question.
-"""
-
-
-def _llm_filter(llm, question: str, entity: str, candidates: list[dict]) -> list[str]:
-    """Use the LLM to pick the single best candidate by relevance to *question*.
-
-    Each candidate must have an ``id`` field in its metadata.
-    Returns a list with the single best ID, or all IDs on LLM failure.
-    """
-    if not candidates:
-        return []
-
-    all_ids = [str(c.get("id") or "") for c in candidates if c.get("id")]
-
-    candidates_block = "\n".join(
-        f"- id: {c.get('id')} | {c.get('text', '')}" for c in candidates if c.get("id")
-    )
-
-    messages = [
-        SystemMessage(
-            content=_FILTER_PROMPT_TEMPLATE.format(
-                question=question,
-                entity=entity,
-                candidates_block=candidates_block,
-            )
-        )
-    ]
-
-    result = invoke_with_structured_output(llm, messages, CandidateFilterModel)
-    if result is None or not result.best_id:
-        return all_ids
-
-    return [result.best_id]
 
 
 _CANDIDATE_FILTER_PROMPT = """\

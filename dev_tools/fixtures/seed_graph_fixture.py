@@ -23,7 +23,7 @@ Two deliberate choices:
 Usage::
 
     export POSTGRES_HOST=... POSTGRES_PORT=... POSTGRES_USER=... POSTGRES_PASSWORD=...
-    export CONNECTION_STRINGS="postgresql://.../pagila,sqlite:////abs/path/chinook.sqlite"
+    export CONNECTION_STRINGS="postgresql://.../pagila"
     uv run --no-sync python -m dev_tools.fixtures.seed_graph_fixture --reset
 """
 
@@ -43,7 +43,7 @@ logger = logging.getLogger("dev_tools.fixtures.seed_graph_fixture")
 
 
 def ingest_catalog() -> None:
-    """Write both fixture databases' catalogs into the graph."""
+    """Write the fixture databases' catalogs into the graph."""
     from auto_ontology.catalog import ingest_catalog as write_catalog
     from auto_ontology.connectors.registry import create_connector
 
@@ -150,12 +150,6 @@ TERMS: tuple[tuple[str, str, tuple[str, str, str], list[str]], ...] = (
         ("pagila", "public", "payment"),
         ["transaction"],
     ),
-    (
-        "Track",
-        "A single piece of recorded music.",
-        ("chinook", "main", "Track"),
-        ["song"],
-    ),
 )
 
 # (term name, table, source column, attribute name, datatype, description)
@@ -215,14 +209,6 @@ COLUMN_ATTRIBUTES: tuple[tuple[str, tuple[str, str, str], str, str, str, str], .
         "payment amount",
         "numeric",
         "Amount paid.",
-    ),
-    (
-        "Track",
-        ("chinook", "main", "Track"),
-        "Name",
-        "track name",
-        "NVARCHAR(200)",
-        "The track's title.",
     ),
 )
 
@@ -285,15 +271,6 @@ CUSTOM_ANALYSES: tuple[tuple[str, str, str], ...] = (
         "Revenue by staff",
         "Payment totals per staff member.",
         "SELECT staff_id, sum(amount) AS revenue FROM payment GROUP BY staff_id",
-    ),
-)
-
-PQL_ANALYSES: tuple[tuple[str, str, str, str], ...] = (
-    (
-        "pql-churn",
-        "Customer churn",
-        "Predict which customers stop renting.",
-        "PREDICT COUNT(rental.*, 30, days) = 0 FOR EACH customer.customer_id",
     ),
 )
 
@@ -382,13 +359,6 @@ def seed_custom_analyses() -> list[str]:
     return created
 
 
-def seed_pql_analyses() -> None:
-    from auto_ontology.dal.pql_analyses import upsert_pql_analysis_node
-
-    for analysis_id, name, description, pql in PQL_ANALYSES:
-        upsert_pql_analysis_node(analysis_id, name, description, pql)
-
-
 def seed_zones() -> list[dict[str, Any]]:
     """Three zones: one scoped to a schema, one spanning databases, one disabled.
 
@@ -407,15 +377,14 @@ def seed_zones() -> list[dict[str, Any]]:
             _table_id("pagila", "public", "category"),
         ],
     )
-    # Spans both databases *and* targets a Schema rather than a Table, which is
-    # the polymorphic ZONE_OF case.
-    cross_database = create_zone(
-        name="Cross database",
-        description="A schema in one database plus a table in another.",
+    # Targets a Schema as well as a Table, which is the polymorphic ZONE_OF case.
+    schema_and_table = create_zone(
+        name="Schema and table",
+        description="A whole schema plus a table from another schema.",
         color="#059669",
         item_ids=[
             _schema_id("pagila", "analytics"),
-            _table_id("chinook", "main", "Track"),
+            _table_id("pagila", "public", "rental"),
         ],
     )
     retired = create_zone(
@@ -425,7 +394,7 @@ def seed_zones() -> list[dict[str, Any]]:
         item_ids=[_table_id("pagila", "public", "staff")],
     )
     set_zone_enabled(retired["id"], False)
-    return [film_domain, cross_database, retired]
+    return [film_domain, schema_and_table, retired]
 
 
 def _schema_id(database: str, schema: str) -> str:
@@ -511,9 +480,6 @@ def main() -> None:
     logger.info("seeding custom analyses...")
     seed_custom_analyses()
 
-    logger.info("seeding PQL analyses...")
-    seed_pql_analyses()
-
     logger.info("seeding zones...")
     zones = seed_zones()
 
@@ -529,7 +495,6 @@ def _log_summary(zones: list[dict[str, Any]]) -> None:
     """
     from auto_ontology.dal.datasources import fetch_databases, fetch_schemas_by_ids
     from auto_ontology.dal.custom_analyses import list_custom_analyses
-    from auto_ontology.dal.pql_analyses import list_pql_analyses
     from auto_ontology.dal.sql_attributes import list_sql_attributes
     from auto_ontology.dal.terms import count_terms
 
@@ -541,7 +506,6 @@ def _log_summary(zones: list[dict[str, Any]]) -> None:
         "terms": count_terms(),
         "sql_attributes": len(list_sql_attributes()),
         "custom_analyses": len(list_custom_analyses()),
-        "pql_analyses": len(list_pql_analyses()),
     }
     logger.info("--- fixture ---")
     for name, total in counts.items():

@@ -11,9 +11,6 @@ Creates each demo database if it doesn't exist, then applies its SQL from
 partitioned table, arrays, an enum and a tsvector column — see
 ``dev_tools/fixtures/sql/README.md`` for why each of those matters.
 
-The SQLite fixture (Chinook) is built by ``dev_tools.fixtures.build_sqlite_fixtures``;
-run both, or just ``dev_tools.fixtures.seed_fixtures`` which calls each in turn.
-
 Usage::
 
     docker compose up -d postgres

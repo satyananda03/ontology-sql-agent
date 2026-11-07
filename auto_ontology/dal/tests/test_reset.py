@@ -24,7 +24,7 @@ unrelated reason.
 
 **The unscoped variants run inside a rolled-back transaction.** They are not
 scoped to a test fixture by construction — ``delete_all_data(None)`` means every
-database in the store — so run directly they delete the shared Pagila/Chinook
+database in the store — so run directly they delete the shared Pagila
 catalog every other test suite depends on. That is not hypothetical: the first
 version of this file did exactly that. :func:`_rolled_back` contains them.
 """

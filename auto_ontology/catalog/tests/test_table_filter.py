@@ -128,25 +128,26 @@ def test_filtering_does_not_trip_the_column_coverage_guard() -> None:
 def test_get_connectors_passes_the_filter_to_every_connector(monkeypatch) -> None:
     """The stored pattern has to reach the connectors ingestion actually uses.
 
-    Regression: the filter was wired into the federated (SSO) connector path
-    only, so `get_connectors` — which is what a triggered ingest resolves
-    through — built connectors with no filter at all. The pattern was stored and
-    displayed correctly, and ingestion quietly took every table anyway.
+    Regression: `get_connectors` — which is what a triggered ingest resolves
+    through — once built connectors with no filter at all. The pattern was
+    stored and displayed correctly, and ingestion quietly took every table
+    anyway.
     """
     from auto_ontology.connectors import registry
 
     captured: dict = {}
 
-    def fake_create_connector(cs, schemas=None, table_filter=None):
-        captured["schemas"] = schemas
+    def fake_create_connector(cs, table_filter=None):
         captured["table_filter"] = table_filter
         return SimpleNamespace(database_name="db", close=lambda: None)
 
     monkeypatch.setattr(registry, "create_connector", fake_create_connector)
-    monkeypatch.setattr(registry, "build_connection_string", lambda conn: "sqlite:///x")
+    monkeypatch.setattr(
+        registry, "build_connection_string", lambda conn: "postgresql://u:p@h/db"
+    )
     monkeypatch.setattr(
         "auto_ontology.dal.connections.list_connections",
-        lambda: [{"database": "db", "type": "sqlite", "table_deny_regex": "^tmp_"}],
+        lambda: [{"database": "db", "type": "postgres", "table_deny_regex": "^tmp_"}],
     )
     monkeypatch.setattr(registry, "_connectors", None)
 

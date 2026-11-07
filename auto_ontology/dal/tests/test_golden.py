@@ -81,7 +81,6 @@ def test_golden_covers_every_dal_module() -> None:
         "custom_analyses",
         "datasources",
         "exploration",
-        "pql_analyses",
         "sql_attributes",
         "terms",
         "users",

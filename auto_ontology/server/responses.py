@@ -36,7 +36,6 @@ from auto_ontology.server.models import (
     ExplorationLinkPath,
     ExplorationRelatedNodes,
     IdRef,
-    PqlAnalysis,
     PublicConnection,
     Rule,
     SchemaSummary,
@@ -46,7 +45,6 @@ from auto_ontology.server.models import (
     SqlExplorationDetails,
     SqlExpressionValidationResult,
     SqlValidationResult,
-    SsoFederationState,
     TableColumns,
     TableExplorationDetails,
     TableSummary,
@@ -99,8 +97,6 @@ __all__ = [
     "ModelImportResponse",
     "ObjectPageResponse",
     "PagedListResponse",
-    "PqlAnalysisPageResponse",
-    "PqlAnalysisResponse",
     "RulePageResponse",
     "RuleResponse",
     "SchemasPayload",
@@ -115,7 +111,6 @@ __all__ = [
     "SqlExplorationDetailsResponse",
     "SqlExpressionValidationResponse",
     "SqlValidationResponse",
-    "SsoFederationResponse",
     "StatusResponse",
     "TableColumnsPageResponse",
     "TableExplorationDetailsResponse",
@@ -327,8 +322,6 @@ GlobalSearchCountResponse = DataResponse[dict[str, int]]
 CustomAnalysisResponse = DataResponse[CustomAnalysis]
 CustomAnalysisPageResponse = PagedListResponse[CustomAnalysis]
 SqlValidationResponse = DataResponse[SqlValidationResult]
-PqlAnalysisResponse = DataResponse[PqlAnalysis]
-PqlAnalysisPageResponse = PagedListResponse[PqlAnalysis]
 
 # Terms and attributes
 TermResponse = DataResponse[Term]
@@ -359,7 +352,6 @@ TableZonesResponse = DataResponse[dict[str, list[ZoneChip]]]
 # Connections
 ConnectionResponse = DataResponse[PublicConnection]
 ConnectionListResponse = ListResponse[PublicConnection]
-SsoFederationResponse = DataResponse[SsoFederationState]
 
 # Metadata
 EntityCoverageResponse = DataResponse[EntityCoverageResult]

@@ -31,9 +31,6 @@ import random
 import time
 from typing import TYPE_CHECKING, Literal
 
-from auto_ontology.catalog.constants import Labels
-
-from auto_ontology.semantic.constants import LABEL_SQL_ATTRIBUTE
 
 if TYPE_CHECKING:
     from auto_ontology.utils.retriever import Retriever
@@ -43,17 +40,8 @@ MetadataFilterFormat = Literal["sql", "dict"]
 logger = logging.getLogger(__name__)
 
 
-# Hard ceiling on how many candidate snippets we want to reason over for a single question.
-# Larger numbers tend to confuse the LLM and increase latency.
-MAX_CALCULATION_CANDIDATES = 15
-
 DEFAULT_FETCH_LIMIT = 20
 PER_LABEL_LIMIT = 10
-PER_LABEL_LIMITS: dict[str, int] = {
-    Labels.COLUMN: 10,
-    Labels.CUSTOM_ANALYSIS: 3,
-    LABEL_SQL_ATTRIBUTE: 3,
-}
 
 # ``retriever.query`` embeds the entity text via the remote NIM embeddings
 # endpoint before it can run the vector search — a transient 5xx there
@@ -117,24 +105,6 @@ def _query_with_retry(
                 continue
             raise
     raise last_exc  # pragma: no cover — loop always returns or raises above
-
-
-def clean_results(raw_candidates: list[dict]) -> list[dict]:
-    """Normalize raw semantic hits: require id, dedupe by (label, id), preserve order."""
-    out: list[dict] = []
-    seen: set[tuple[str | None, str]] = set()
-    for c in raw_candidates or []:
-        if not isinstance(c, dict):
-            continue
-        cid = c.get("id")
-        if cid is None:
-            continue
-        key = (c.get("label"), str(cid))
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(c)
-    return out
 
 
 def _parse_hit_metadata(hit: dict) -> dict:

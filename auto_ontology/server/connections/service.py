@@ -22,7 +22,6 @@ from auto_ontology.connectors.vault import (
     write_secret,
 )
 from auto_ontology.server.ingestion.proxy import trigger_ingest, trigger_reset
-from auto_ontology.server.chat.worker import refresh_chat_workers
 from auto_ontology.dal.connections import (
     clear_connection,
     insert_connection,
@@ -82,44 +81,31 @@ def _with_stored_secrets(
 
 
 def _ingest_scope(connection: dict[str, Any]) -> list[str]:
-    """Everything that decides *what* ingestion pulls in.
+    """Everything on the connection that decides *what* ingestion pulls in.
 
-    The schema allowlist plus the table allow/deny regexes. All three change
-    which relations land in the catalog, so an edit to any of them has to
-    re-ingest — otherwise a newly excluded table stays in the catalog and
-    retrieval keeps offering it, which is exactly what the operator used the
-    pattern to prevent.
+    The table allow/deny regexes change which relations land in the catalog, so
+    an edit to either has to re-ingest — otherwise a newly excluded table stays
+    in the catalog and retrieval keeps offering it, which is exactly what the
+    operator used the pattern to prevent. Schema scoping lives in
+    ``ingest.yaml``, not on the connection.
     """
-    schemas = sorted(str(schema) for schema in (connection.get("schemas") or []))
-    return schemas + [f"{key}={str(connection.get(key) or '')}" for key in FILTER_KEYS]
+    return [f"{key}={str(connection.get(key) or '')}" for key in FILTER_KEYS]
 
 
 def _refresh_connection_caches() -> None:
-    """Rebuild everything holding a connector or a cached connection flag.
+    """Drop the cached connectors so the next request rebuilds them.
 
-    Each refresh is best-effort, because callers run this *after* they have
-    already persisted. Letting one raise would abandon the rest of the write:
-    an update re-ingests only when the schema allowlist moved, so failing here
-    would skip that ingest with the new allowlist already stored, and the retry
-    would compare the new list against itself and skip it again — permanently.
-    A stale cache, by contrast, costs one refresh.
+    Best-effort, because callers run this *after* they have already persisted.
+    Letting it raise would abandon the rest of the write: an update re-ingests
+    only when the table filter moved, so failing here would skip that ingest
+    with the new filter already stored, and the retry would compare the new
+    filter against itself and skip it again — permanently. A stale cache, by
+    contrast, costs one refresh.
     """
-    # Imported here rather than at module scope: ``databricks_oauth`` reaches
-    # back into the server package, so a top-level import is circular.
-    from auto_ontology.connectors.databricks_oauth import (
-        invalidate_sso_federation_cache,
-    )
-
-    caches = (
-        ("connectors", invalidate_connectors_cache),
-        ("chat workers", refresh_chat_workers),
-        ("SSO federation", invalidate_sso_federation_cache),
-    )
-    for name, refresh in caches:
-        try:
-            refresh()
-        except Exception:
-            logger.exception("Failed to refresh the %s cache", name)
+    try:
+        invalidate_connectors_cache()
+    except Exception:
+        logger.exception("Failed to refresh the connectors cache")
 
 
 def test_connection(
@@ -127,14 +113,8 @@ def test_connection(
 ) -> list[str]:
     """Validate credentials for the settings UI test action.
 
-    Returns the connection's schemas when the connector supports enumerating
-    them (currently Databricks and Snowflake); enumerating doubles as the
-    connectivity check. Connectors without schema enumeration just ``ping()``
-    and return ``[]``.
-
-    When the form names a specific ``schema``, the test also confirms that schema
-    exists — the UI then skips schema selection, so a typo would otherwise only
-    surface much later as an ingest that silently finds nothing.
+    Opens a connection and ``ping()``s it. Returns ``[]``: the Postgres
+    connector does not enumerate schemas, so the UI offers no schema picker.
 
     ``replacing`` names the connection an edit is about to overwrite: the
     "already connected" guard would otherwise reject a connection for being
@@ -158,8 +138,6 @@ def test_connection(
             raise ValueError("A connection's database name cannot be changed")
         connection = _with_stored_secrets(connection, stored)
 
-    requested_schema = str(connection.get("schema") or "").strip()
-
     # Surface a bad allow/deny pattern here, while the operator is still looking
     # at the form. Left to ingestion it would be logged and skipped, and the
     # tables they meant to exclude would be ingested anyway.
@@ -168,22 +146,8 @@ def test_connection(
     connection_string = build_connection_string(connection)
     connector = create_connector(connection_string)
     try:
-        # ``get_schemas`` runs a real query, so it validates connectivity and
-        # credentials just like ``ping`` while also returning the schema list.
-        get_schemas = getattr(connector, "get_schemas", None)
-        if get_schemas is None:
-            connector.ping()
-            return []
-
-        schemas = list(get_schemas())
-        if requested_schema and not any(
-            str(name).strip().casefold() == requested_schema.casefold()
-            for name in schemas
-        ):
-            raise ValueError(
-                f"Schema {requested_schema!r} was not found in {database_name!r}."
-            )
-        return schemas
+        connector.ping()
+        return []
     finally:
         connector.close()
 
@@ -193,11 +157,6 @@ def create_connection(
     connection: dict[str, Any],
 ) -> dict[str, Any]:
     """Create a UI-managed connection stored on the catalog database row."""
-
-    # ``schema`` is the form's shorthand for a single-schema allowlist; the caller
-    # turns it into ``schemas``. Storing the raw field too would leave two sources of
-    # truth for what gets ingested, so drop it.
-    connection = {key: value for key, value in connection.items() if key != "schema"}
 
     database_name = str(connection.get("database"))
     if not database_name:
@@ -239,14 +198,10 @@ def update_connection(
     pointing the record at a different database or driver is a new connection,
     not an edit. Everything else, credentials included, can change.
 
-    Re-ingest only when the schema allowlist moved. Rotating a token or fixing a
+    Re-ingest only when the table filter moved. Rotating a password or fixing a
     hostname leaves the ingested graph correct, and re-ingesting it would be a
     long, surprising side effect of saving a form.
     """
-    # Same shorthand the create path drops: `schema` is the single-schema form
-    # of `schemas`, and storing both leaves two sources of truth.
-    connection = {key: value for key, value in connection.items() if key != "schema"}
-
     stored = _stored_connection(database_name)
     if stored is None:
         raise LookupError(f"No connection found for database {database_name!r}")
@@ -286,36 +241,6 @@ def update_connection(
         trigger_ingest(updated)
 
     return updated
-
-
-def set_sso_federation(*, database_name: str, enabled: bool) -> dict[str, Any]:
-    """Toggle "authenticate as signed-in user" on an existing connection.
-
-    Deliberately narrow: it rewrites only the ``sso_federation`` flag on the
-    stored connection, so callers never have to re-send credentials to change
-    it. Ingestion is unaffected — it always uses the stored access token — so
-    no re-ingest is triggered.
-    """
-    connection = _stored_connection(database_name)
-    if connection is None:
-        raise ValueError(f"No connection found for database {database_name!r}")
-
-    updated = {**connection, "sso_federation": enabled}
-
-    if is_vault_configured():
-        write_secret(database_name, updated)
-    else:
-        insert_connection(
-            connection=json.dumps(updated),
-            database_name=database_name,
-        )
-
-    # Connectors cache the credential, chat workers hold connectors, and the
-    # chat endpoint caches this very flag, so all three have to be rebuilt for
-    # the change to take effect on the next question rather than after a TTL.
-    _refresh_connection_caches()
-
-    return {"database_name": database_name, "sso_federation": enabled}
 
 
 def delete_connection(database_name: str) -> dict[str, str] | None:

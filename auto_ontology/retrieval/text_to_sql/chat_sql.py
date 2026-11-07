@@ -39,21 +39,9 @@ def truncate_sql(sql: str) -> str:
 
 
 def log_chat_sql(connector: Any, sql: str, *, kind: str = "chat SQL") -> None:
-    """Log one agent-issued statement at INFO, with the credential in use.
-
-    ``auth_mode`` is only exposed by connectors that can run as the calling user
-    (currently Databricks); for the rest the credential is fixed and the clause
-    is left off rather than stating something misleading.
-    """
+    """Log one agent-issued statement at INFO."""
     database = getattr(connector, "database_name", None) or "unknown"
-    auth_mode = getattr(connector, "auth_mode", None)
-
-    if auth_mode:
-        logger.info(
-            "[%s] Executing %s as %s:\n%s", database, kind, auth_mode, truncate_sql(sql)
-        )
-    else:
-        logger.info("[%s] Executing %s:\n%s", database, kind, truncate_sql(sql))
+    logger.info("[%s] Executing %s:\n%s", database, kind, truncate_sql(sql))
 
 
 def execute_chat_sql(
@@ -72,8 +60,7 @@ def execute_chat_sql(
     Connecting and warehouse scheduling may sit outside it, so expect roughly
     the cap plus a couple of seconds of wall clock.
 
-    Every built-in connector honours the cap -- server side where the engine
-    has a statement timeout, client side for DuckDB, SQLite and HeavyDB. One
+    Postgres enforces the cap server side (``statement_timeout``). A connector
     that doesn't advertise ``supports_statement_timeout`` is called unchanged,
     so the cap never breaks a connector with no way to honour it.
     """

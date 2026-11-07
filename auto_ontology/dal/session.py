@@ -15,8 +15,7 @@ Two entry points, used by every read and write in the DAL:
 
 **Pooling.** The DAL is called from three places with different concurrency
 shapes: FastAPI request handlers, ingestion ``ThreadPoolExecutor`` threads
-(``write_to_graph`` fans out), and a *spawned* chat-worker subprocess
-(:mod:`auto_ontology.server.chat.worker`). SQLAlchemy's ``QueuePool`` is thread-safe, and
+(``write_to_graph`` fans out), and the SQL agent's request threads. SQLAlchemy's ``QueuePool`` is thread-safe, and
 the ``ContextVar`` holding the active transaction is per-thread and per-task, so
 two threads inside ``write_transaction`` get genuinely separate transactions
 rather than trampling one connection.
@@ -109,7 +108,7 @@ def get_engine() -> Engine:
             # come from the connect itself.
             #
             # 3 seconds to match every other Postgres consumer in the repo
-            # (auto_ontology/server/chat/*_dal.py, auto_ontology/ingestion_service/history.py).
+            # (auto_ontology/server/settings_dal.py, auto_ontology/ingestion_service/history.py).
             #
             # `search_path` is pinned here, per connection, and not inherited.
             # Every table in this metadata is unqualified, so `search_path` is
