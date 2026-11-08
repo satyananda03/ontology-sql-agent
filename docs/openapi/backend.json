@@ -909,68 +909,6 @@
         "title": "ColumnSummary",
         "type": "object"
       },
-      "ConnectionBody": {
-        "properties": {
-          "connection": {
-            "additionalProperties": true,
-            "title": "Connection",
-            "type": "object"
-          }
-        },
-        "required": [
-          "connection"
-        ],
-        "title": "ConnectionBody",
-        "type": "object"
-      },
-      "ConnectionTestBody": {
-        "properties": {
-          "connection": {
-            "additionalProperties": true,
-            "title": "Connection",
-            "type": "object"
-          },
-          "replacing": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Replacing"
-          }
-        },
-        "required": [
-          "connection"
-        ],
-        "title": "ConnectionTestBody",
-        "type": "object"
-      },
-      "ConnectionTestResponse": {
-        "additionalProperties": true,
-        "description": "``schemas`` is empty for connectors that cannot enumerate schemas.",
-        "properties": {
-          "schemas": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Schemas",
-            "type": "array"
-          },
-          "success": {
-            "title": "Success",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "success",
-          "schemas"
-        ],
-        "title": "ConnectionTestResponse",
-        "type": "object"
-      },
       "CustomAnalysis": {
         "additionalProperties": true,
         "description": "A verified SQL example, joined with the text of its ``Sql`` node.",
@@ -1338,19 +1276,6 @@
           "data"
         ],
         "title": "DataResponse[IdRef]",
-        "type": "object"
-      },
-      "DataResponse_PublicConnection_": {
-        "additionalProperties": true,
-        "properties": {
-          "data": {
-            "$ref": "#/components/schemas/PublicConnection"
-          }
-        },
-        "required": [
-          "data"
-        ],
-        "title": "DataResponse[PublicConnection]",
         "type": "object"
       },
       "DataResponse_Rule_": {
@@ -2047,12 +1972,6 @@
           "format": {
             "$ref": "#/components/schemas/ModelFormat",
             "default": "auto_ontology"
-          },
-          "include_ontology": {
-            "default": false,
-            "description": "Apache Ossie only: also export the terms as an Ossie ontology, with a mapping onto the semantic model, as a zip of the three documents.",
-            "title": "Include Ontology",
-            "type": "boolean"
           }
         },
         "title": "ExportRequest",
@@ -2602,6 +2521,19 @@
         "title": "IdRef",
         "type": "object"
       },
+      "IngestStatus": {
+        "properties": {
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "running"
+        ],
+        "title": "IngestStatus",
+        "type": "object"
+      },
       "ListResponse_DatabaseSummary_": {
         "additionalProperties": true,
         "properties": {
@@ -2712,28 +2644,6 @@
         "title": "ListResponse[Owner]",
         "type": "object"
       },
-      "ListResponse_PublicConnection_": {
-        "additionalProperties": true,
-        "properties": {
-          "count": {
-            "title": "Count",
-            "type": "integer"
-          },
-          "data": {
-            "items": {
-              "$ref": "#/components/schemas/PublicConnection"
-            },
-            "title": "Data",
-            "type": "array"
-          }
-        },
-        "required": [
-          "data",
-          "count"
-        ],
-        "title": "ListResponse[PublicConnection]",
-        "type": "object"
-      },
       "ListResponse_SqlAttribute_": {
         "additionalProperties": true,
         "properties": {
@@ -2825,8 +2735,7 @@
       "ModelFormat": {
         "description": "Serialisation dialect of an exchanged model document.",
         "enum": [
-          "auto_ontology",
-          "ossie"
+          "auto_ontology"
         ],
         "title": "ModelFormat",
         "type": "string"
@@ -3200,33 +3109,6 @@
           "total"
         ],
         "title": "PagedListResponse[Tag]",
-        "type": "object"
-      },
-      "PublicConnection": {
-        "additionalProperties": true,
-        "description": "A UI-managed connection with its credentials stripped.\n\n``connection`` is absent from the delete response, which echoes only the\ndatabase name it tore down; the list and create reads carry the full\ncredential-free config.",
-        "properties": {
-          "connection": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Connection"
-          },
-          "database_name": {
-            "title": "Database Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "database_name"
-        ],
-        "title": "PublicConnection",
         "type": "object"
       },
       "Rule": {
@@ -3635,17 +3517,12 @@
             "title": "Pii Detection Enabled",
             "type": "boolean"
           },
-          "semantic_compilation_enabled": {
-            "title": "Semantic Compilation Enabled",
-            "type": "boolean"
-          },
           "sql_query_timeout_seconds": {
             "title": "Sql Query Timeout Seconds",
             "type": "integer"
           }
         },
         "required": [
-          "semantic_compilation_enabled",
           "distinct_value_probing_enabled",
           "pii_detection_enabled",
           "sql_query_timeout_seconds"
@@ -3679,17 +3556,6 @@
             ],
             "title": "Pii Detection Enabled"
           },
-          "semantic_compilation_enabled": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Semantic Compilation Enabled"
-          },
           "sql_query_timeout_seconds": {
             "anyOf": [
               {
@@ -3707,6 +3573,34 @@
         "title": "SettingsUpdate",
         "type": "object"
       },
+      "SourceConnection": {
+        "properties": {
+          "database": {
+            "title": "Database",
+            "type": "string"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "user": {
+            "title": "User",
+            "type": "string"
+          }
+        },
+        "required": [
+          "database",
+          "host",
+          "port",
+          "user"
+        ],
+        "title": "SourceConnection",
+        "type": "object"
+      },
       "SqlAgentQuery": {
         "properties": {
           "evidence": {
@@ -3720,18 +3614,6 @@
             "minLength": 1,
             "title": "Question",
             "type": "string"
-          },
-          "target_db": {
-            "anyOf": [
-              {
-                "maxLength": 200,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Target Db"
           }
         },
         "required": [
@@ -6510,228 +6392,25 @@
         ]
       }
     },
-    "/api/connections": {
+    "/api/connection": {
       "get": {
-        "description": "List every configured database connection, credential-free.\n\nCredentials are stripped from each connection object, so the payload is safe to render\nin the UI. ``database_name`` doubles as the connection's identity in the\nother routes here.",
-        "operationId": "list_connections_api_connections_get",
+        "description": "The source database from ``CONNECTION_STRINGS``, without its password.\n\nIt is the only source: change it in ``.env`` and restart both services.\n404 when ``CONNECTION_STRINGS`` is empty.",
+        "operationId": "get_connection_api_connection_get",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse_PublicConnection_"
+                  "$ref": "#/components/schemas/SourceConnection"
                 }
               }
             },
             "description": "Successful Response"
           }
         },
-        "summary": "List Connections",
+        "summary": "Get Connection",
         "tags": [
-          "connections"
-        ]
-      },
-      "post": {
-        "description": "Register a database connection and return it credential-free.\n\nThe connection is validated on the way in; anything the driver rejects comes\nback as 422 with the failure message rather than a 500. Call\n``POST /connections/test`` first to check credentials.",
-        "operationId": "create_connection_api_connections_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ConnectionBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DataResponse_PublicConnection_"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Create Connection",
-        "tags": [
-          "connections"
-        ]
-      }
-    },
-    "/api/connections/source": {
-      "get": {
-        "description": "Report whether connections are managed via the ``CONNECTION_STRINGS`` env.",
-        "operationId": "is_env_source_api_connections_source_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "title": "Response Is Env Source Api Connections Source Get",
-                  "type": "boolean"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Is Env Source",
-        "tags": [
-          "connections"
-        ]
-      }
-    },
-    "/api/connections/test": {
-      "post": {
-        "description": "Validate a connection by connecting and pinging it.\n\n``schemas`` is always empty: the Postgres connector does not enumerate\nschemas. Scope ingestion with ``ingest.yaml`` instead.\n\nSet ``replacing`` to the ``database_name`` of the connection an edit is\nabout to overwrite. Without it the test rejects the connection for already\nexisting, and blank credentials stay blank instead of being taken from the\nstored connection the way ``PUT /connections/{database_name}`` would.",
-        "operationId": "test_connection_api_connections_test_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ConnectionTestBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ConnectionTestResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Test Connection",
-        "tags": [
-          "connections"
-        ]
-      }
-    },
-    "/api/connections/{database_name}": {
-      "delete": {
-        "description": "Remove a connection, echoing the database name it tore down.\n\n404 when no connection carries that ``database_name``. The connection\nrecord is removed synchronously, but deleting the data already ingested\nfrom it is handed to the ingestion service and is best-effort \u2014 a 200 means\nthe connection is gone, not that its graph is.",
-        "operationId": "delete_connection_api_connections__database_name__delete",
-        "parameters": [
-          {
-            "description": "Catalog database name, which doubles as the connection's identity.",
-            "in": "path",
-            "name": "database_name",
-            "required": true,
-            "schema": {
-              "description": "Catalog database name, which doubles as the connection's identity.",
-              "title": "Database Name",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DataResponse_PublicConnection_"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Delete Connection",
-        "tags": [
-          "connections"
-        ]
-      },
-      "put": {
-        "description": "Rewrite a connection's settings and return it credential-free.\n\n``database`` and ``type`` are the connection's identity and cannot change \u2014\nsending different ones is a 422. Credentials left blank keep their stored\nvalue, since the UI is never given them to send back. Re-ingest is\ntriggered only when the table allow/deny patterns changed.\n\n404 when no connection carries that ``database_name``.",
-        "operationId": "update_connection_api_connections__database_name__put",
-        "parameters": [
-          {
-            "description": "Catalog database name, which doubles as the connection's identity.",
-            "in": "path",
-            "name": "database_name",
-            "required": true,
-            "schema": {
-              "description": "Catalog database name, which doubles as the connection's identity.",
-              "title": "Database Name",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ConnectionBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DataResponse_PublicConnection_"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Update Connection",
-        "tags": [
-          "connections"
+          "connection"
         ]
       }
     },
@@ -7897,9 +7576,53 @@
         ]
       }
     },
+    "/api/ingest": {
+      "post": {
+        "description": "Re-ingest the source database's structure into the catalog.\n\nRuns on the ingestion service, after any compilation in flight. 502 when\nthat service cannot be reached.",
+        "operationId": "start_ingest_api_ingest_post",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Start Ingest",
+        "tags": [
+          "connection"
+        ]
+      }
+    },
+    "/api/ingest/status": {
+      "get": {
+        "description": "Whether an ingest pass is running; False when the service is unreachable.",
+        "operationId": "ingest_status_api_ingest_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Ingest Status",
+        "tags": [
+          "connection"
+        ]
+      }
+    },
     "/api/model/export": {
       "post": {
-        "description": "Export the scoped catalog + semantic model as a YAML attachment.\n\nWith ``include_ontology``, the Apache Ossie export is a zip that also holds\nthe terms as an Ossie ontology and the mapping onto the semantic model.",
+        "description": "Export the scoped catalog + semantic model as a YAML attachment.",
         "operationId": "export_model_api_model_export_post",
         "requestBody": {
           "content": {
@@ -7918,15 +7641,9 @@
                 "schema": {
                   "type": "string"
                 }
-              },
-              "application/zip": {
-                "schema": {
-                  "format": "binary",
-                  "type": "string"
-                }
               }
             },
-            "description": "Auto Ontology model YAML, or with include_ontology a zip of the Apache Ossie semantic model, ontology and mapping, sent as a file attachment"
+            "description": "Auto Ontology model YAML, sent as a file attachment"
           },
           "422": {
             "content": {
@@ -7947,7 +7664,7 @@
     },
     "/api/model/import": {
       "post": {
-        "description": "Import a native Auto Ontology or Apache Ossie model YAML file or raw YAML body.",
+        "description": "Import an Auto Ontology model YAML file or raw YAML body.",
         "operationId": "import_model_api_model_import_post",
         "parameters": [
           {
@@ -8505,7 +8222,7 @@
     },
     "/api/semantic-compilation/reset": {
       "post": {
-        "description": "Ask the ingestion service to rebuild every database's semantic layer.\n\nThe service deletes the semantic nodes and embeddings and compiles them\nagain, so the layer is rebuilt without waiting for the next scheduled run.",
+        "description": "Ask the ingestion service to rebuild every database's semantic layer.\n\nThe service deletes the semantic nodes and embeddings and compiles them\nagain.",
         "operationId": "reset_api_semantic_compilation_reset_post",
         "responses": {
           "202": {
@@ -8549,7 +8266,7 @@
     },
     "/api/semantic-compilation/trigger": {
       "post": {
-        "description": "Ask the ingestion service to run (and schedule) semantic compilation.",
+        "description": "Ask the ingestion service to run semantic compilation now.",
         "operationId": "trigger_api_semantic_compilation_trigger_post",
         "responses": {
           "202": {

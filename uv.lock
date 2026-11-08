@@ -138,15 +138,6 @@ wheels = [
 ]
 
 [[package]]
-name = "apache-ossie-nvidia-auto-ontology"
-version = "0.1.0.dev0"
-source = { git = "https://github.com/apache/ossie.git?subdirectory=converters%2Fnvidia&rev=ef91cb61092c60f4b918016a81cfdbe483e113bc#ef91cb61092c60f4b918016a81cfdbe483e113bc" }
-dependencies = [
-    { name = "pyyaml" },
-    { name = "sqlglot" },
-]
-
-[[package]]
 name = "asyncpg"
 version = "0.31.0"
 source = { registry = "https://pypi.org/simple" }
@@ -843,7 +834,6 @@ version = "1.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
-    { name = "apache-ossie-nvidia-auto-ontology" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "hvac" },
@@ -877,7 +867,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.19.1" },
-    { name = "apache-ossie-nvidia-auto-ontology", git = "https://github.com/apache/ossie.git?subdirectory=converters%2Fnvidia&rev=ef91cb61092c60f4b918016a81cfdbe483e113bc" },
     { name = "fastapi", specifier = ">=0.141.1" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "hvac", specifier = ">=2.4.0" },

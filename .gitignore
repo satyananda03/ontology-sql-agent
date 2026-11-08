@@ -35,6 +35,6 @@ runs/
 *.pub
 
 # Review UI: dependencies, build output, and types generated from docs/openapi
-ui/node_modules/
-ui/dist/
-ui/src/schema.d.ts
+dashboard/node_modules/
+dashboard/dist/
+dashboard/src/types/schema.d.ts

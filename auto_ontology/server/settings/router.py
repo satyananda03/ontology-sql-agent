@@ -32,10 +32,6 @@ from auto_ontology.infra.feature_flags import (
     is_distinct_value_probing_enabled,
     is_pii_detection_enabled,
 )
-from auto_ontology.ingestion_service.config import (
-    SEMANTIC_COMPILATION_ENABLED_KEY,
-    is_semantic_compilation_enabled,
-)
 from auto_ontology.server import settings_dal
 
 router = APIRouter()
@@ -74,7 +70,6 @@ class AcronymUpdate(BaseModel):
 class Settings(BaseModel):
     """The settings in effect, defaults included."""
 
-    semantic_compilation_enabled: bool
     distinct_value_probing_enabled: bool
     pii_detection_enabled: bool
     sql_query_timeout_seconds: int
@@ -85,7 +80,6 @@ class SettingsUpdate(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    semantic_compilation_enabled: bool | None = None
     distinct_value_probing_enabled: bool | None = None
     pii_detection_enabled: bool | None = None
     sql_query_timeout_seconds: Timeout | None = None
@@ -94,7 +88,6 @@ class SettingsUpdate(BaseModel):
 # The model's field names are the stored keys; spelled out so a rename on
 # either side fails the import instead of writing a key nothing reads.
 _KEYS = {
-    "semantic_compilation_enabled": SEMANTIC_COMPILATION_ENABLED_KEY,
     "distinct_value_probing_enabled": DISTINCT_VALUE_PROBING_ENABLED_KEY,
     "pii_detection_enabled": PII_DETECTION_ENABLED_KEY,
     "sql_query_timeout_seconds": SQL_QUERY_TIMEOUT_SECONDS_KEY,
@@ -146,7 +139,6 @@ def delete_acronym(acronym_id: UUID) -> Response:
 def read_settings() -> Settings:
     """Return the settings in effect, defaults included."""
     return Settings(
-        semantic_compilation_enabled=is_semantic_compilation_enabled(),
         distinct_value_probing_enabled=is_distinct_value_probing_enabled(),
         pii_detection_enabled=is_pii_detection_enabled(),
         sql_query_timeout_seconds=get_sql_query_timeout_seconds(),

@@ -12,9 +12,9 @@ writes.
 
 ## How a question is answered
 
-The graph lives in `ontology_sql_agent/workflow.py`:
+The graph lives in `sql_agent/workflow.py`:
 
-1. **`ontology_context`** runs auto_ontology's retrieval (`ontology_sql_agent/retrieval.py`):
+1. **`ontology_context`** runs auto_ontology's retrieval (`sql_agent/retrieval.py`):
    - entity extraction;
    - vector search over Terms and columns;
    - graph search for join paths.
@@ -52,7 +52,6 @@ Content-Type: application/json
 | Field | Required | Meaning |
 | --- | --- | --- |
 | `question` | Yes | A standalone question. The caller resolves follow-ups first. |
-| `target_db` | No | Database to query, when several are connected. |
 | `evidence` | No | Rules the SQL must follow. |
 
 A missing or wrong key returns 401. If the server has no `SQL_AGENT_API_KEY`
@@ -112,11 +111,11 @@ async def search_database_knowledge(question: str) -> str:
 
 | Command | What it does |
 | --- | --- |
-| `uv run python -m ontology_sql_agent.knowledge.import_classic_yaml --dictionary <yaml>` | Imports the classic agent's hand-written dictionary into the ontology. It prints the changes and writes only with `--apply`. |
-| `uv run python -m ontology_sql_agent.knowledge.generate_synonyms propose --out synonyms.yaml` | Proposes Term synonyms for review. `apply synonyms.yaml` writes the reviewed file. |
-| `make eval` | Asks the questions in `ontology_sql_agent/eval/golden.yaml` and records each one's SQL, time and LLM usage in `runs/agent.jsonl`. Row data is never stored. |
+| `uv run python -m sql_agent.knowledge.import_classic_yaml --dictionary <yaml>` | Imports the classic agent's hand-written dictionary into the ontology. It prints the changes and writes only with `--apply`. |
+| `uv run python -m sql_agent.knowledge.generate_synonyms propose --out synonyms.yaml` | Proposes Term synonyms for review. `apply synonyms.yaml` writes the reviewed file. |
+| `make eval` | Asks the questions in `sql_agent/eval/golden.yaml` and records each one's SQL, time and LLM usage in `runs/agent.jsonl`. Row data is never stored. |
 | `make eval-report` | Scores every run file in `runs/` against the golden SQL, using a read-only session. |
 
-`ontology_sql_agent/eval/classic_arm.py` asks the same questions through the
+`sql_agent/eval/classic_arm.py` asks the same questions through the
 original classic agent. That agent is a separate application, so the script runs
 from that application's checkout.

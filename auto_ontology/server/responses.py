@@ -202,6 +202,12 @@ class SemanticStatusResponse(_Payload):
     last_failure_at: str | None
 
 
+class IngestRunningResponse(_Payload):
+    """The ingestion service's ingest status: whether a pass is executing now."""
+
+    running: bool
+
+
 class SemanticRunningResponse(_Payload):
     """The ingestion service's own status endpoint: whether a compilation pass
     is executing right now, when the last one finished successfully, and when

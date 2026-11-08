@@ -4,40 +4,24 @@
 
 """Resolve configured connections for the ingestion-service schedulers.
 
-Connections come from the ``CONNECTION_STRINGS`` env var when set, otherwise
-from the catalog (Vault-resolved). Both the data and semantic schedulers
-resolve through here so they see the *same* set — in particular env-var
-connections, which never reach the catalog.
+The one connection comes from the ``CONNECTION_STRINGS`` env var (see
+``auto_ontology.connectors.registry.source_connection_string``). Both the data and
+semantic schedulers resolve through here so they see the same database.
 """
 
 from __future__ import annotations
 
 import logging
-import os
 
-from auto_ontology.connectors.connection_string_factory import build_connection_string
-from auto_ontology.connectors.registry import (
-    create_connector,
-    parse_connection_strings,
-)
-from auto_ontology.dal.connections import list_connections
+from auto_ontology.connectors.registry import create_connector, source_connection_string
 
 logger = logging.getLogger(__name__)
 
 
 def resolve_connection_strings() -> list[str]:
-    """Return the connection strings to process this pass (env var or the catalog)."""
-    raw = os.environ.get("CONNECTION_STRINGS", "")
-    connections = parse_connection_strings(raw)
-    if connections:
-        logger.info("connections: using CONNECTION_STRINGS env (%d)", len(connections))
-        return connections
-
-    try:
-        return [build_connection_string(conn) for conn in list_connections()]
-    except Exception:
-        logger.exception("connections: failed to load from the store")
-        return []
+    """Return the connection string to process this pass: one, or none when unset."""
+    url = source_connection_string()
+    return [url] if url else []
 
 
 def resolve_database_names() -> list[str]:

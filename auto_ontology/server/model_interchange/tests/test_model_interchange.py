@@ -8,23 +8,15 @@ Unit tests for Auto Ontology model YAML export/import, run against mocks.
 
 The storage-level behaviour these do not reach — portable ``imported_id``
 matching, and the export/import round-trip — is covered against a live database
-by ``auto_ontology/dal/tests/test_model_interchange.py`` and by the recorded golden
-reads."""
+by ``auto_ontology/dal/tests/test_model_interchange.py``."""
 
 from __future__ import annotations
 
-import io
-import zipfile
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
-from ossie_nvidia_auto_ontology import (
-    AutoOntologyConversionError,
-    convert_auto_ontology_to_ossie,
-)
-from pydantic import ValidationError
 
 from auto_ontology.dal.model_interchange import (
     assemble_export_document,
@@ -420,116 +412,6 @@ def test_export_model_all_databases_uses_empty_filter(
     mock_fetch.assert_called_once_with([])
 
 
-@patch(
-    "auto_ontology.server.model_interchange.service.dal.make_cached_sql_column_resolver",
-    return_value=lambda *args, **kwargs: [],
-)
-@patch("auto_ontology.server.model_interchange.service.dal.fetch_export_rows")
-@patch("auto_ontology.server.model_interchange.service.dal.validate_database_ids")
-def test_export_model_ossie_format_emits_ossie_document(
-    _mock_validate: MagicMock,
-    mock_fetch: MagicMock,
-    _mock_resolver: MagicMock,
-) -> None:
-    mock_fetch.return_value = _export_rows()
-
-    yaml_text = service.export_model(
-        ExportRequest(databases=[], format=ModelFormat.OSSIE),
-    )
-    payload = yaml.safe_load(yaml_text)
-
-    assert "data_layer" not in payload
-    model = payload
-    assert [dataset["name"] for dataset in model["datasets"]] == ["order"]
-    assert model["datasets"][0]["source"] == "retail.main.orders"
-
-
-@patch(
-    "auto_ontology.server.model_interchange.service.dal.make_cached_sql_column_resolver",
-    return_value=lambda *args, **kwargs: [],
-)
-@patch("auto_ontology.server.model_interchange.service.dal.fetch_export_rows")
-@patch("auto_ontology.server.model_interchange.service.dal.validate_database_ids")
-def test_export_ossie_documents_zips_the_model_its_ontology_and_mapping(
-    _mock_validate: MagicMock,
-    mock_fetch: MagicMock,
-    _mock_resolver: MagicMock,
-) -> None:
-    mock_fetch.return_value = _export_rows()
-    request = ExportRequest(
-        databases=[], format=ModelFormat.OSSIE, include_ontology=True
-    )
-
-    with zipfile.ZipFile(io.BytesIO(service.export_ossie_documents(request))) as zf:
-        files = {name: zf.read(name).decode("utf-8") for name in zf.namelist()}
-
-    semantic_model, ontology, mapping = service.OSSIE_EXPORT_FILES
-    assert set(files) == {semantic_model, ontology, mapping}
-    # The zip carries the same semantic model the single-file export returns.
-    assert files[semantic_model] == service.export_model(request)
-    concepts = [item["concept"] for item in yaml.safe_load(files[ontology])["ontology"]]
-    assert concepts == ["Order"]
-    references = yaml.safe_load(files[mapping])
-    assert references["ontology_ref"]["iri"] == f"./{ontology}"
-    assert references["semantic_model_ref"]["iri"] == f"./{semantic_model}"
-
-
-def test_include_ontology_requires_the_ossie_format() -> None:
-    with pytest.raises(ValidationError, match="only to the ossie format"):
-        ExportRequest(databases=[], include_ontology=True)
-
-
-@patch(
-    "auto_ontology.server.model_interchange.service.dal.make_cached_sql_column_resolver",
-    return_value=lambda *args, **kwargs: [],
-)
-@patch("auto_ontology.server.model_interchange.service.dal.fetch_export_rows")
-@patch("auto_ontology.server.model_interchange.service.dal.validate_database_ids")
-def test_export_model_ossie_reports_all_duplicate_custom_analysis_names(
-    _mock_validate: MagicMock,
-    mock_fetch: MagicMock,
-    _mock_resolver: MagicMock,
-) -> None:
-    rows = _export_rows()
-    rows["custom_analyses"] = [
-        {
-            "id": "ca-1",
-            "name": "name25",
-            "description": "",
-            "sql": "SELECT 1",
-            "database_name": "retail",
-        },
-        {
-            "id": "ca-2",
-            "name": "name25",
-            "description": "",
-            "sql": "SELECT 1",
-            "database_name": "retail",
-        },
-        {
-            "id": "ca-3",
-            "name": "name3",
-            "description": "",
-            "sql": "SELECT 1",
-            "database_name": "retail",
-        },
-        {
-            "id": "ca-4",
-            "name": "name3",
-            "description": "",
-            "sql": "SELECT 1",
-            "database_name": "retail",
-        },
-    ]
-    mock_fetch.return_value = rows
-
-    with pytest.raises(
-        AutoOntologyConversionError,
-        match=r"duplicate names.*'name25' \(2\), 'name3' \(2\)",
-    ):
-        service.export_model(ExportRequest(databases=[], format=ModelFormat.OSSIE))
-
-
 def _multi_table_term_rows() -> dict:
     """A term representing two tables, as a junction concept usually does."""
     rows = _export_rows()
@@ -581,40 +463,6 @@ def _multi_table_term_rows() -> dict:
         },
     ]
     return rows
-
-
-@patch(
-    "auto_ontology.server.model_interchange.service.dal.make_cached_sql_column_resolver",
-    return_value=lambda *args, **kwargs: [],
-)
-@patch("auto_ontology.server.model_interchange.service.dal.fetch_export_rows")
-@patch("auto_ontology.server.model_interchange.service.dal.validate_database_ids")
-def test_export_model_ossie_keeps_one_table_per_term(
-    _mock_validate: MagicMock,
-    mock_fetch: MagicMock,
-    _mock_resolver: MagicMock,
-) -> None:
-    """A multi-table term exports as the single dataset Ossie can hold.
-
-    The table contributing most of the term's column attributes wins, and the
-    attributes of the other table go with it — an Ossie field may only name a
-    column of its own dataset.
-    """
-    mock_fetch.return_value = _multi_table_term_rows()
-
-    payload = yaml.safe_load(
-        service.export_model(ExportRequest(databases=[], format=ModelFormat.OSSIE)),
-    )
-
-    datasets = payload["datasets"]
-    assert [dataset["name"] for dataset in datasets] == ["category"]
-    assert datasets[0]["source"] == "retail.main.categories"
-    # The primary-key column no attribute exposes is exported as a field too.
-    assert [field["name"] for field in datasets[0]["fields"]] == [
-        "category_id",
-        "category_id_again",
-        "id",
-    ]
 
 
 @patch(
@@ -685,16 +533,6 @@ def test_export_model_succeeds_with_an_unreachable_database(
     assert yaml.safe_load(yaml_text)
 
 
-def test_detect_model_format_tells_the_vocabularies_apart() -> None:
-    assert service.detect_model_format({"data_layer": {}}) is ModelFormat.AUTO_ONTOLOGY
-    assert (
-        service.detect_model_format({"semantic_layer": {}}) is ModelFormat.AUTO_ONTOLOGY
-    )
-    flat_ossie = {"version": "0.2.0", "name": "retail", "datasets": []}
-    assert service.detect_model_format(flat_ossie) is ModelFormat.OSSIE
-    assert service.detect_model_format({"semantic_model": []}) is ModelFormat.OSSIE
-
-
 @pytest.mark.parametrize(
     "document",
     [
@@ -707,39 +545,12 @@ def test_import_model_rejects_unreadable_documents_before_touching_data(
     mock_apply: MagicMock,
     document: dict,
 ) -> None:
-    """Read as native, these would validate as an empty model and wipe the
+    """Read as a model, these would validate as an empty one and wipe the
     catalog on a replacing import."""
-    with pytest.raises(AutoOntologyConversionError):
+    with pytest.raises(ValueError, match="Not an Auto Ontology model"):
         service.import_model(yaml.safe_dump(document), replace=True, embed=False)
 
     mock_apply.assert_not_called()
-
-
-@patch("auto_ontology.server.model_interchange.service.dal.apply_import_model")
-def test_import_model_converts_ossie_document_back_to_auto_ontology(
-    mock_apply: MagicMock,
-) -> None:
-    """An Ossie file must reach the DAL as the Auto Ontology document it describes."""
-    mock_apply.return_value = {}
-    document = assemble_export_document(
-        _export_rows(),
-        dialect_by_db_name={"retail": "sqlite"},
-        sql_column_resolver=lambda _sql, _db: [],
-    )
-    auto_ontology_yaml = yaml.safe_dump(
-        document.model_dump(mode="python"), sort_keys=False
-    )
-    ossie_yaml = convert_auto_ontology_to_ossie(auto_ontology_yaml)
-
-    summary = service.import_model(ossie_yaml, replace=True, embed=False)
-
-    assert summary["format"] == ModelFormat.OSSIE.value
-    imported = mock_apply.call_args[0][0]
-    assert isinstance(imported, AutoOntologyModelDocument)
-    assert [term.name for term in imported.semantic_layer.terms] == ["Order"]
-    table = imported.data_layer.databases[0].schemas[0].tables[0]
-    assert table.name == "orders"
-    assert [column.name for column in table.columns] == ["id"]
 
 
 @patch("auto_ontology.server.model_interchange.service.dal.apply_import_model")

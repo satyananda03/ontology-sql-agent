@@ -2,13 +2,12 @@
 # All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""HTTP routes for native Auto Ontology and Apache Ossie model YAML export/import."""
+"""HTTP routes for Auto Ontology model YAML export/import."""
 
 from __future__ import annotations
 
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response
-from ossie_nvidia_auto_ontology import AutoOntologyConversionError
 from pydantic import ValidationError
 
 from auto_ontology.dal.model_interchange import (
@@ -33,42 +32,21 @@ class YamlResponse(Response):
     response_class=YamlResponse,
     responses={
         200: {
-            "content": {
-                "application/x-yaml": {"schema": {"type": "string"}},
-                "application/zip": {"schema": {"type": "string", "format": "binary"}},
-            },
-            "description": (
-                "Auto Ontology model YAML, or with include_ontology a zip of the "
-                "Apache Ossie semantic model, ontology and mapping, sent as a file "
-                "attachment"
-            ),
+            "content": {"application/x-yaml": {"schema": {"type": "string"}}},
+            "description": "Auto Ontology model YAML, sent as a file attachment",
         }
     },
 )
 def export_model(body: ExportRequest) -> Response:
-    """Export the scoped catalog + semantic model as a YAML attachment.
-
-    With ``include_ontology``, the Apache Ossie export is a zip that also holds
-    the terms as an Ossie ontology and the mapping onto the semantic model.
-    """
+    """Export the scoped catalog + semantic model as a YAML attachment."""
     try:
-        if body.include_ontology:
-            content: str | bytes = service.export_ossie_documents(body)
-            media_type, filename = "application/zip", "ossie-model.zip"
-        else:
-            content = service.export_model(body)
-            media_type = "application/x-yaml"
-            filename = f"{body.format.value}-model.yaml"
+        content = service.export_model(body)
     except UnknownDatabaseIdsError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except AutoOntologyConversionError as exc:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Cannot express this model as Apache Ossie YAML: {exc}",
-        ) from exc
+    filename = f"{body.format.value}-model.yaml"
     return Response(
         content=content,
-        media_type=media_type,
+        media_type="application/x-yaml",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
@@ -80,7 +58,7 @@ async def import_model(
     replace: bool = Query(default=True),
     embed: bool = Query(default=True),
 ) -> dict:
-    """Import a native Auto Ontology or Apache Ossie model YAML file or raw YAML body."""
+    """Import an Auto Ontology model YAML file or raw YAML body."""
     if file is not None:
         raw = await file.read()
     else:
@@ -101,11 +79,6 @@ async def import_model(
         summary = service.import_model(yaml_text, replace=replace, embed=embed)
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=exc.errors()) from exc
-    except AutoOntologyConversionError as exc:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Cannot read this file as Apache Ossie YAML: {exc}",
-        ) from exc
     except ModelImportValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except ValueError as exc:

@@ -4,12 +4,13 @@
 
 TAG ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
-.PHONY: help build up ingest-dev backend-dev migrate migrate-check \
-        migrate-revision lint test eval eval-report ui ui-build
+.PHONY: help build up dev ingest-dev backend-dev migrate migrate-check \
+        migrate-revision lint test openapi eval eval-report ui ui-build
 
 help:
 	@echo "  make build                     Build the backend image (host arch)"
 	@echo "  make up                        Start postgres, migrate, backend, ingestion"
+	@echo "  make dev                       ingest-dev, backend-dev and ui in one terminal"
 	@echo "  make ingest-dev                Ingestion service on :3002 from source"
 	@echo "  make backend-dev               FastAPI on :3001 with hot reload"
 	@echo "  make migrate                   Apply Alembic migrations"
@@ -17,6 +18,7 @@ help:
 	@echo "  make migrate-revision m=\"...\"  Autogenerate a revision from dal/schema.py"
 	@echo "  make lint                      Ruff check and format check"
 	@echo "  make test                      Backend and agent tests"
+	@echo "  make openapi                   Regenerate docs/openapi/ after an API change"
 	@echo "  make eval                      Ask the golden questions, write runs/agent.jsonl"
 	@echo "  make eval-report               Score runs/*.jsonl against the golden SQL"
 	@echo "  make ui                        Review UI on http://127.0.0.1:5173 (needs the backend)"
@@ -27,6 +29,19 @@ build:
 
 up:
 	docker compose up -d --build
+
+# The three dev processes in one terminal, each line prefixed with its name.
+# Background jobs ignore SIGINT, so the trap turns Ctrl+C into a TERM for the
+# whole group; `wait -n` stops the other two when one exits, so a backend that
+# refuses to start is not buried under the others' logs.
+dev: SHELL := /bin/bash
+dev:
+	@export PYTHONUNBUFFERED=1; \
+	trap 'trap - INT TERM EXIT; kill 0' INT TERM EXIT; \
+	$(MAKE) --no-print-directory ingest-dev 2>&1 | sed -u 's/^/[ingest]  /' & \
+	$(MAKE) --no-print-directory backend-dev 2>&1 | sed -u 's/^/[backend] /' & \
+	$(MAKE) --no-print-directory ui 2>&1 | sed -u 's/^/[ui]      /' & \
+	wait -n
 
 ingest-dev:
 	uv run python -m auto_ontology.ingestion_service
@@ -47,22 +62,26 @@ migrate-revision:
 	uv run alembic revision --autogenerate -m "$(m)"
 
 lint:
-	uv run ruff check auto_ontology ontology_sql_agent dev_tools
-	uv run ruff format --check auto_ontology ontology_sql_agent dev_tools
+	uv run ruff check auto_ontology sql_agent
+	uv run ruff format --check auto_ontology sql_agent
 
 test:
-	uv run pytest auto_ontology ontology_sql_agent dev_tools -q
+	uv run pytest auto_ontology sql_agent -q
+
+# The dashboard's TypeScript types are generated from docs/openapi/backend.json.
+openapi:
+	uv run python -m sql_agent.openapi
 
 eval:
-	uv run python -m ontology_sql_agent.eval.run --out runs/agent.jsonl
+	uv run python -m sql_agent.eval.run --out runs/agent.jsonl
 
 eval-report:
-	uv run python -m ontology_sql_agent.eval.report runs/*.jsonl
+	uv run python -m sql_agent.eval.report runs/*.jsonl
 
 ui:
-	npm --prefix ui install --no-audit --no-fund
-	npm --prefix ui run dev
+	npm --prefix dashboard install --no-audit --no-fund
+	npm --prefix dashboard run dev
 
 ui-build:
-	npm --prefix ui ci --no-audit --no-fund
-	npm --prefix ui run build
+	npm --prefix dashboard ci --no-audit --no-fund
+	npm --prefix dashboard run build

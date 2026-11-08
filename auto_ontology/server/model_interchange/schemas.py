@@ -9,14 +9,13 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 
 class ModelFormat(str, Enum):
     """Serialisation dialect of an exchanged model document."""
 
     AUTO_ONTOLOGY = "auto_ontology"
-    OSSIE = "ossie"
 
 
 class ExportRequest(BaseModel):
@@ -24,19 +23,6 @@ class ExportRequest(BaseModel):
 
     databases: list[str] = Field(default_factory=list)
     format: ModelFormat = ModelFormat.AUTO_ONTOLOGY
-    include_ontology: bool = Field(
-        default=False,
-        description=(
-            "Apache Ossie only: also export the terms as an Ossie ontology, with a "
-            "mapping onto the semantic model, as a zip of the three documents."
-        ),
-    )
-
-    @model_validator(mode="after")
-    def _ontology_is_an_ossie_document(self) -> ExportRequest:
-        if self.include_ontology and self.format is not ModelFormat.OSSIE:
-            raise ValueError("include_ontology applies only to the ossie format")
-        return self
 
 
 class ImportRequest(BaseModel):

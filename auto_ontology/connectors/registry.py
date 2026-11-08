@@ -2,7 +2,11 @@
 # All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Load and cache SQLDatabase connectors from CONNECTION_STRINGS."""
+"""Load and cache the SQLDatabase connector for the one source database.
+
+The source database comes from ``CONNECTION_STRINGS`` only, and it must hold
+exactly one connection: this build answers from a single database.
+"""
 
 from __future__ import annotations
 
@@ -11,10 +15,8 @@ import os
 import re
 from urllib.parse import urlparse
 
-from auto_ontology.catalog.table_filter import TableFilter, from_connection
+from auto_ontology.catalog.table_filter import TableFilter
 from auto_ontology.connectors.base import SQLDatabase
-
-from auto_ontology.connectors.connection_string_factory import build_connection_string
 from auto_ontology.connectors.postgres import PostgresDatabase
 
 logger = logging.getLogger(__name__)
@@ -53,22 +55,21 @@ def _redact(connection_string: str) -> str:
     return connection_string.replace(parsed.password, "***", 1)
 
 
-def _table_filter(connection: dict) -> TableFilter:
-    """Build the regex table allow/deny filter off a connection dict.
+def source_connection_string() -> str | None:
+    """The source database's URL from ``CONNECTION_STRINGS``, or None when unset.
 
-    A malformed pattern is logged and dropped here rather than raised: this runs
-    while loading every configured connection, and one bad pattern must not stop
-    the others from loading. The API validates patterns on save (422), so an
-    invalid one should never reach this point.
+    More than one URL is a configuration error, not a list to route between:
+    this build supports a single source database.
     """
-    try:
-        return from_connection(connection)
-    except ValueError:
-        logger.exception(
-            "Ignoring invalid table filter on connection %r",
-            connection.get("database"),
+    connection_strings = parse_connection_strings(
+        os.environ.get("CONNECTION_STRINGS", "")
+    )
+    if len(connection_strings) > 1:
+        raise ValueError(
+            f"CONNECTION_STRINGS holds {len(connection_strings)} connections; "
+            "this build supports exactly one source database."
         )
-        return TableFilter()
+    return connection_strings[0] if connection_strings else None
 
 
 def invalidate_connectors_cache() -> None:
@@ -127,55 +128,18 @@ def create_connector(
 
 
 def get_connectors() -> list[SQLDatabase]:
-    """Return cached connectors for all configured connections.
+    """Return the cached connector for the source database.
 
-    Text-to-SQL resolves the execution connector from
-    ``relevant_tables[*].database_name`` (see
-    ``auto_ontology.retrieval.text_to_sql.connector_routing``).
-    Each connector's ``database_name`` must therefore be unique across the
-    returned list.
+    Still a list, so the retrieval and ingestion code written for several
+    databases keeps working unchanged; it holds at most one connector.
     """
     global _connectors
     if _connectors is None:
-        from auto_ontology.dal.connections import list_connections
-
-        # Each spec is (connection_string, table_filter). The table filter is
-        # ingestion-only; retrieval executes SQL rather than introspecting.
-        try:
-            specs: list[tuple[str, TableFilter]] = [
-                (build_connection_string(conn), _table_filter(conn))
-                for conn in list_connections()
-            ]
-        except Exception:
-            logger.exception("Failed to load connection strings from the catalog")
-            specs = []
-        if not specs:
-            # CONNECTION_STRINGS carries no connection dict, so an env-configured
-            # connection cannot express a table filter.
-            raw = os.environ.get("CONNECTION_STRINGS", "")
-            specs = [
-                (connection_string, TableFilter())
-                for connection_string in parse_connection_strings(raw)
-            ]
-        if not specs:
+        url = source_connection_string()
+        if url is None:
             logger.warning(
-                "No connections configured. Add CONNECTION_STRINGS to your .env "
-                "or create a connection in Settings → Connections."
+                "No connection configured. Add CONNECTION_STRINGS to your .env."
             )
             return []
-
-        loaded: list[SQLDatabase] = []
-        seen_database_names: set[str] = set()
-        for cs, table_filter in specs:
-            connector = create_connector(cs, table_filter=table_filter)
-            database_name = connector.database_name
-            if database_name in seen_database_names:
-                logger.warning(
-                    "Duplicate connector database_name %r — SQL is routed by "
-                    "database_name, so only one connector per name can be used.",
-                    database_name,
-                )
-            seen_database_names.add(database_name)
-            loaded.append(connector)
-        _connectors = loaded
+        _connectors = [create_connector(url)]
     return list(_connectors)

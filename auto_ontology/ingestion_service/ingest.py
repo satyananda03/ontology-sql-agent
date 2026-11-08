@@ -190,14 +190,12 @@ def trigger_ingest(connection: dict[str, Any]) -> None:
                 )
                 return
             run_ingest(connector)
-            # Unconditional, unlike the ingest pass's own replay: neither
-            # scheduler covers this path. It is a bare thread, and creating a
-            # connection asks for an ingest without asking for a compilation
-            # (see ``server/connections/service.py``), so nothing would label
-            # the database that was just ingested until a scheduler tick hours
-            # later. Runs even when compilation is on, which at worst repeats
-            # work the next semantic pass would have done -- the replay is a
-            # diff and writes nothing where the labels are already right.
+            # Neither scheduler covers this path: it is a bare thread, and
+            # creating a connection asks for an ingest without asking for a
+            # compilation (see ``server/connections/service.py``), so nothing
+            # else would label the database that was just ingested. At worst
+            # this repeats work the next semantic pass would have done -- the
+            # replay is a diff and writes nothing where the labels are right.
             replay_rules("ingest")
         except Exception:
             logger.exception(
@@ -298,9 +296,8 @@ async def _reset_semantic_layer_and_recompile(
 ) -> None:
     """Body of :func:`reset_semantic_layer_and_recompile`, one caller at a time."""
     # Paused for the whole stop-and-delete window, not just aborted. abort()
-    # ends the current pass but leaves the loop ticking, and a pass started by a
-    # timer tick or /semantic/compile between the drain and the end of the
-    # delete would read the pre-delete catalog, find every table already
+    # ends the current pass but leaves the loop waiting, and a pass started by
+    # /semantic/compile between the drain and the end of the delete would read the pre-delete catalog, find every table already
     # carrying a Term, compile nothing, and leave the layer deleted but not
     # rebuilt — the exact failure this ordering exists to prevent.
     scheduler.pause()
@@ -325,15 +322,14 @@ async def _reset_semantic_layer_and_recompile(
         # resumed silently stops compiling for good.
         scheduler.resume()
 
-    if not scheduler.start():
-        scheduler.trigger()
+    scheduler.trigger()
 
 
 def trigger_reset_semantic(scheduler: Any, database_name: str | None = None) -> None:
     """Schedule :func:`reset_semantic_layer_and_recompile` without blocking.
 
-    Must be called from the event loop thread — ``scheduler.start()`` and
-    ``trigger()`` touch asyncio primitives owned by that loop.
+    Must be called from the event loop thread — ``trigger()`` touches asyncio
+    primitives owned by that loop.
     """
     task = asyncio.create_task(
         reset_semantic_layer_and_recompile(scheduler, database_name)

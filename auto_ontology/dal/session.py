@@ -84,8 +84,8 @@ def get_engine() -> Engine:
     if _engine is None:
         _engine = create_engine(
             sqlalchemy_url(),
-            pool_size=int(os.environ.get("AUTO_ONTOLOGY_PG_POOL_SIZE", "5")),
-            max_overflow=int(os.environ.get("AUTO_ONTOLOGY_PG_MAX_OVERFLOW", "5")),
+            pool_size=int(os.environ.get("AUTO_ONTOLOGY_PG_POOL_SIZE", "10")),
+            max_overflow=int(os.environ.get("AUTO_ONTOLOGY_PG_MAX_OVERFLOW", "10")),
             # Recycle below any middlebox idle timeout, and check liveness
             # before handing a connection out. Without pre_ping, a connection
             # killed server-side surfaces as a failed query on an unrelated

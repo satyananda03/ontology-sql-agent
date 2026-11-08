@@ -2,15 +2,12 @@
 # All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Recurring scheduler for data ingestion.
+"""On-demand data ingestion, triggered by the review UI's "Ingest ulang" button.
 
-Runs :func:`run_ingest` for every configured connection once at startup, then
-again every 24h measured from the end of the previous run. Connections are
-reloaded on every pass so newly added ones are picked up without a restart.
-
-A pass also replays the tagging rules, but only when semantic compilation is
-switched off — with it on, the semantic pass is the better moment and does it
-instead. See ``auto_ontology.ingestion_service.rules``.
+Runs :func:`run_ingest` for the source database. The connector is reloaded on
+every pass so a changed ``CONNECTION_STRINGS`` is picked up. A pass ends by
+replaying the tagging rules, so columns ingested now are labelled without
+waiting for a compilation — see ``auto_ontology.ingestion_service.rules``.
 """
 
 from __future__ import annotations
@@ -18,31 +15,22 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from datetime import timedelta
 
 from auto_ontology.connectors.registry import (
     get_connectors,
     invalidate_connectors_cache,
 )
-from auto_ontology.ingestion_service.config import is_semantic_compilation_enabled
 from auto_ontology.ingestion_service.ingest import run_ingest
 from auto_ontology.ingestion_service.rules import replay_rules_in_thread
-from auto_ontology.ingestion_service.scheduler import IntervalScheduler
+from auto_ontology.ingestion_service.scheduler import OnDemandScheduler
 
 logger = logging.getLogger(__name__)
 
-# Cadence measured from the end of the previous run rather than a fixed
-# wall-clock time.
-INGEST_INTERVAL = timedelta(hours=24)
 
-
-class DataScheduler(IntervalScheduler):
-    """Drives data ingestion on startup, on a 24h timer, and on demand."""
+class DataScheduler(OnDemandScheduler):
+    """Runs data ingestion each time it is triggered."""
 
     name = "ingest"
-
-    def __init__(self, interval: timedelta = INGEST_INTERVAL) -> None:
-        super().__init__(interval)
 
     async def _run_once(self) -> None:
         # Reload connectors each pass so newly added connections are picked up
@@ -53,9 +41,7 @@ class DataScheduler(IntervalScheduler):
         connectors = get_connectors()
         if not connectors:
             logger.info(
-                "ingest: no connections configured. "
-                "Add a connection in Settings → Connections or set "
-                "CONNECTION_STRINGS in your .env."
+                "ingest: no connection configured. Set CONNECTION_STRINGS in your .env."
             )
             return
 
@@ -71,15 +57,7 @@ class DataScheduler(IntervalScheduler):
                 failed += 1
                 logger.exception("ingest: failed for connection %s", database_name)
 
-        # Rules are replayed at the end of the *semantic* pass when compilation
-        # is on, because a rule labels both layers and the end of that pass is
-        # the only point at which both are current. With compilation off there
-        # is no such pass and no semantic layer to be stale, and this becomes
-        # the only thing left that can put a standing rule's tags on a column
-        # ingested tonight -- without it such a deployment labels the catalog
-        # once, when each rule is created, and never again.
-        if not is_semantic_compilation_enabled():
-            await replay_rules_in_thread(self.name)
+        await replay_rules_in_thread(self.name)
 
         # A per-connection failure is caught above so the remaining connections
         # still run, which means reaching this point says nothing on its own.

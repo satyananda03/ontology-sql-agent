@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Copy to ingest.yaml to limit what ingestion reads. See docs/connections.md.
-# No passwords here: connections stay in CONNECTION_STRINGS or Settings.
+# No passwords here: the connection stays in CONNECTION_STRINGS.
 databases:
   # The database name from the connection string.
   sales_db:

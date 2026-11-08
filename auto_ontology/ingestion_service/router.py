@@ -22,6 +22,7 @@ from auto_ontology.ingestion_service.ingest import (
 from auto_ontology.server.health.checks import check_schema, check_store
 from auto_ontology.server.responses import (
     HealthResponse,
+    IngestRunningResponse,
     SemanticRunningResponse,
     StatusResponse,
 )
@@ -78,6 +79,22 @@ async def ingest_connection(connection: dict[str, Any] = Body(...)) -> dict[str,
     return {"status": "accepted"}
 
 
+@router.post("/ingest/run", status_code=202, response_model=StatusResponse)
+async def ingest_run(request: Request) -> dict[str, str]:
+    """Trigger a non-blocking ingest of the source database.
+
+    Runs on the data scheduler's task, after any compilation in flight.
+    """
+    request.app.state.data_scheduler.trigger()
+    return {"status": "accepted"}
+
+
+@router.get("/ingest/status", response_model=IngestRunningResponse)
+async def ingest_status(request: Request) -> dict[str, bool]:
+    """Report whether an ingest pass is executing right now."""
+    return {"running": request.app.state.data_scheduler.running}
+
+
 @router.post("/ingest/delete", status_code=202, response_model=StatusResponse)
 async def ingest_delete(database_name: str) -> dict[str, str]:
     """Trigger a non-blocking reset of a database's ingested data.
@@ -94,8 +111,8 @@ async def semantic_reset(
 ) -> dict[str, str]:
     """Trigger a non-blocking reset of a database's semantic layer.
 
-    Deletes the semantic nodes and embeddings, then asks for a compilation pass
-    so the layer is rebuilt without waiting for the scheduler's next run.
+    Deletes the semantic nodes and embeddings, then triggers a compilation pass
+    to rebuild them.
     Omitting ``database_name`` resets every database.
 
     The three steps are strictly ordered — stop the running pass, wait for it to
@@ -114,17 +131,9 @@ async def semantic_reset(
 async def semantic_compile(request: Request) -> dict[str, str]:
     """Trigger a non-blocking semantic compilation pass.
 
-    Ensures the scheduler is running first (``start()`` is idempotent), so this
-    also takes effect when compilation is enabled while the service is already
-    up — no restart needed. Runs on the scheduler's own task; when it finishes,
-    the next automatic run is rescheduled for 24h later.
+    Runs on the semantic scheduler's task, after any ingest in flight.
     """
-    scheduler = request.app.state.semantic_scheduler
-    # start() performs an immediate startup run on its own. Only ask for an
-    # extra run when the scheduler was already running; otherwise the startup
-    # run and the trigger would compile twice.
-    if not scheduler.start():
-        scheduler.trigger()
+    request.app.state.semantic_scheduler.trigger()
     return {"status": "accepted"}
 
 
@@ -151,8 +160,7 @@ async def semantic_stop(request: Request) -> dict[str, str]:
     """Ask the in-flight semantic compilation pass to stop.
 
     The database being compiled finishes first — that work runs in a thread that
-    cannot be interrupted — so the pass ends at the next database boundary. The
-    scheduler stays alive and its next automatic run happens on schedule.
+    cannot be interrupted — so the pass ends at the next database boundary.
     """
     request.app.state.semantic_scheduler.abort()
     return {"status": "accepted"}

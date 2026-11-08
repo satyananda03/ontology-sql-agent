@@ -39,12 +39,29 @@ def trigger_ingest(connection: dict[str, Any]) -> None:
         logger.exception("Failed to trigger ingest via %s", url)
 
 
-def trigger_semantic_compile() -> None:
-    """Ask the ingestion service to run semantic compilation (best-effort).
+def trigger_ingest_run() -> None:
+    """Ask the ingestion service to re-ingest the source database.
 
-    The service starts its semantic scheduler if it isn't running yet, so this
-    also takes effect when compilation is enabled while the service is up.
+    Raises when the service cannot be reached: the review UI's button should
+    say so rather than report a run that never started.
     """
+    httpx.post(f"{_base_url()}/ingest/run", timeout=_REQUEST_TIMEOUT).raise_for_status()
+
+
+def is_ingest_running() -> bool:
+    """Whether an ingest pass is executing right now; False when unreachable."""
+    url = f"{_base_url()}/ingest/status"
+    try:
+        response = httpx.get(url, timeout=_REQUEST_TIMEOUT)
+        response.raise_for_status()
+        return bool(response.json().get("running", False))
+    except Exception as exc:
+        logger.warning("Failed to query ingest status via %s: %s", url, exc)
+        return False
+
+
+def trigger_semantic_compile() -> None:
+    """Ask the ingestion service to run semantic compilation (best-effort)."""
     url = f"{_base_url()}/semantic/compile"
     try:
         httpx.post(url, timeout=_REQUEST_TIMEOUT).raise_for_status()
@@ -86,8 +103,7 @@ def trigger_semantic_reset(database_name: str | None = None) -> None:
     """Ask the ingestion service to delete the semantic layer (best-effort).
 
     Omitting ``database_name`` resets every database. The service deletes the
-    semantic nodes and embeddings without recompiling; the next scheduled run
-    rebuilds them.
+    semantic nodes and embeddings, then compiles them again.
     """
     url = f"{_base_url()}/semantic/reset"
     params = {} if database_name is None else {"database_name": database_name}

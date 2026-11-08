@@ -123,39 +123,3 @@ def test_filtering_does_not_trip_the_column_coverage_guard() -> None:
     out_tables, _, *_ = create_dataframe(connector)  # must not raise
 
     assert list(out_tables["table_name"]) == ["keep"]
-
-
-def test_get_connectors_passes_the_filter_to_every_connector(monkeypatch) -> None:
-    """The stored pattern has to reach the connectors ingestion actually uses.
-
-    Regression: `get_connectors` — which is what a triggered ingest resolves
-    through — once built connectors with no filter at all. The pattern was
-    stored and displayed correctly, and ingestion quietly took every table
-    anyway.
-    """
-    from auto_ontology.connectors import registry
-
-    captured: dict = {}
-
-    def fake_create_connector(cs, table_filter=None):
-        captured["table_filter"] = table_filter
-        return SimpleNamespace(database_name="db", close=lambda: None)
-
-    monkeypatch.setattr(registry, "create_connector", fake_create_connector)
-    monkeypatch.setattr(
-        registry, "build_connection_string", lambda conn: "postgresql://u:p@h/db"
-    )
-    monkeypatch.setattr(
-        "auto_ontology.dal.connections.list_connections",
-        lambda: [{"database": "db", "type": "postgres", "table_deny_regex": "^tmp_"}],
-    )
-    monkeypatch.setattr(registry, "_connectors", None)
-
-    try:
-        registry.get_connectors()
-    finally:
-        monkeypatch.setattr(registry, "_connectors", None)
-
-    assert captured["table_filter"] is not None
-    assert captured["table_filter"].active is True
-    assert captured["table_filter"].keep("tmp_orders") is False

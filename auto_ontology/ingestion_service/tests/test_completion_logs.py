@@ -275,17 +275,12 @@ def _patch_data_scheduler(
     monkeypatch: pytest.MonkeyPatch,
     connectors: list[_Connector],
     run: Any,
-    *,
-    semantic_enabled: bool = False,
 ) -> list[bool]:
     import auto_ontology.ingestion_service.data_scheduler as mod
 
     monkeypatch.setattr(mod, "invalidate_connectors_cache", lambda: None)
     monkeypatch.setattr(mod, "get_connectors", lambda: connectors)
     monkeypatch.setattr(mod, "run_ingest", run)
-    monkeypatch.setattr(
-        mod, "is_semantic_compilation_enabled", lambda: semantic_enabled
-    )
     return _stub_rules(monkeypatch)
 
 
@@ -341,34 +336,16 @@ def test_data_scheduler_partial_failure_is_reported_as_such(
 # Tagging rules, at the end of an ingest pass
 # --------------------------------------------------------------------------
 #
-# Only when semantic compilation is off. With it on, the semantic pass replays
-# the rules against both layers at once, which is the better moment; with it
-# off there is no such pass, and without this the deployment would label the
-# catalog once per rule, when the rule was created, and never again.
+# Ingest is triggered on its own, without a compilation, so it labels the
+# columns it just wrote instead of leaving them untagged until the next one.
 
 
-def test_ingest_pass_re_applies_the_rules_when_compilation_is_disabled(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    ran = _patch_data_scheduler(
-        monkeypatch, [_Connector("a")], lambda c: None, semantic_enabled=False
-    )
+def test_ingest_pass_re_applies_the_rules(monkeypatch: pytest.MonkeyPatch) -> None:
+    ran = _patch_data_scheduler(monkeypatch, [_Connector("a")], lambda c: None)
 
     asyncio.run(DataScheduler()._run_once())
 
     assert ran == [True]
-
-
-def test_ingest_pass_leaves_the_rules_to_the_semantic_pass_when_enabled(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    ran = _patch_data_scheduler(
-        monkeypatch, [_Connector("a")], lambda c: None, semantic_enabled=True
-    )
-
-    asyncio.run(DataScheduler()._run_once())
-
-    assert ran == []
 
 
 def test_a_failure_to_re_apply_does_not_fail_the_ingest(
@@ -406,7 +383,6 @@ def _patch_semantic_scheduler(
     """Neutralise the pass's dependencies, and report whether rules ran."""
     import auto_ontology.ingestion_service.semantic_scheduler as mod
 
-    monkeypatch.setattr(mod, "is_semantic_compilation_enabled", lambda: True)
     monkeypatch.setattr(mod, "resolve_database_names", lambda: databases)
     monkeypatch.setattr(mod, "run_semantic_compilation", run)
 
@@ -480,20 +456,6 @@ def test_semantic_scheduler_does_not_claim_success_when_one_fails(
     assert "1 of 2 database(s) succeeded, 1 failed" in text
 
 
-def test_semantic_scheduler_disabled_run_claims_nothing(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
-    """A disabled pass returns early and must not log a completion."""
-    import auto_ontology.ingestion_service.semantic_scheduler as mod
-
-    monkeypatch.setattr(mod, "is_semantic_compilation_enabled", lambda: False)
-
-    with caplog.at_level(logging.INFO):
-        asyncio.run(SemanticScheduler()._run_once())
-
-    assert "finished successfully" not in _messages(caplog)
-
-
 # --------------------------------------------------------------------------
 # Tagging rules, at the end of a semantic pass
 # --------------------------------------------------------------------------
@@ -544,19 +506,6 @@ def test_a_stopped_pass_does_not_re_apply_the_rules(
 
     with caplog.at_level(logging.INFO):
         asyncio.run(scheduler._run_once())
-
-    assert ran == []
-
-
-def test_a_disabled_pass_does_not_re_apply_the_rules(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    ran = _patch_semantic_scheduler(monkeypatch, ["pagila"], lambda db: 7)
-    import auto_ontology.ingestion_service.semantic_scheduler as mod
-
-    monkeypatch.setattr(mod, "is_semantic_compilation_enabled", lambda: False)
-
-    asyncio.run(SemanticScheduler()._run_once())
 
     assert ran == []
 

@@ -1,0 +1,298 @@
+/*
+SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
+SPDX-License-Identifier: Apache-2.0
+
+ICCN light theme, mirrored from frontend_references/src/styles/globals.css.
+Colours are only ever read through the tokens below, so a palette change is a
+change to :root alone. Every status also carries a text label.
+
+Tailwind is loaded for the knowledge graph only, whose components are copied
+from frontend_references with their utility classes. Two rules keep it from
+touching the rest of the dashboard:
+- No preflight: only the theme and utilities layers, so no global reset.
+- The dashboard's own CSS sits in the `base` layer. Unlayered rules beat every
+  layer, so without it `button` and `input` here would override the graph's
+  utilities. Our token names also stay out of Tailwind's namespaces
+  (--radius-*, --shadow-*, --font-*), whose theme variables live on :root too.
+*/
+
+@layer theme, base, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* The graph's `font-mono` and `font-sans`, as in frontend_references. */
+@theme {
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@layer base {
+  :root {
+    /* Brand */
+    --color-primary: #e72c0e;
+    --color-primary-hover: #c82509;
+    --color-primary-light: #fff0ed;
+    --color-primary-border: #ffe2dc;
+    --color-primary-soft: #ffe3df;
+
+    /* Surfaces */
+    --color-bg-base: #f4f5f7;
+    --color-surface: #ffffff;
+    --color-surface-muted: #fafafa;
+    --color-border: #e5e5e5;
+    --color-border-strong: #d4d4d4;
+    --color-hover: #f5f5f5;
+
+    /* Text */
+    --color-text: #000000;
+    --color-text-secondary: #344054;
+    --color-text-muted: #737373;
+    --color-text-inverse: #ffffff;
+    --color-toast: #111827;
+
+    /* Status: text / background / border */
+    --color-success: #047857;
+    --color-success-bg: #ecfdf5;
+    --color-success-border: #a7f3d0;
+    --color-info: #1d4ed8;
+    --color-info-bg: #eff6ff;
+    --color-info-border: #bfdbfe;
+    --color-warning: #b45309;
+    --color-warning-bg: #fffbeb;
+    --color-warning-border: #fde68a;
+    --color-error: #b91c1c;
+    --color-error-bg: #fef2f2;
+    --color-error-border: #fecaca;
+    --color-neutral: #4b5563;
+    --color-neutral-bg: #f3f4f6;
+    --color-neutral-border: #e5e7eb;
+
+    /* Shape and type */
+    --radius-control: 12px;
+    --radius-panel: 16px;
+    --radius-card: 24px;
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.03);
+    --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-code: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    color-scheme: light;
+    accent-color: var(--color-primary);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { margin: 0; background: var(--color-bg-base); color: var(--color-text); }
+
+  body {
+    font: 14px/1.5 var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  a { color: inherit; }
+  a:hover { color: var(--color-primary); }
+
+  :focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+  h1 { font-size: 28px; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.02em; }
+  h2 { font-size: 17px; font-weight: 600; margin: 0 0 12px; letter-spacing: -0.01em; }
+  h3 { font-size: 14px; font-weight: 600; margin: 0 0 8px; }
+  p { margin: 0 0 12px; }
+  .stack > h2, .row > h2, .stack > p, .row > h3 { margin: 0; }
+
+  .muted { color: var(--color-text-muted); }
+  .small { font-size: 12px; }
+  .mono, code, pre, textarea.mono { font-family: var(--font-code); font-size: 13px; }
+
+  /* Layout */
+  .shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; }
+  .sidebar {
+    margin: 16px 0 16px 16px; padding: 20px 12px;
+    background: var(--color-surface); border: 1px solid var(--color-border);
+    border-radius: var(--radius-card); box-shadow: var(--shadow-card);
+    position: sticky; top: 16px; height: calc(100vh - 32px); overflow-y: auto;
+  }
+  .brand { font-weight: 700; font-size: 16px; padding: 0 12px 20px; letter-spacing: -0.02em; }
+  .brand span { color: var(--color-primary); }
+  .nav { display: flex; flex-direction: column; gap: 2px; }
+  .nav a {
+    padding: 9px 12px; border-radius: var(--radius-control); text-decoration: none;
+    color: var(--color-text-muted); font-weight: 500;
+  }
+  .nav a:hover { background: var(--color-hover); color: var(--color-text); }
+  .nav a.active { background: var(--color-primary-soft); color: var(--color-primary); font-weight: 600; }
+  .nav .group {
+    color: var(--color-text-muted); font-size: 11px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase; padding: 16px 12px 6px;
+  }
+  .content { padding: 32px 32px 64px; max-width: 1240px; width: 100%; min-width: 0; }
+  .page-head { margin-bottom: 24px; }
+  .page-head > p { font-size: 15px; }
+
+  @media (max-width: 760px) {
+    .shell { grid-template-columns: minmax(0, 1fr); }
+    .sidebar { position: static; height: auto; margin: 12px 12px 0; padding: 12px; }
+    .brand { padding: 0 4px 8px; }
+    .nav { flex-direction: row; flex-wrap: wrap; }
+    .nav .group { display: none; }
+    .nav a { padding: 6px 10px; }
+    .content { padding: 20px 16px 48px; }
+  }
+
+  /* Surfaces */
+  .card {
+    background: var(--color-surface); border: 1px solid var(--color-border);
+    border-radius: var(--radius-card); box-shadow: var(--shadow-card);
+    padding: 20px; margin-bottom: 16px;
+  }
+  .card .card { background: var(--color-surface-muted); border-radius: var(--radius-panel); box-shadow: none; padding: 16px; }
+  .card.dashed { border-style: dashed; }
+  .card.highlighted { border-color: var(--color-primary); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .spread { justify-content: space-between; }
+  .toolbar { margin-bottom: 16px; }
+  .stack { display: flex; flex-direction: column; gap: 12px; }
+  .stack.tight { gap: 6px; }
+  .grid2 { display: grid; grid-template-columns: 300px 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+
+  /* Controls */
+  button, .button {
+    font: inherit; font-weight: 600; font-size: 13px; cursor: pointer;
+    border-radius: var(--radius-control); padding: 8px 16px;
+    border: 1px solid var(--color-border); background: var(--color-surface);
+    color: var(--color-text-secondary); text-decoration: none;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+  }
+  button:hover { background: var(--color-hover); color: var(--color-text); }
+  button.primary { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-text-inverse); }
+  button.primary:hover { background: var(--color-primary-hover); border-color: var(--color-primary-hover); }
+  button.danger { background: var(--color-primary-light); border-color: var(--color-primary-border); color: var(--color-primary); }
+  button.danger:hover { background: var(--color-primary-border); }
+  button.link { border: 0; padding: 0; text-decoration: underline; background: none; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  input[type="text"], input[type="number"], input[type="password"], input[type="search"],
+  input:not([type]), select, textarea {
+    font: inherit; color: var(--color-text); background: var(--color-surface);
+    border: 1px solid var(--color-border); border-radius: var(--radius-control); padding: 8px 12px; width: 100%;
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--color-primary); }
+  input:disabled { background: var(--color-surface-muted); color: var(--color-text-muted); }
+  input.narrow { max-width: 360px; }
+  textarea { resize: vertical; min-height: 72px; }
+  textarea[rows="1"] { min-height: 0; resize: none; }
+  label.field { display: flex; flex-direction: column; gap: 4px; font-weight: 500; }
+  label.field > span.hint { font-weight: 400; color: var(--color-text-muted); font-size: 12px; }
+  label.check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  label.check.top { align-items: flex-start; }
+  label.check.top > input { margin-top: 3px; }
+  input[type="checkbox"] { width: 16px; height: 16px; }
+  details > summary { cursor: pointer; }
+
+  /* Badges */
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+    font-family: var(--font-code); font-size: 11px; font-weight: 700; letter-spacing: 0.05em; line-height: 1;
+    padding: 5px 10px; border-radius: 999px; border: 1px solid;
+    text-decoration: none;
+  }
+  .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .stack > .badge { align-self: flex-start; }
+  .badge.neutral { color: var(--color-neutral); background: var(--color-neutral-bg); border-color: var(--color-neutral-border); }
+  .badge.success { color: var(--color-success); background: var(--color-success-bg); border-color: var(--color-success-border); }
+  .badge.info { color: var(--color-info); background: var(--color-info-bg); border-color: var(--color-info-border); }
+  .badge.warning { color: var(--color-warning); background: var(--color-warning-bg); border-color: var(--color-warning-border); }
+  .badge.error { color: var(--color-error); background: var(--color-error-bg); border-color: var(--color-error-border); }
+  a.badge:hover { border-color: var(--color-primary); color: var(--color-primary); }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--color-border); vertical-align: top; }
+  th {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--color-text-muted); background: var(--color-surface-muted);
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr.clickable { cursor: pointer; }
+  tbody tr.clickable:hover { background: var(--color-primary-light); }
+  .table-wrap {
+    overflow-x: auto; background: var(--color-surface);
+    border: 1px solid var(--color-border); border-radius: var(--radius-panel);
+  }
+  .card .table-wrap { border-radius: var(--radius-control); }
+
+  /* Feedback */
+  .banner {
+    border: 1px solid var(--color-primary-border); background: var(--color-primary-light); color: var(--color-primary);
+    border-radius: var(--radius-control); padding: 10px 14px; margin-bottom: 16px; white-space: pre-wrap;
+  }
+  .empty { color: var(--color-text-muted); padding: 24px 0; }
+  .spinner {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid var(--color-primary-border); border-top-color: var(--color-primary);
+    animation: spin 0.8s linear infinite; display: inline-block;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .toast {
+    position: fixed; right: 20px; bottom: 20px; z-index: 10;
+    background: var(--color-toast); color: var(--color-text-inverse);
+    padding: 10px 16px; border-radius: var(--radius-control);
+  }
+  pre.code {
+    background: var(--color-surface-muted); border: 1px solid var(--color-border); border-radius: var(--radius-control);
+    padding: 12px; overflow-x: auto; margin: 0; white-space: pre-wrap;
+  }
+  dl.facts { gap: 24px; margin: 0; }
+  dl.facts dd { margin: 0; }
+  .text-error { color: var(--color-error); }
+
+  /* Catalog tree */
+  .tree { list-style: none; padding: 0; margin: 0; }
+  .tree .tree { padding-left: 14px; }
+  .tree button.node {
+    border: 0; padding: 6px 10px; width: 100%; justify-content: flex-start; text-align: left;
+    font-weight: 500; background: none;
+  }
+  .tree button.node:hover { background: var(--color-hover); }
+  .tree button.node.selected { background: var(--color-primary-soft); color: var(--color-primary); font-weight: 600; }
+
+  /* Playground */
+  .chat { display: flex; flex-direction: column; gap: 16px; margin-bottom: 16px; }
+  .chat > .card { margin-bottom: 0; }
+  .bubble-q {
+    align-self: flex-end; max-width: 80%; white-space: pre-wrap;
+    background: var(--color-primary); color: var(--color-text-inverse);
+    padding: 10px 16px; border-radius: var(--radius-panel) var(--radius-panel) 4px var(--radius-panel);
+  }
+  .answer { white-space: pre-wrap; }
+  .composer {
+    position: sticky; bottom: 0; background: var(--color-bg-base);
+    padding-top: 12px; border-top: 1px solid var(--color-border);
+  }
+
+  /* Settings: operations */
+  .operation {
+    display: flex; gap: 16px; align-items: flex-start; justify-content: space-between;
+    padding-top: 16px; border-top: 1px solid var(--color-border);
+  }
+  .operation-body { flex: 1; min-width: 0; }
+  .operation-body h3 { margin: 0; }
+  .operation-body .row { margin-bottom: 4px; }
+  @media (max-width: 760px) { .operation { flex-direction: column; } }
+
+  /*
+  Knowledge graph. Its components come from frontend_references and expect
+  Tailwind's preflight, which the rest of the dashboard must not get. These two
+  rules apply the parts they rely on inside `.knowledge-graph` only: borders
+  that a `border` utility can draw, and form elements free of the dashboard's
+  own button and input styles above. Utilities still win, being a later layer.
+  */
+  .knowledge-graph *, .knowledge-graph ::before, .knowledge-graph ::after { border: 0 solid; }
+  .knowledge-graph :is(button, input, h3, h4, p, a) {
+    margin: 0; padding: 0; border: 0 solid; background: transparent; color: inherit;
+    font: inherit; letter-spacing: inherit; line-height: inherit; text-decoration: none;
+    display: revert; width: auto; min-height: 0;
+  }
+}
