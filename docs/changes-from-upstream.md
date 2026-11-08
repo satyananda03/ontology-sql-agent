@@ -48,6 +48,9 @@ consequences:
 | `server/connections/service.py` | Connection edits refresh only the connector cache | The chat worker it also refreshed is gone |
 | `server/users/permissions.py` | `access.json` in the package is the source of truth | It used to be generated from `frontend/auth/access.json` |
 | `version.py` | Reads the `ontology-sql-agent` distribution | The package was renamed |
+| `server/settings/router.py`, `server/settings_dal.py` | New `/api/acronyms` CRUD and `GET/PATCH /api/settings` | Upstream wrote the glossary and flags from Next.js through Prisma |
+| `alembic/versions/5d2e8b7c41af_*` | Creates `frontend.configurations` and `frontend.acronyms` when absent | A fresh database has no Prisma to create them; an existing store is left as it is |
+| `docker-compose.yml` | Ports bound to `127.0.0.1` | The review UI has no login and the backend trusts its caller |
 
 ## The SQL agent compared with `classic_sql_agent`
 

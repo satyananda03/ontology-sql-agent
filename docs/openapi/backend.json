@@ -1,6 +1,96 @@
 {
   "components": {
     "schemas": {
+      "Acronym": {
+        "description": "One glossary entry the SQL agent reads on every question.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "Acronym",
+        "type": "object"
+      },
+      "AcronymCreate": {
+        "properties": {
+          "description": {
+            "default": "",
+            "maxLength": 4000,
+            "title": "Description",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "AcronymCreate",
+        "type": "object"
+      },
+      "AcronymUpdate": {
+        "description": "Fields to change; an omitted field keeps its value.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "AcronymUpdate",
+        "type": "object"
+      },
       "Body_import_model_api_model_import_post": {
         "properties": {
           "file": {
@@ -3534,6 +3624,89 @@
         "title": "SemanticStatusResponse",
         "type": "object"
       },
+      "Settings": {
+        "description": "The settings in effect, defaults included.",
+        "properties": {
+          "distinct_value_probing_enabled": {
+            "title": "Distinct Value Probing Enabled",
+            "type": "boolean"
+          },
+          "pii_detection_enabled": {
+            "title": "Pii Detection Enabled",
+            "type": "boolean"
+          },
+          "semantic_compilation_enabled": {
+            "title": "Semantic Compilation Enabled",
+            "type": "boolean"
+          },
+          "sql_query_timeout_seconds": {
+            "title": "Sql Query Timeout Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "semantic_compilation_enabled",
+          "distinct_value_probing_enabled",
+          "pii_detection_enabled",
+          "sql_query_timeout_seconds"
+        ],
+        "title": "Settings",
+        "type": "object"
+      },
+      "SettingsUpdate": {
+        "additionalProperties": false,
+        "description": "Settings to change; an omitted one keeps its value.",
+        "properties": {
+          "distinct_value_probing_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distinct Value Probing Enabled"
+          },
+          "pii_detection_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pii Detection Enabled"
+          },
+          "semantic_compilation_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semantic Compilation Enabled"
+          },
+          "sql_query_timeout_seconds": {
+            "anyOf": [
+              {
+                "maximum": 3600.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sql Query Timeout Seconds"
+          }
+        },
+        "title": "SettingsUpdate",
+        "type": "object"
+      },
       "SqlAgentQuery": {
         "properties": {
           "evidence": {
@@ -6105,6 +6278,161 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/acronyms": {
+      "get": {
+        "description": "Return every glossary acronym, ordered by name.",
+        "operationId": "list_acronyms_api_acronyms_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Acronym"
+                  },
+                  "title": "Response List Acronyms Api Acronyms Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Acronyms",
+        "tags": [
+          "settings"
+        ]
+      },
+      "post": {
+        "description": "Add one acronym; 409 when the name is taken.",
+        "operationId": "create_acronym_api_acronyms_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcronymCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Acronym"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Acronym",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/acronyms/{acronym_id}": {
+      "delete": {
+        "description": "Remove one acronym; 404 when absent.",
+        "operationId": "delete_acronym_api_acronyms__acronym_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "acronym_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Acronym Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Acronym",
+        "tags": [
+          "settings"
+        ]
+      },
+      "patch": {
+        "description": "Rename or redescribe one acronym; 404 when absent, 409 on a taken name.",
+        "operationId": "update_acronym_api_acronyms__acronym_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "acronym_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Acronym Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcronymUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Acronym"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Acronym",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
     "/api/columns/{table_id}": {
       "get": {
         "description": "Columns for a table.\n\nColumns come back ordered by ordinal position, and *skip*/*limit* select\none page of that order; ``total`` reports how many the table has in full,\nso a pager knows when to stop asking. Omitting *limit* returns every\ncolumn, which is what the lazy catalog tree loads.",
@@ -8238,6 +8566,68 @@
         "summary": "Trigger",
         "tags": [
           "semantic-compilation"
+        ]
+      }
+    },
+    "/api/settings": {
+      "get": {
+        "description": "Return the settings in effect, defaults included.",
+        "operationId": "read_settings_api_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Settings",
+        "tags": [
+          "settings"
+        ]
+      },
+      "patch": {
+        "description": "Store the given settings and return all of them as now in effect.\n\nEach applies to the next run that reads it, without a restart.",
+        "operationId": "update_settings_api_settings_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Settings",
+        "tags": [
+          "settings"
         ]
       }
     },

@@ -7,7 +7,7 @@ services:
     image: pgvector/pgvector:pg17
     restart: unless-stopped
     ports:
-      - "${POSTGRES_PORT}:5432"
+      - "127.0.0.1:${POSTGRES_PORT}:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -24,8 +24,9 @@ services:
     build: .
     image: ontology-sql-agent:latest
     restart: unless-stopped
+    # Localhost only: the review routes have no login and trust the caller.
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     env_file:
       - .env
     environment:
@@ -47,7 +48,7 @@ services:
     restart: unless-stopped
     command: ["ingestion_service"]
     ports:
-      - "3002:3002"
+      - "127.0.0.1:3002:3002"
     # The image healthcheck targets the backend's :3001; this service serves
     # its own liveness probe on :3002.
     healthcheck:
