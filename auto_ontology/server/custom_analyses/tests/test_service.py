@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from auto_ontology.server.custom_analyses import service
 
 
@@ -46,3 +48,14 @@ def test_unresolvable_database_still_embeds_but_warns(
 
     assert embed.call_count == 1
     assert embed.call_args.kwargs["database_name"] is None
+
+
+@patch("auto_ontology.server.custom_analyses.service.get_schemas", return_value={})
+@patch("auto_ontology.server.custom_analyses.service.get_dialects", return_value={})
+def test_sql_the_catalog_cannot_resolve_raises_the_error_routes_answer_422(
+    _dialects: MagicMock, _schemas: MagicMock
+) -> None:
+    """``validate_sql`` raises the base parse error; the routes catch only the
+    subclass, so letting the base through turned a bad query into a 500."""
+    with pytest.raises(service.CustomAnalysisSqlError):
+        service.validate_custom_analysis_sql("SELECT 1")

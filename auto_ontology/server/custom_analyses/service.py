@@ -35,7 +35,12 @@ from auto_ontology.dal.custom_analyses import (
     get_custom_analysis_by_id,
     list_custom_analyses,
 )
-from auto_ontology.server.sql_utils import get_dialects, get_schemas, validate_sql
+from auto_ontology.server.sql_utils import (
+    SqlParseError,
+    get_dialects,
+    get_schemas,
+    validate_sql,
+)
 
 if TYPE_CHECKING:
     pass
@@ -60,6 +65,20 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
+def _validated(sql: str) -> Any:
+    """Parse *sql* against the catalog, raising :class:`CustomAnalysisSqlError`.
+
+    ``validate_sql`` raises the base ``SqlParseError``; the routes catch this
+    subclass to answer 422, so without the conversion a bad query was a 500.
+    """
+    try:
+        return validate_sql(sql, get_dialects(), get_schemas())
+    except CustomAnalysisSqlError:
+        raise
+    except SqlParseError as exc:
+        raise CustomAnalysisSqlError(str(exc)) from exc
+
+
 def validate_custom_analysis_sql(sql: str) -> dict[str, Any]:
     """Validate a SQL expression against the full catalog.
 
@@ -68,7 +87,7 @@ def validate_custom_analysis_sql(sql: str) -> dict[str, Any]:
 
     Raises :class:`CustomAnalysisSqlError` when the SQL can't be resolved.
     """
-    validate_sql(sql, get_dialects(), get_schemas())
+    _validated(sql)
     return {"valid": True, "sql": sql}
 
 
@@ -172,7 +191,7 @@ def create_custom_analysis(
             f"(id={sql_conflict['id']!r})",
         )
 
-    query_obj = validate_sql(sql, get_dialects(), get_schemas())
+    query_obj = _validated(sql)
     analysis_node = CatalogNode(
         name=name,
         label=Labels.CUSTOM_ANALYSIS,
@@ -219,7 +238,7 @@ def update_custom_analysis(
 
     # Validate BEFORE touching the graph so a parse failure can't orphan
     # the analysis from its Sql node.
-    query_obj = validate_sql(sql, get_dialects(), get_schemas())
+    query_obj = _validated(sql)
 
     detach_existing_sql_edges(analysis_id)
 
