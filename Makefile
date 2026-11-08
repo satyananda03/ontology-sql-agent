@@ -5,7 +5,7 @@
 TAG ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
 .PHONY: help build up ingest-dev backend-dev migrate migrate-check \
-        migrate-revision lint test eval eval-report
+        migrate-revision lint test eval eval-report ui ui-build
 
 help:
 	@echo "  make build                     Build the backend image (host arch)"
@@ -19,6 +19,8 @@ help:
 	@echo "  make test                      Backend and agent tests"
 	@echo "  make eval                      Ask the golden questions, write runs/agent.jsonl"
 	@echo "  make eval-report               Score runs/*.jsonl against the golden SQL"
+	@echo "  make ui                        Review UI on http://127.0.0.1:5173 (needs the backend)"
+	@echo "  make ui-build                  Type-check and build the review UI"
 
 build:
 	docker build -t ontology-sql-agent:$(TAG) -t ontology-sql-agent:latest .
@@ -56,3 +58,11 @@ eval:
 
 eval-report:
 	uv run python -m ontology_sql_agent.eval.report runs/*.jsonl
+
+ui:
+	npm --prefix ui install --no-audit --no-fund
+	npm --prefix ui run dev
+
+ui-build:
+	npm --prefix ui ci --no-audit --no-fund
+	npm --prefix ui run build

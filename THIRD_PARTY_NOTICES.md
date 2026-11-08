@@ -90,6 +90,17 @@ modifications made to Pagila.
 Pagila is Copyright (c) Devrim Gündüz, distributed under the MIT licence; the
 full licence text accompanies the upstream project at the URL above.
 
+## Review UI (npm — `ui/package.json`)
+
+Runtime dependencies bundled into the UI build. Build-only tools (Vite,
+TypeScript, openapi-typescript) are not shipped and are not listed.
+
+| Component | Version | License | Project URL |
+| --- | --- | --- | --- |
+| React | 18.3.1 | MIT | https://github.com/facebook/react |
+| React DOM | 18.3.1 | MIT | https://github.com/facebook/react |
+| React Router DOM | 6.28.0 | MIT | https://github.com/remix-run/react-router |
+
 ---
 
 ## License texts
@@ -117,7 +128,7 @@ component's original license in addition to the terms of `LICENSE`.
 ## Updating this file
 
 The tables above list the **direct** dependencies declared in
-`pyproject.toml`, not the full transitive
+`pyproject.toml` and `ui/package.json`, not the full transitive
 closure. When adding, removing, or upgrading a direct dependency, update
 the corresponding row in the same change. For the resolved closure and its
-pinned versions, see `uv.lock`.
+pinned versions, see `uv.lock` and `ui/package-lock.json`.

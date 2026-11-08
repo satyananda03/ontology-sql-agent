@@ -50,6 +50,7 @@ Run from the repo root:
 | Lint and format | `make lint` (fix with `uv run ruff check --fix` and `uv run ruff format`) |
 | Tests | `make test` |
 | OpenAPI | `uv run python -m dev_tools.generate_backend_openapi` |
+| Review UI | `make ui-build` (type-checks against the regenerated OpenAPI types) |
 
 The OpenAPI specs in `docs/openapi/` embed each route's docstring. Editing a
 docstring on any `@router` handler makes them stale, and

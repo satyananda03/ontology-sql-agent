@@ -43,3 +43,6 @@ SECURITY.md
 dev_tools/
 runs/
 ingest.yaml
+
+# The review UI runs from source on the host, not in the image
+ui/

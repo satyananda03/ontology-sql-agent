@@ -33,3 +33,8 @@ runs/
 *.pem
 *.p8
 *.pub
+
+# Review UI: dependencies, build output, and types generated from docs/openapi
+ui/node_modules/
+ui/dist/
+ui/src/schema.d.ts

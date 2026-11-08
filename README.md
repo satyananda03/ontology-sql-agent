@@ -63,25 +63,34 @@ make backend-dev   # terminal 2: FastAPI on :3001 with hot reload
 
 ## Reviewing the ontology
 
-A review UI is not part of this repository. The backend serves everything one
-needs under `/api/`:
+`ui/` is a small React app (Vite, no Next.js) for the people who keep the
+ontology right. With the backend running:
 
-- terms, attributes and SQL attributes;
-- tags, rules and zones;
-- users and groups;
-- search.
+```bash
+make ui            # http://127.0.0.1:5173
+```
 
-[`docs/openapi/backend.json`](docs/openapi/backend.json) describes them all. A UI
-should know three things:
+| Page | What it is for |
+|---|---|
+| Terms | Certify a term's name and description, its column attributes and SQL attributes; add or edit SQL attributes |
+| Katalog | Edit and certify table and column descriptions |
+| Pencarian | Find any term, table, column, attribute or analysis |
+| Glossary | Acronyms and internal terms the agent reads on every question |
+| Custom analyses | Verified question-and-SQL examples the agent retrieves as references |
+| Koneksi | Source databases; saving one starts ingestion |
+| Pengaturan | Scheduled compilation, value probing, PII detection, the SQL timeout; run or reset compilation; export and import the model |
+| Playground | Ask `POST /api/sql-agent/query` and see exactly what an MCP caller gets |
 
-- **Authentication.** The backend trusts the `x-auto-ontology-user-id` header
-  set by the gateway in front of it. Expose the backend only through that
-  gateway.
-- **The glossary.** It is read from `frontend.acronyms`. Until a UI creates that
-  table, questions run with an empty glossary.
-- **Scheduled compilation.** It is off until `semantic_compilation_enabled` is
-  set in `frontend.configurations`. Run the compile command above by hand until
-  then.
+"Human review" is the `certified` flag on each field, as upstream: a term rolls
+up to pending, partial or certified from its own fields and its attributes.
+
+**There is no login.** The backend trusts its caller (the
+`x-auto-ontology-user-id` header is never checked, and the UI does not send it),
+so the UI, the backend and the ingestion service listen on `127.0.0.1` only,
+and `docker-compose.yml` binds their ports there. The Vite dev server adds
+`x-api-key` from `.env` to `/api/sql-agent/*` requests, so the key never reaches
+the browser. Request and response types are generated from
+`docs/openapi/backend.json` whenever the UI starts or builds.
 
 ## Tests
 
