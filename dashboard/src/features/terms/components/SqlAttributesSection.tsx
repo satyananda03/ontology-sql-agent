@@ -30,7 +30,7 @@ export function SqlAttributesSection({ termId, onCertification }: SqlAttributesS
         <h2>Atribut SQL {list.data && <span className="muted">({list.data.total})</span>}</h2>
         {!adding && <button onClick={() => setAdding(true)}>+ Tambah atribut SQL</button>}
       </div>
-      <p className="muted">Ukuran atau metrik yang didefinisikan dengan ekspresi SQL, misalnya jumlah atau rasio.</p>
+      <p className="muted">Rumus atau filter bisnis dalam SQL, misalnya jumlah, rasio, atau syarat status. Agent memakainya sebagai definisi baku.</p>
       <ErrorBanner message={list.error} />
       {adding && (
         <SqlAttributeForm

@@ -32,7 +32,7 @@ export default function TermDetailPage() {
   return (
     <>
       <p>
-        <Link to="/terms">← Semua term</Link>
+        <Link to="/terms">← Semua business term</Link>
       </p>
       <div className="row spread page-head">
         <h1>{term.name}</h1>

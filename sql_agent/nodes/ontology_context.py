@@ -47,6 +47,15 @@ def knowledge_context(
                 dialect,
             )
         )
+    # Saved analyses retrieval matched to this question, as auto_ontology's own
+    # SQL step sends them: name, description and SQL, as patterns to follow.
+    examples = path_state.get("custom_analyses_str") or []
+    if examples:
+        sections.append(
+            "FEW-SHOT EXAMPLES (analisis tersimpan yang relevan; pakai pola SQL-nya "
+            "sebagai panduan dan sesuaikan dengan pertanyaan):\n"
+            + "\n".join(f"- {example}" for example in examples)
+        )
     sql_attributes = path_state.get("sql_attributes_str") or []
     if sql_attributes:
         sections.append(

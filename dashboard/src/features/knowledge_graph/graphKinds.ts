@@ -24,7 +24,7 @@ export const NODE_KINDS: Record<NodeKind, NodeKindConfig> = {
   term: {
     label: "Term",
     hint: "konsep bisnis",
-    openLink: (termId) => ({ to: `/terms/${termId}`, label: "Buka di Terms" }),
+    openLink: (termId) => ({ to: `/terms/${termId}`, label: "Buka di Business Terms" }),
   },
   table: {
     label: "Tabel",

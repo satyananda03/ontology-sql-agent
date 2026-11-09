@@ -32,7 +32,7 @@ export function AnalysisForm({ analysis, onDone }: AnalysisFormProps) {
 
   return (
     <div className="card stack">
-      <h2>{analysis ? "Edit analisis" : "Analisis baru"}</h2>
+      <h2>{analysis ? "Edit contoh" : "Contoh baru"}</h2>
       <label className="field">
         Pertanyaan / nama
         <span className="hint">Tulis seperti pertanyaan pengguna, misalnya “Jumlah transaksi per provinsi bulan ini”.</span>

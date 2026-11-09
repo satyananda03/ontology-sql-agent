@@ -17,16 +17,16 @@ export default function TermListPage() {
 
   return (
     <>
-      <PageHeader title="Terms">
-        Konsep bisnis hasil kompilasi. Certify nama, deskripsi, dan atributnya agar agent memakai pengetahuan yang
-        sudah diperiksa manusia.
+      <PageHeader title="Business Terms">
+        Konsep bisnis hasil kompilasi. Agent memakainya untuk menemukan tabel, kolom, dan rumus yang relevan. Certify
+        menandai yang sudah diperiksa manusia.
       </PageHeader>
       <div className="toolbar">
         <SearchForm
           value={query}
           onSearch={(q) => setParams(q ? { q } : {})}
-          placeholder="Cari nama term…"
-          label="Cari nama term"
+          placeholder="Cari nama business term…"
+          label="Cari nama business term"
         >
           {page.data && <span className="muted">{page.data.total} term</span>}
         </SearchForm>

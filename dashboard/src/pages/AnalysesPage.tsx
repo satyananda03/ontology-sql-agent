@@ -19,20 +19,20 @@ export default function AnalysesPage() {
 
   return (
     <>
-      <PageHeader title="Custom analyses">
-        Contoh pertanyaan beserta SQL yang sudah diverifikasi. Agent mengambil yang relevan sebagai referensi saat
-        menyusun query, jadi contoh yang baik langsung menaikkan akurasi.
+      <PageHeader title="Few-shot examples">
+        Contoh analisis beserta SQL-nya. Agent mengambil yang relevan dengan pertanyaan dan memakai pola SQL-nya
+        sebagai panduan.
       </PageHeader>
       <div className="row spread toolbar">
         <SearchForm
           value={query}
           onSearch={(q) => setParams(q ? { q } : {})}
-          placeholder="Cari analisis…"
-          label="Cari analisis"
+          placeholder="Cari contoh…"
+          label="Cari contoh"
         />
         {!adding && (
           <button className="primary" onClick={() => setAdding(true)}>
-            + Tambah analisis
+            + Tambah contoh
           </button>
         )}
       </div>
@@ -46,7 +46,7 @@ export default function AnalysesPage() {
       )}
       <ErrorBanner message={list.error} />
       {list.loading && !list.data && <Loading />}
-      {list.data?.data.length === 0 && !adding && <Empty>Belum ada custom analysis.</Empty>}
+      {list.data?.data.length === 0 && !adding && <Empty>Belum ada few-shot example.</Empty>}
       {list.data?.data.map((analysis) => (
         <AnalysisCard key={analysis.id} analysis={analysis} highlighted={analysis.id === focus} onChange={list.reload} />
       ))}

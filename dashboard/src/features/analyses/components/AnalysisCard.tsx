@@ -19,7 +19,7 @@ export function AnalysisCard({ analysis, highlighted, onChange }: AnalysisCardPr
   const action = useAction();
 
   async function remove() {
-    if (!window.confirm(`Hapus analisis “${analysis.name}”?`)) return;
+    if (!window.confirm(`Hapus contoh “${analysis.name}”?`)) return;
     const done = await action.run(() => deleteAnalysis(analysis.id), "Dihapus");
     if (done !== undefined) onChange();
   }

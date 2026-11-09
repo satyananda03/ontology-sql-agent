@@ -56,7 +56,10 @@ export function SqlAttributeForm({ termId, attr, onDone }: SqlAttributeFormProps
       </label>
       <label className="field">
         Ekspresi SQL
-        <span className="hint">Ekspresi agregat atas kolom tabel term ini, misalnya SUM(amount).</span>
+        <span className="hint">
+          Query SELECT lengkap atas tabel term ini: rumus, misalnya SELECT SUM(amount) FROM sales.orders, atau filter,
+          misalnya SELECT * FROM sales.orders WHERE status = 'aktif'.
+        </span>
         <textarea
           className="mono"
           rows={4}

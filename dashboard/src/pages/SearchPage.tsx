@@ -25,7 +25,7 @@ export default function SearchPage() {
 
   return (
     <>
-      <PageHeader title="Pencarian">Cari term, tabel, kolom, atribut, dan analisis di seluruh ontologi.</PageHeader>
+      <PageHeader title="Pencarian">Cari business term, tabel, kolom, atribut, dan few-shot example di seluruh ontologi.</PageHeader>
       <div className="toolbar">
         <SearchForm
           value={term}

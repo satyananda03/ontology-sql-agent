@@ -9,7 +9,7 @@ import { getCompilationStatus, getIngestStatus, regenerateOntology, triggerCompi
 import { usePolledFetch } from "../hooks/usePolledFetch";
 
 const REGENERATE_WARNING =
-  "Regenerate ontologi?\n\nSeluruh ontologi dihapus lalu dikompilasi ulang dari nol: term, atribut, hasil review, dan custom analyses. Custom analyses TIDAK dibuat ulang. Deskripsi katalog tetap.\n\nExport model dulu bila perlu cadangan.";
+  "Regenerate ontologi?\n\nSeluruh ontologi dihapus lalu dikompilasi ulang dari nol: term, atribut, hasil review, dan few-shot examples. Few-shot examples TIDAK dibuat ulang. Deskripsi katalog tetap.\n\nExport model dulu bila perlu cadangan.";
 
 /** The three jobs that keep the catalog and ontology current. Nothing runs on its own. */
 export function OperationsPanel() {
@@ -87,7 +87,7 @@ export function OperationsPanel() {
           </button>
         }
       >
-        Hapus seluruh ontologi lalu kompilasi ulang dari nol. Hasil review dan custom analyses ikut hilang.
+        Hapus seluruh ontologi lalu kompilasi ulang dari nol. Hasil review dan few-shot examples ikut hilang.
       </Operation>
     </section>
   );

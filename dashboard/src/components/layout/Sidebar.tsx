@@ -5,10 +5,10 @@ import { Fragment } from "react";
 import { NavLink } from "react-router-dom";
 
 const NAV_GROUPS = [
-  { title: "Review", links: [["/terms", "Terms"], ["/catalog", "Katalog"], ["/search", "Pencarian"]] },
+  { title: "Review", links: [["/terms", "Business Terms"], ["/catalog", "Katalog"], ["/search", "Pencarian"]] },
   {
     title: "Pengetahuan",
-    links: [["/glossary", "Glossary"], ["/analyses", "Custom analyses"], ["/knowledge-graph", "Knowledge Graph"]],
+    links: [["/glossary", "Glossary"], ["/analyses", "Few-shot examples"], ["/knowledge-graph", "Knowledge Graph"]],
   },
   { title: "Sistem", links: [["/connections", "Koneksi"], ["/settings", "Pengaturan"], ["/playground", "Playground"]] },
 ] as const;

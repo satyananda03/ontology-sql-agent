@@ -63,6 +63,14 @@ def test_knowledge_carries_definitions_synonyms_glossary_and_rules() -> None:
     assert "hanya data 2026" in knowledge
 
 
+def test_matched_custom_analyses_reach_the_generator_as_few_shot_examples() -> None:
+    example = "name: Researcher per bidang, sql: SELECT bidang, COUNT(*) FROM riset"
+    ontology = _ontology([TABLE], custom_analyses_str=[example])
+    knowledge = module.context_update(ontology)["knowledge_context"]
+    assert "FEW-SHOT EXAMPLES" in knowledge
+    assert f"- {example}" in knowledge
+
+
 def test_join_paths_reach_the_generator() -> None:
     hop = {
         "source_schema": "iccn_dwh",

@@ -1,7 +1,7 @@
 TAG ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
 .PHONY: help build up dev ingest-dev backend-dev migrate migrate-check \
-        migrate-revision lint test openapi eval eval-report ui ui-build
+        migrate-revision lint test openapi ui ui-build
 
 help:
 	@echo "  make build                     Build the backend image (host arch)"
@@ -15,8 +15,6 @@ help:
 	@echo "  make lint                      Ruff check and format check"
 	@echo "  make test                      Backend and agent tests"
 	@echo "  make openapi                   Regenerate docs/openapi/ after an API change"
-	@echo "  make eval                      Ask the golden questions, write runs/agent.jsonl"
-	@echo "  make eval-report               Score runs/*.jsonl against the golden SQL"
 	@echo "  make ui                        Review UI on http://127.0.0.1:5173 (needs the backend)"
 	@echo "  make ui-build                  Type-check and build the review UI"
 
@@ -67,12 +65,6 @@ test:
 # The dashboard's TypeScript types are generated from docs/openapi/backend.json.
 openapi:
 	uv run python -m sql_agent.openapi
-
-eval:
-	uv run python -m sql_agent.eval.run --out runs/agent.jsonl
-
-eval-report:
-	uv run python -m sql_agent.eval.report runs/*.jsonl
 
 ui:
 	npm --prefix dashboard install --no-audit --no-fund

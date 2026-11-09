@@ -16,8 +16,8 @@ export default function CatalogPage() {
   return (
     <>
       <PageHeader title="Katalog">
-        Database, skema, tabel, dan kolom yang di-ingest. Deskripsi yang di-certify dipakai agent saat memilih tabel
-        dan kolom.
+        Database, skema, tabel, dan kolom yang di-ingest. Deskripsinya dikirim ke agent saat menyusun SQL. Certify
+        menandai yang sudah diperiksa manusia.
       </PageHeader>
       <ErrorBanner message={tree.error} />
       <div className="grid2">
