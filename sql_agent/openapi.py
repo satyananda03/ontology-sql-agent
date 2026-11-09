@@ -10,8 +10,6 @@ Usage (from the repo root)::
     make openapi
 """
 
-from __future__ import annotations
-
 import json
 import pathlib
 import sys

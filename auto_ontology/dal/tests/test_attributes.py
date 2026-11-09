@@ -6,8 +6,6 @@ to each other.** It is a wrong answer that looks completely reasonable — a joi
 ``customer_id`` columns is exactly the sort of thing a reviewer nods at.
 """
 
-from __future__ import annotations
-
 import os
 import uuid
 

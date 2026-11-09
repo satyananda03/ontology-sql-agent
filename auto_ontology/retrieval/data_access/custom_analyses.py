@@ -8,8 +8,6 @@ All direct store access lives in auto_ontology/dal/custom_analyses.py.
 This module only keeps the pure-Python helpers.
 """
 
-from __future__ import annotations
-
 import logging
 
 from auto_ontology.catalog.constants import Labels

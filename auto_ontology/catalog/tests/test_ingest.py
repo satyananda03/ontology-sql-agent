@@ -6,8 +6,6 @@ empty paths, and the ``(tables_df, columns_df)`` concat across schemas that
 ``CatalogEmbeddingRowsOp`` consumes downstream.
 """
 
-from __future__ import annotations
-
 from types import SimpleNamespace
 from unittest.mock import patch
 

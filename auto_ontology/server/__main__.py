@@ -1,7 +1,5 @@
 """FastAPI application entry-point — middleware, routers, lifespan."""
 
-from __future__ import annotations
-
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI

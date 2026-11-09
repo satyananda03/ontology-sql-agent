@@ -1,7 +1,5 @@
 """Shared prompt formatters for text-to-SQL agents."""
 
-from __future__ import annotations
-
 from typing import Any
 
 from auto_ontology.utils.sample_values import stringify_sample_values

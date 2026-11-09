@@ -12,8 +12,6 @@ Settings are read back through the same functions the services use
 in effect, defaults included, and the bounds cannot drift from the readers'.
 """
 
-from __future__ import annotations
-
 from datetime import datetime
 from typing import Annotated, Any
 from uuid import UUID

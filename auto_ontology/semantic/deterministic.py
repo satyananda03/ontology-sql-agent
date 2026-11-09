@@ -1,7 +1,5 @@
 """Deterministic column mapping — exclude FK columns."""
 
-from __future__ import annotations
-
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed

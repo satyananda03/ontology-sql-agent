@@ -8,8 +8,6 @@ empty without raising. The round trip below writes through the real
 the embedding endpoint is replaced.
 """
 
-from __future__ import annotations
-
 import uuid
 from typing import Any, Iterator
 

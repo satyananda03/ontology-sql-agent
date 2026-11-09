@@ -4,8 +4,6 @@ Kept in one place so every list reads a page the same way, and so the ceiling
 below can't drift between routers.
 """
 
-from __future__ import annotations
-
 from fastapi import Query
 
 # Ceiling on a page, so a single request can't pull a whole collection back and

@@ -1,7 +1,5 @@
 """Connection lifecycle: test, persist credentials, and link catalog databases."""
 
-from __future__ import annotations
-
 import json
 import logging
 from typing import Any

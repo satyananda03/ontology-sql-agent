@@ -5,8 +5,6 @@ This module keeps orchestration: connector resolution, SQL validation,
 node persistence via add_query, and VDB embedding lifecycle.
 """
 
-from __future__ import annotations
-
 import logging
 from typing import TYPE_CHECKING, Any
 

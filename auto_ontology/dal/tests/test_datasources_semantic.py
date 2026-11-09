@@ -11,8 +11,6 @@ so no table has an FK on every column -- the query returns nothing, which tells
 you nothing about whether it works. Hence the hand-built bridge fixture below.
 """
 
-from __future__ import annotations
-
 import os
 import uuid
 

@@ -5,8 +5,6 @@ plain function rather than an operator class, so nothing here has to implement
 a library ABC.
 """
 
-from __future__ import annotations
-
 import logging
 from typing import TYPE_CHECKING
 

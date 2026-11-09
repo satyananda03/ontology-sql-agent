@@ -1,7 +1,5 @@
 """Zone constants, graph label helpers, and API payload formatting."""
 
-from __future__ import annotations
-
 from auto_ontology.catalog.constants import Edges, Labels
 
 from auto_ontology.server.zones.constants import LABEL_ZONE

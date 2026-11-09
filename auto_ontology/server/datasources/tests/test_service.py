@@ -1,7 +1,5 @@
 """Tests for catalog node patching, including the sample-value type guard."""
 
-from __future__ import annotations
-
 from unittest.mock import MagicMock, patch
 
 import pytest

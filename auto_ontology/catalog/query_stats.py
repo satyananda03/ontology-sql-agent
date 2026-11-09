@@ -6,8 +6,6 @@ backend, for the same reason as :mod:`auto_ontology.catalog.diff`: a second copy
 second thing to fix.
 """
 
-from __future__ import annotations
-
 import pandas as pd
 
 

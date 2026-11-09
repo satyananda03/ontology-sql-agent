@@ -27,8 +27,6 @@ Example
         # implement remaining abstract methods ...
 """
 
-from __future__ import annotations
-
 import time
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Optional

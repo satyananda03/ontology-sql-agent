@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import annotations
-
 from typing import Any
 
 import pytest

@@ -14,8 +14,6 @@ pair connected by both mechanisms at once, and a self-referential key that must
 count as nothing.
 """
 
-from __future__ import annotations
-
 import os
 import uuid
 

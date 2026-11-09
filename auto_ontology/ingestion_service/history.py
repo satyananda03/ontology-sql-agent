@@ -24,8 +24,6 @@ pass is *currently* running use the scheduler's own in-memory state instead
 distinguish "still going" from "gave up without a verdict".
 """
 
-from __future__ import annotations
-
 import logging
 
 import psycopg

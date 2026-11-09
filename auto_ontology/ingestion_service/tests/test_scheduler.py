@@ -3,8 +3,6 @@
 
 """Jobs run only when triggered, and jobs sharing a lock never overlap."""
 
-from __future__ import annotations
-
 import asyncio
 
 from auto_ontology.ingestion_service.scheduler import OnDemandScheduler

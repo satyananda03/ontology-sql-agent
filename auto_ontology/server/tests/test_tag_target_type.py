@@ -14,8 +14,6 @@ are what makes it loud, and they are the reason the literals are allowed.
 Needs no database: both sides are module-level constants.
 """
 
-from __future__ import annotations
-
 from auto_ontology.dal.tags import (
     TARGET_COLUMN,
     TARGET_COLUMN_ATTRIBUTE,

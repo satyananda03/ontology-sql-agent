@@ -11,8 +11,6 @@ caller can see, and :func:`resolve_table_filter` turns those into a predicate to
 hand to ``.where()``.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 from sqlalchemy import text

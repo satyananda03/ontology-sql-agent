@@ -5,8 +5,6 @@ Kept separate from ``graph.py`` to avoid circular imports (agents import state;
 ``graph`` imports agents).
 """
 
-from __future__ import annotations
-
 from typing import NotRequired, TypedDict
 
 from langchain_core.messages import BaseMessage, HumanMessage

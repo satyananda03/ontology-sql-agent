@@ -20,8 +20,6 @@ preserves behaviour exactly, and carrying a column no writer sets would leave a
 permanent puzzle.
 """
 
-from __future__ import annotations
-
 import logging
 
 import pandas as pd

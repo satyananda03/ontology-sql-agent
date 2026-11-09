@@ -1,7 +1,5 @@
 """Resolve the running application version."""
 
-from __future__ import annotations
-
 import os
 from importlib.metadata import PackageNotFoundError, version as _pkg_version
 

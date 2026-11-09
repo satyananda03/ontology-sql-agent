@@ -1,7 +1,5 @@
 """Unified entry point for semantic layer compilation."""
 
-from __future__ import annotations
-
 import logging
 import os
 import time

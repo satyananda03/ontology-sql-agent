@@ -10,8 +10,6 @@ synonyms without editing them. So this takes two steps with a review between the
     uv run python -m sql_agent.knowledge.generate_synonyms apply synonyms.yaml
 """
 
-from __future__ import annotations
-
 import argparse
 from pathlib import Path
 from typing import Any

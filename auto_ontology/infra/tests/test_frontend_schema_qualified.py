@@ -17,8 +17,6 @@ A schema-qualified name cannot fail that way, so the rule is simply that the
 qualification is always present — enforced here rather than left to review.
 """
 
-from __future__ import annotations
-
 import re
 from pathlib import Path
 

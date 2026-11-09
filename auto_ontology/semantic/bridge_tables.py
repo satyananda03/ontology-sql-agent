@@ -7,8 +7,6 @@ target tables (chosen by reranking those Terms against the SqlAttribute
 description). No new Term is created for the bridge table itself.
 """
 
-from __future__ import annotations
-
 import logging
 from pathlib import Path
 from typing import Any

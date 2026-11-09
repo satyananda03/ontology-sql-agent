@@ -18,8 +18,6 @@ The filter shape is chosen by the VDB the caller plugged in (read off
   as top-level columns so the keys match.
 """
 
-from __future__ import annotations
-
 import ast
 import json
 import logging

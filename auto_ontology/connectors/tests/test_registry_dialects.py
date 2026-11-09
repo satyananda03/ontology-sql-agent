@@ -7,8 +7,6 @@ connector reporting an engine name sqlglot doesn't know fails here rather than
 at query time.
 """
 
-from __future__ import annotations
-
 import pytest
 from sqlglot.dialects import DIALECTS
 

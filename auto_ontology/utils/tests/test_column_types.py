@@ -1,7 +1,5 @@
 """Tests for which columns admit a hand-edited sample value."""
 
-from __future__ import annotations
-
 import pytest
 
 from auto_ontology.utils.column_types import (

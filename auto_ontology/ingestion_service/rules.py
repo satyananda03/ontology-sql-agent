@@ -16,8 +16,6 @@ decision, and the three callers do not agree, for reasons each documents:
   ingests a whole database without going through either scheduler.
 """
 
-from __future__ import annotations
-
 import asyncio
 import logging
 

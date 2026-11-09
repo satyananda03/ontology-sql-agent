@@ -1,7 +1,5 @@
 """LangGraph for the entity-coverage pipeline."""
 
-from __future__ import annotations
-
 import logging
 
 from langgraph.graph import END, StateGraph

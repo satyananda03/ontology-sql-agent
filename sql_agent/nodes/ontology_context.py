@@ -9,8 +9,6 @@ kolom, lalu graph search untuk jalur join. Kontrak ke node berikutnya tetap sama
 ``selected_table`` berisi tabel terpilih, ``schema_context`` berisi skemanya.
 """
 
-from __future__ import annotations
-
 import logging
 from typing import Any, Literal
 

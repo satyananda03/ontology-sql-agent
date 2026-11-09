@@ -5,8 +5,6 @@ by a migration, so there is nothing for an ingest to do. Kept as a function
 because ``write.populate_tabular_data`` calls it unconditionally.
 """
 
-from __future__ import annotations
-
 import logging
 
 logger = logging.getLogger(__name__)

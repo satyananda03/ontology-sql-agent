@@ -8,8 +8,6 @@ timeout dari ``execute_chat_sql``. Keluarannya sama dengan versi asyncpg classic
 jadi node di atasnya tidak perlu tahu drivernya berganti.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 from auto_ontology.connectors.base import StatementTimeout

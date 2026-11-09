@@ -7,8 +7,6 @@ the arguments actually land in the database the way each function's docstring
 promises (JSON-encoding, bool coercion, skip-if-falsy).
 """
 
-from __future__ import annotations
-
 import json
 import os
 import uuid

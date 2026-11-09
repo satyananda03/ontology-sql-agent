@@ -12,8 +12,6 @@ The row dicts produced here are consumed by the embed step
 :func:`auto_ontology.vdb.records.write_embedded_rows`.
 """
 
-from __future__ import annotations
-
 import logging
 from typing import Any, Iterable
 

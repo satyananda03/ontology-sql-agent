@@ -11,8 +11,6 @@ The whole import is **one transaction**, so a failure part-way leaves nothing
 behind rather than a catalog with half its semantics on top.
 """
 
-from __future__ import annotations
-
 import logging
 from collections.abc import Callable, Iterable
 from typing import Any

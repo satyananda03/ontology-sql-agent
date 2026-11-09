@@ -11,8 +11,6 @@ for these rows, so rows written before and after it was replaced are
 indistinguishable in the store.
 """
 
-from __future__ import annotations
-
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any, Iterable
 

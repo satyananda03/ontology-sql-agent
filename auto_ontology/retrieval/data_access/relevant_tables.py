@@ -10,8 +10,6 @@ The text-to-SQL prompts expect each table to be a flat dict with
 * runs the semantic search restricted to ``Table`` rows.
 """
 
-from __future__ import annotations
-
 import logging
 import re
 from typing import TYPE_CHECKING

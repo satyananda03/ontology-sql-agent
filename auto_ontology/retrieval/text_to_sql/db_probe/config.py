@@ -1,7 +1,5 @@
 """Limits for live DB probing, tunable through the environment."""
 
-from __future__ import annotations
-
 import os
 
 

@@ -1,7 +1,5 @@
 """Persistence operations for automatic PII classification."""
 
-from __future__ import annotations
-
 from sqlalchemy import Select, Text, exists, literal, not_, select
 from sqlalchemy.dialects.postgresql import insert
 

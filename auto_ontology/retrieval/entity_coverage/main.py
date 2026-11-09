@@ -1,7 +1,5 @@
 """Entry point for the entity-coverage LangGraph pipeline."""
 
-from __future__ import annotations
-
 import logging
 from typing import Any
 

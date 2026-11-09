@@ -6,8 +6,6 @@ throughout. Per-database identification is stored in a real ``database_name``
 column so it can be used as a delete/search filter.
 """
 
-from __future__ import annotations
-
 import asyncio
 import logging
 import os

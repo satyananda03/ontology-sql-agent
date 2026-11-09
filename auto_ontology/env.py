@@ -1,7 +1,5 @@
 """Environment bootstrap shared by all Auto Ontology process entrypoints."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 from dotenv import load_dotenv

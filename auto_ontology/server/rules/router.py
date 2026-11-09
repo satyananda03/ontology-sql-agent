@@ -23,8 +23,6 @@ The tag ids are checked here rather than left to the foreign key underneath
 that is gone is worth a 404 naming it rather than a constraint violation.
 """
 
-from __future__ import annotations
-
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 

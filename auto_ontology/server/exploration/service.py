@@ -4,8 +4,6 @@ Keeps the HTTP router independent from the DAL and provides the
 domain boundary for future Exploration-specific orchestration.
 """
 
-from __future__ import annotations
-
 from auto_ontology.dal.exploration import (
     MAX_EXPLORATION_GRAPH_NODES,
     fetch_column_attribute_exploration_details,

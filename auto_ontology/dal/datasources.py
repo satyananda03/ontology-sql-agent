@@ -12,8 +12,6 @@ Two shapes recur and are easy to break:
   scoped user sees a schema count covering only the tables they can see.
 """
 
-from __future__ import annotations
-
 import logging
 from typing import Any
 

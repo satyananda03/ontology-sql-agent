@@ -5,8 +5,6 @@ relationships into undirected table edges (``_find_table_join_hops``), then
 run BFS over tables while retaining the exact join columns on every edge.
 """
 
-from __future__ import annotations
-
 from collections import defaultdict, deque
 import itertools
 import logging

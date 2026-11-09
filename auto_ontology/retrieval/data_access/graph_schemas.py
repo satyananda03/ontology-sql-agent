@@ -8,8 +8,6 @@ This module only keeps the pure-Python ``get_schemas_by_ids`` that assembles
 pandas DataFrames into :class:`Schema` objects.
 """
 
-from __future__ import annotations
-
 import logging
 import time
 

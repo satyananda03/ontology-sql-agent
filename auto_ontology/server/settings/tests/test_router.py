@@ -8,8 +8,6 @@ points at a database migrated to head, where ``frontend.acronyms`` and
 ``frontend.configurations`` exist.
 """
 
-from __future__ import annotations
-
 import os
 from collections.abc import Iterator
 from uuid import uuid4

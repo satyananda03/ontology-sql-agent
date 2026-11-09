@@ -19,8 +19,6 @@ Each test owns a throwaway source database, so it can add and drop tables
 without disturbing the Pagila fixture. Skips when its stores are unreachable.
 """
 
-from __future__ import annotations
-
 import os
 import uuid
 

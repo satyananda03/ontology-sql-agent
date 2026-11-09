@@ -1,7 +1,5 @@
 """API route handlers for SqlAttribute CRUD."""
 
-from __future__ import annotations
-
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 

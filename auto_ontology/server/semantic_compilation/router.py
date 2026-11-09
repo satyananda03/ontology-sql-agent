@@ -4,8 +4,6 @@ These routes relay the review UI's "Jalankan kompilasi" and "Regenerate
 ontologi" buttons to the ingestion service. Compilation runs only when asked.
 """
 
-from __future__ import annotations
-
 import logging
 
 from fastapi import APIRouter

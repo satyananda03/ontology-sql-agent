@@ -10,8 +10,6 @@ whether every connection ingested or every one of them threw.
 So each pipeline is tested twice: once succeeding, once failing.
 """
 
-from __future__ import annotations
-
 import asyncio
 import logging
 import threading

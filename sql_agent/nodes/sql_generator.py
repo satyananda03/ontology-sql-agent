@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import annotations
-
 import logging
 import os
 from functools import lru_cache
@@ -111,7 +109,11 @@ def sql_generator(state: State) -> dict[str, Any]:
         user_query=state.user_query,
         schema_context=state.schema_context,
         knowledge_context=state.knowledge_context,
-        semantic_context=state.semantic_context,
+        semantic_context=(
+            f"<semantic_context>\n{state.semantic_context}\n</semantic_context>"
+            if state.semantic_context
+            else ""
+        ),
         retry_feedback=state.retry_feedback or "",
     )
     logger.info(

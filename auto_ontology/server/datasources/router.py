@@ -1,7 +1,5 @@
 """API route handlers for datasources and connectors."""
 
-from __future__ import annotations
-
 from fastapi import APIRouter, HTTPException, Path, Query, Request
 from pydantic import BaseModel, Field
 

@@ -1,7 +1,5 @@
 """Tests for cross-table semantic foreign-key resolution."""
 
-from __future__ import annotations
-
 import logging
 from unittest.mock import MagicMock, patch
 

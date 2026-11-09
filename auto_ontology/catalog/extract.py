@@ -5,8 +5,6 @@ else, and taking a wrapper object would leave a library dependency in code that
 is otherwise storage- and library-agnostic.
 """
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd

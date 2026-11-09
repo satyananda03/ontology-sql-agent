@@ -6,8 +6,6 @@ only the first feature to need a caller's name. Tags read it too, to record who
 created and last renamed one.
 """
 
-from __future__ import annotations
-
 from fastapi import HTTPException, Request
 
 INTERNAL_USER_HEADER = "x-auto-ontology-user-id"

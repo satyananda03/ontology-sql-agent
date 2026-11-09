@@ -1,7 +1,5 @@
 """Constants shared by the global-search router and service."""
 
-from __future__ import annotations
-
 # The only ``text_match_option`` global search implements: every token has to
 # appear as a substring. Lives here because the request model's default and the
 # service's validation have to agree on the wording.

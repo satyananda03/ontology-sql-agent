@@ -13,8 +13,6 @@ The second is the one a positive-form check ("does it touch an allowed table?")
 gets wrong while looking correct, so the fixture builds exactly that case.
 """
 
-from __future__ import annotations
-
 import os
 import uuid
 

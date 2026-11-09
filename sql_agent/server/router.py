@@ -3,8 +3,6 @@
 
 """HTTP entry point for the ``search_database_knowledge`` tool."""
 
-from __future__ import annotations
-
 import os
 import secrets
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout

@@ -44,8 +44,6 @@ tag is never taken, even emptied: ingest looks it up by name.
 Needs a migrated database and skips without one.
 """
 
-from __future__ import annotations
-
 import os
 import uuid
 

@@ -15,8 +15,6 @@ falsify — see ``_validated_filters``. Both are perfectly good *searches*, whic
 is why the route is the only place either can be refused.
 """
 
-from __future__ import annotations
-
 import pytest
 from fastapi import HTTPException
 

@@ -1,7 +1,5 @@
 """Shared SQL validation helpers used by both CustomAnalysis and SqlAttribute DALs."""
 
-from __future__ import annotations
-
 from typing import Any
 
 from auto_ontology.catalog.sql_parse import parse_query_single

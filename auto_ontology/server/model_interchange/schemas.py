@@ -1,7 +1,5 @@
 """Pydantic models for the Auto Ontology model interchange YAML document."""
 
-from __future__ import annotations
-
 from enum import Enum
 from typing import Any
 

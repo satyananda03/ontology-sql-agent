@@ -12,8 +12,6 @@ The classic node kept at most 20 ids, which silently undercounted larger topics.
 one verifies more candidates and reports when even those may not be all of them.
 """
 
-from __future__ import annotations
-
 import logging
 import numbers
 from pathlib import Path

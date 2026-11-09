@@ -10,8 +10,6 @@ A search term is read twice, and the two readings deliberately disagree:
 words. See the module docstring in ``auto_ontology.dal.search`` for why.
 """
 
-from __future__ import annotations
-
 import pytest
 
 from auto_ontology.catalog.constants import Labels, TableTypes

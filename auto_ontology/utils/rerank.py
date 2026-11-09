@@ -14,8 +14,6 @@ the URL, and each built-in default uses a different one:
 Any other URL is treated as a NIM base and gets ``/v1/ranking`` appended.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 import httpx

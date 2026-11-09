@@ -11,8 +11,6 @@ header is not checked here: FastAPI is only reachable on the private network,
 and the header is not authenticated on its own.
 """
 
-from __future__ import annotations
-
 from fastapi import HTTPException, Request
 
 from auto_ontology.dal import groups as groups_dal

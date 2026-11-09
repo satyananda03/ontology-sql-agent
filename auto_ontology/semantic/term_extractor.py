@@ -1,7 +1,5 @@
 """LLM Term extraction — names and column display-name assignments only."""
 
-from __future__ import annotations
-
 import re
 from pathlib import Path
 from typing import Any

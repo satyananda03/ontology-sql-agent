@@ -19,8 +19,6 @@ The same executor backs both the Phase-1 deterministic probes and any future
 Phase-2 LLM-driven exploration loop, so all live access inherits these guards.
 """
 
-from __future__ import annotations
-
 import logging
 import re
 import time

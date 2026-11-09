@@ -6,8 +6,6 @@ UI-managed connection when it has a ``connection`` value; the catalog name
 doubles as the connection's identity.
 """
 
-from __future__ import annotations
-
 import json
 import logging
 from typing import Any

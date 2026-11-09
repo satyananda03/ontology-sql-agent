@@ -1,7 +1,5 @@
 """Pydantic DTOs for LLM structured I/O — not an in-memory graph store."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 
 from pydantic import BaseModel, ConfigDict, Field

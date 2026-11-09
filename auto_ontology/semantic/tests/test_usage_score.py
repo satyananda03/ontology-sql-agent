@@ -17,8 +17,6 @@ feature precisely because no test asserted anything about the score.
 worked, not a regression.
 """
 
-from __future__ import annotations
-
 from auto_ontology.semantic.sql_attribute_suggester import (
     _rank_expressions,
     _usage_score,

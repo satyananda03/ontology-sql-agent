@@ -11,8 +11,6 @@ here must not mark an ingest or a compilation as failed -- the work they did
 succeeded.
 """
 
-from __future__ import annotations
-
 import asyncio
 import logging
 

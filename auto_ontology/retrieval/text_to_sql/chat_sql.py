@@ -10,8 +10,6 @@ large ``information_schema``, which legitimately take minutes.
 Only agent-issued SQL reaches the calls here.
 """
 
-from __future__ import annotations
-
 import logging
 from typing import Any
 

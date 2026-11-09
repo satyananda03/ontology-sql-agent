@@ -12,8 +12,6 @@ owner for either attribute. The edit check does not read an owner on those
 rows, including the owner column a sql attribute still keeps.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 from sqlalchemy import select, update

@@ -1,7 +1,5 @@
 """A composite primary key is stored in key order, whatever order its rows arrive in."""
 
-from __future__ import annotations
-
 import os
 import uuid
 from collections.abc import Iterator

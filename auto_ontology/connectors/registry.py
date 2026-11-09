@@ -4,8 +4,6 @@ The source database comes from ``CONNECTION_STRINGS`` only, and it must hold
 exactly one connection: this build answers from a single database.
 """
 
-from __future__ import annotations
-
 import logging
 import os
 import re

@@ -1,7 +1,5 @@
 """Semantic graph labels and relationship types."""
 
-from __future__ import annotations
-
 SEMANTIC_SOURCE = "semantic"
 
 # Source values stored on SqlAttribute nodes.

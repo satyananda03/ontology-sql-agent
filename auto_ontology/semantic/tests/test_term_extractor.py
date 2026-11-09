@@ -1,7 +1,5 @@
 """Tests for term extraction sanitization."""
 
-from __future__ import annotations
-
 from auto_ontology.semantic.models import (
     ColumnAttributeSpec,
     RawTableTermsResult,

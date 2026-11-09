@@ -10,8 +10,6 @@ flight. Only one remains, and the indirection is still worth keeping for the
 reason above.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 

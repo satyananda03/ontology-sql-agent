@@ -24,8 +24,6 @@ service, and it is a :class:`threading.Event` rather than an asyncio one so the
 worker threads can read it without touching the loop.
 """
 
-from __future__ import annotations
-
 import logging
 import threading
 

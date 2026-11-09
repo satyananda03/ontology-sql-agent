@@ -12,8 +12,6 @@ does not declare, which would turn a documentation change into a breaking
 API change.
 """
 
-from __future__ import annotations
-
 from typing import Any, Generic, TypeVar
 
 from auto_ontology.server.models import (

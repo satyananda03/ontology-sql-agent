@@ -32,8 +32,6 @@ is uncapped -- a rule matching five thousand columns must not stop at the size
 of a page it is no longer showing anybody.
 """
 
-from __future__ import annotations
-
 import logging
 from typing import Any, Callable
 

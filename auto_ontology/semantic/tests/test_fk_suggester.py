@@ -1,7 +1,5 @@
 """Tests for deterministic fallbacks in FK suggestion."""
 
-from __future__ import annotations
-
 from unittest.mock import MagicMock, patch
 
 from auto_ontology.semantic.fk_suggester import (

@@ -19,8 +19,6 @@ modelled once here rather than four times in four router packages.
 Every model allows extra keys — see :class:`ApiModel`.
 """
 
-from __future__ import annotations
-
 from datetime import datetime
 from enum import StrEnum
 from typing import Any

@@ -20,8 +20,6 @@ Pass ``all_schemas={}`` (the default) to skip schema-assisted resolution
 and rely solely on ``qualify()``.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 
 import sqlglot

@@ -14,8 +14,6 @@ Usage::
     uv run --no-sync python -m auto_ontology.ingestion_service
 """
 
-from __future__ import annotations
-
 import asyncio
 import logging
 import os

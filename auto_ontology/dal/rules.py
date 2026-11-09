@@ -40,8 +40,6 @@ rule is deletable at all, and because a caller can ask for the labels to be kept
 instead.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 from sqlalchemy import ColumnElement, func, literal, or_, select

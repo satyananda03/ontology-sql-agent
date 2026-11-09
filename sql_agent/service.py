@@ -3,8 +3,6 @@
 
 """Run the graph and render its result for a calling agent."""
 
-from __future__ import annotations
-
 import logging
 from dataclasses import dataclass
 from typing import Any, Literal

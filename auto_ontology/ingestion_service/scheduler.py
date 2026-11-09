@@ -10,8 +10,6 @@ triggered while the other is running waits for it, then runs.
 Subclasses implement :meth:`_run_once`.
 """
 
-from __future__ import annotations
-
 import asyncio
 import logging
 

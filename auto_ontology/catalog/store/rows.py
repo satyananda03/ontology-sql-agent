@@ -22,8 +22,6 @@ generated id, and there keeping the stored id is the correct answer rather than
 merely the safe one.
 """
 
-from __future__ import annotations
-
 import logging
 from typing import Any
 

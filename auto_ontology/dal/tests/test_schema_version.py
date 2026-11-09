@@ -9,8 +9,6 @@ No database needed: the states are constructed directly. The live paths are
 covered by ``test_reports_the_real_revision``, which skips without a store.
 """
 
-from __future__ import annotations
-
 import os
 
 import pytest

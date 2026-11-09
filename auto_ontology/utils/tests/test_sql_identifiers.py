@@ -1,7 +1,5 @@
 """Tests for dialect-aware SQL identifier quoting."""
 
-from __future__ import annotations
-
 import pytest
 
 from auto_ontology.utils.sql_identifiers import qualified_name, quoted_identifier

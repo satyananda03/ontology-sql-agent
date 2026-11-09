@@ -1,7 +1,5 @@
 """Group writes require an admin. The role on the group becomes permissions."""
 
-from __future__ import annotations
-
 from typing import Any
 
 import pytest

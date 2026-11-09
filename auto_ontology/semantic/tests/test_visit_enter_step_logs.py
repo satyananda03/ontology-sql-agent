@@ -1,7 +1,5 @@
 """Per-table compilation emits a log line for each step it runs."""
 
-from __future__ import annotations
-
 import logging
 from types import SimpleNamespace
 from typing import Any

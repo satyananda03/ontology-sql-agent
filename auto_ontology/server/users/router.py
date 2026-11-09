@@ -6,8 +6,6 @@ this service. There is no Frontegg. A group's role is ``admin`` or
 ``permissions.py``.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request

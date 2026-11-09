@@ -5,8 +5,6 @@ queries) and by the semantic layer's profiling probes, so both quote names the
 same way.
 """
 
-from __future__ import annotations
-
 from sqlglot import exp
 
 

@@ -5,8 +5,6 @@ its name would split PII labels across two tags. The route is the one gate
 every caller -- the settings page and a direct API call alike -- goes through.
 """
 
-from __future__ import annotations
-
 from contextlib import nullcontext
 from typing import Any
 

@@ -1,7 +1,5 @@
 """PostgreSQL connector implementing the :class:`~auto_ontology.connectors.base.SQLDatabase` ABC."""
 
-from __future__ import annotations
-
 import time
 import weakref
 from typing import Optional

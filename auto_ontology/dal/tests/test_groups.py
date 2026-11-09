@@ -5,8 +5,6 @@ database does not have it; the fixture creates the columns this DAL reads
 when that table is absent and leaves a real one untouched.
 """
 
-from __future__ import annotations
-
 from collections.abc import Iterator
 import os
 import uuid

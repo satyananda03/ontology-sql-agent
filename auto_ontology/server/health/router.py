@@ -8,8 +8,6 @@ saturated, which removes capacity exactly when there is least to spare and can
 kill a process mid-write.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 from fastapi import APIRouter

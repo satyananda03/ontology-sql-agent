@@ -15,8 +15,6 @@ Regenerate after an *intentional* signature change::
     uv run python -m auto_ontology.dal.tests.test_dal_surface
 """
 
-from __future__ import annotations
-
 import importlib
 import inspect
 import json

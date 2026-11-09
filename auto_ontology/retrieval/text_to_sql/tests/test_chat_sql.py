@@ -1,7 +1,5 @@
 """Chat SQL logging reports the statement and the credential behind it."""
 
-from __future__ import annotations
-
 import logging
 from types import SimpleNamespace
 

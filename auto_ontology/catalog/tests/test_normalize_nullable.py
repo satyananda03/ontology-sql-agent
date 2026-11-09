@@ -7,8 +7,6 @@ wrong on the fixture, with nothing failing to show it. These tests pin the
 conversion so it cannot silently regress to a string.
 """
 
-from __future__ import annotations
-
 import pandas as pd
 import pytest
 

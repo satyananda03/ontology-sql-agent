@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from auto_ontology.connectors.base import SQLDatabase
 from auto_ontology.connectors.postgres import PostgresDatabase
 from auto_ontology.connectors.registry import (

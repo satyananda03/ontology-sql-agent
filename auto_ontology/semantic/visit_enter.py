@@ -1,7 +1,5 @@
 """Per-table taxonomy compilation: FK detection, Term + ColumnAttributes."""
 
-from __future__ import annotations
-
 import json
 import logging
 import os

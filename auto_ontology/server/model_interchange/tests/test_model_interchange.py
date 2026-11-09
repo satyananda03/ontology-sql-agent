@@ -6,8 +6,6 @@ The storage-level behaviour these do not reach — portable ``imported_id``
 matching, and the export/import round-trip — is covered against a live database
 by ``auto_ontology/dal/tests/test_model_interchange.py``."""
 
-from __future__ import annotations
-
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 

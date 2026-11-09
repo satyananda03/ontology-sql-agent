@@ -1,7 +1,5 @@
 """Tests for reading instance-wide feature flags."""
 
-from __future__ import annotations
-
 from contextlib import contextmanager
 from typing import Any, Iterator
 

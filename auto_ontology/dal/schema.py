@@ -32,8 +32,6 @@ Four decisions shape everything downstream:
   ``pk_table__term`` never drifts back to the ambiguous form.
 """
 
-from __future__ import annotations
-
 from enum import StrEnum
 
 from sqlalchemy import (

@@ -1,7 +1,5 @@
 """Tests for inferring how a date column stores its values."""
 
-from __future__ import annotations
-
 import pytest
 
 from auto_ontology.semantic.date_format import infer_date_format, is_date_type

@@ -11,8 +11,6 @@ down; turning that into a 500 loses the distinction between "not ready" and
 "broken", which is the whole signal.
 """
 
-from __future__ import annotations
-
 from auto_ontology.dal.connections import verify_connectivity
 from auto_ontology.dal.schema_version import schema_state
 

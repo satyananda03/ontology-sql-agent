@@ -3,8 +3,6 @@
 The semantic-tier counterparts live in :mod:`auto_ontology.semantic.constants`.
 """
 
-from __future__ import annotations
-
 
 class Labels:
     """Data-layer node labels."""

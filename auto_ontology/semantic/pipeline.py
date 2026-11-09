@@ -1,7 +1,5 @@
 """Semantic compilation entry: flat table-by-table taxonomy pass."""
 
-from __future__ import annotations
-
 import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed

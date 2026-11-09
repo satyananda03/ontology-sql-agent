@@ -16,8 +16,6 @@ The certification rollup gets its own section for the same reason: every
 possible wrong version of it still returns one of the three valid strings.
 """
 
-from __future__ import annotations
-
 import os
 import uuid
 

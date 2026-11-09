@@ -13,8 +13,6 @@ Two rules run through every read here and are the easiest things to lose:
   allowed to run.
 """
 
-from __future__ import annotations
-
 import logging
 from typing import Any
 

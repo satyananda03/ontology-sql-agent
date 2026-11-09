@@ -28,8 +28,6 @@ which is what an operator typing a pattern into a form expects. Anchor with
 we target treat identifiers that way.
 """
 
-from __future__ import annotations
-
 import logging
 import re
 from dataclasses import dataclass

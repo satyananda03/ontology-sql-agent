@@ -5,8 +5,6 @@ catalog DB node or in Vault. The connectors still consume a connection string,
 so this module converts the structured form into the URL the connectors expect.
 """
 
-from __future__ import annotations
-
 from typing import Any, Mapping
 from urllib.parse import quote
 

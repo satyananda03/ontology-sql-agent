@@ -1,7 +1,5 @@
 """API route handlers for semantic Terms."""
 
-from __future__ import annotations
-
 import logging
 
 from fastapi import APIRouter, HTTPException, Path, Query, Request

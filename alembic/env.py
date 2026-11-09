@@ -13,8 +13,6 @@ codebase uses, rather than ``alembic.ini`` — one source of truth, and no
 credentials in a committed file.
 """
 
-from __future__ import annotations
-
 import logging
 from logging.config import fileConfig
 

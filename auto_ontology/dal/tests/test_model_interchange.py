@@ -14,8 +14,6 @@ against both stored values, because the failure was invisible — a bool is what
 the schema expects, and `True` is a plausible one.
 """
 
-from __future__ import annotations
-
 import os
 import uuid
 

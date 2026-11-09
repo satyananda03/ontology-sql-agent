@@ -16,8 +16,6 @@ Needs a migrated database and skips without one::
     uv run alembic upgrade head
 """
 
-from __future__ import annotations
-
 import os
 import uuid
 from concurrent.futures import ThreadPoolExecutor

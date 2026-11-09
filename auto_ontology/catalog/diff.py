@@ -12,8 +12,6 @@ rather than at module scope: the selector imports the implementations, which
 import this module, and a top-level import would close that circle.
 """
 
-from __future__ import annotations
-
 import logging
 
 import pandas as pd

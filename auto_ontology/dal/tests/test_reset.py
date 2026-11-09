@@ -25,8 +25,6 @@ catalog every other test suite depends on. That is not hypothetical: the first
 version of this file did exactly that. :func:`_rolled_back` contains them.
 """
 
-from __future__ import annotations
-
 import os
 import uuid
 from contextlib import contextmanager

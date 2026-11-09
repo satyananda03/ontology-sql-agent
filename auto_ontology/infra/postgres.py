@@ -4,8 +4,6 @@ Not VDB-specific: the server, ingestion service, and dev tools all build the
 local Postgres URL from the same ``POSTGRES_*`` env vars via this helper.
 """
 
-from __future__ import annotations
-
 import os
 
 #: Schema holding the tables Prisma owns (`conversations`, `messages`,

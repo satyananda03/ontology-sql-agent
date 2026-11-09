@@ -15,8 +15,6 @@ retired session as a normal statement error carrying an ``Invalid
 SessionHandle`` message, not as a distinct exception class or SQLSTATE.
 """
 
-from __future__ import annotations
-
 import re
 
 # The server is up and answered, but it no longer knows the session the caller

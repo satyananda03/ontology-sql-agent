@@ -6,8 +6,6 @@ persistence, and VDB embedding — the three concerns that can't be
 cleanly separated into a pure-graph layer.
 """
 
-from __future__ import annotations
-
 import logging
 from typing import TYPE_CHECKING, Any
 

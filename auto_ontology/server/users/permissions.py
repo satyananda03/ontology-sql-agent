@@ -12,8 +12,6 @@ administration, which stays on the account's own role and is not something a
 group grants.
 """
 
-from __future__ import annotations
-
 from importlib import resources
 import json
 from typing import Any

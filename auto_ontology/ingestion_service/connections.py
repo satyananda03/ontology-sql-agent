@@ -5,8 +5,6 @@ The one connection comes from the ``CONNECTION_STRINGS`` env var (see
 semantic schedulers resolve through here so they see the same database.
 """
 
-from __future__ import annotations
-
 import logging
 
 from auto_ontology.connectors.registry import create_connector, source_connection_string

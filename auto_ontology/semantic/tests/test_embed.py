@@ -1,7 +1,5 @@
 """Tests for the pure helpers in auto_ontology.semantic.embed."""
 
-from __future__ import annotations
-
 from auto_ontology.semantic.embed import _format_sample_values
 
 

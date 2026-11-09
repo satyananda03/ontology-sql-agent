@@ -6,8 +6,6 @@ which Alembic owns. A membership stores the Better Auth id with no foreign
 key — see the comment on those tables in ``auto_ontology/dal/schema.py``.
 """
 
-from __future__ import annotations
-
 from typing import Any, NoReturn
 
 from sqlalchemy import func, select, text

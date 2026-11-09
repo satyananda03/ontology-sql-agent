@@ -8,8 +8,6 @@ those must count as "nothing to write" -- otherwise the reset fires and every ro
 replace is then skipped on write.
 """
 
-from __future__ import annotations
-
 from typing import Any, Iterator
 
 import pandas as pd

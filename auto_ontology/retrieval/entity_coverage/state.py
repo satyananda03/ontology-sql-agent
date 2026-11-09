@@ -3,8 +3,6 @@
 Reuses ``AgentState`` and question helpers from text-to-sql.
 """
 
-from __future__ import annotations
-
 from typing import NotRequired, TypedDict
 
 from auto_ontology.utils.retriever import Retriever

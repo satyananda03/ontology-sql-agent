@@ -15,8 +15,6 @@ whole point of the function is that a curated description outlives a batch that
 has nothing to say about it.
 """
 
-from __future__ import annotations
-
 import os
 import uuid
 

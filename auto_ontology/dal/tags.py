@@ -37,8 +37,6 @@ wrote a label first keeps it — the duplicate insert is absorbed rather than
 overwriting — so a rule re-applying itself never claims a hand-applied label.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 from sqlalchemy import (

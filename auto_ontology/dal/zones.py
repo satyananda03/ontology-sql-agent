@@ -15,8 +15,6 @@ column would be wrong in both directions at once — see the comment on
 ``zone.name`` in ``auto_ontology/dal/schema.py``.
 """
 
-from __future__ import annotations
-
 import logging
 from typing import Any
 

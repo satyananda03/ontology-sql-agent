@@ -1,7 +1,5 @@
 """Tests for deterministic column mapping."""
 
-from __future__ import annotations
-
 from unittest.mock import patch
 
 from auto_ontology.semantic.deterministic import (

@@ -7,8 +7,6 @@ prompt-dialect resolution, SQL execution, and (in future) federated-query
 detection.
 """
 
-from __future__ import annotations
-
 from typing import Iterable
 
 from auto_ontology.connectors.base import SQLDatabase

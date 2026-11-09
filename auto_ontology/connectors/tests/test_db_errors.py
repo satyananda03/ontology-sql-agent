@@ -1,7 +1,5 @@
 """Driver errors are classified by whether a different query could fix them."""
 
-from __future__ import annotations
-
 import pytest
 
 from auto_ontology.connectors.db_errors import is_infrastructure_error, is_session_lost

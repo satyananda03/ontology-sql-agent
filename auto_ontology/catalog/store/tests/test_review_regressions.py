@@ -5,8 +5,6 @@ was a plausible one. They are pinned here because the code paths that produce
 them are not otherwise exercised end to end.
 """
 
-from __future__ import annotations
-
 import os
 import uuid
 

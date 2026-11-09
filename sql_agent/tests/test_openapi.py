@@ -1,7 +1,5 @@
 """The committed OpenAPI specs match the apps, so API changes show up in review."""
 
-from __future__ import annotations
-
 import json
 
 import pytest

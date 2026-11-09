@@ -1,7 +1,5 @@
 """Tests for the flat table-by-table compile_semantic_layer loop."""
 
-from __future__ import annotations
-
 import threading
 from typing import Any
 from unittest.mock import MagicMock, patch

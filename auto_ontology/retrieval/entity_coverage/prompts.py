@@ -1,7 +1,5 @@
 """Prompts for the entity-coverage question_extraction node."""
 
-from __future__ import annotations
-
 import os
 from pathlib import Path
 

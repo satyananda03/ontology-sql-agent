@@ -1,7 +1,5 @@
 """Deterministic coverage grade: distance filter, the store enrich, 1/n entity coverage."""
 
-from __future__ import annotations
-
 import logging
 from typing import Any, Dict
 

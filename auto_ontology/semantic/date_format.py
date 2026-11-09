@@ -13,8 +13,6 @@ keeps the inference honest when the sample disagrees with itself, since a mixed
 column simply yields no claim rather than a confident wrong one.
 """
 
-from __future__ import annotations
-
 from collections.abc import Iterable
 from datetime import datetime
 

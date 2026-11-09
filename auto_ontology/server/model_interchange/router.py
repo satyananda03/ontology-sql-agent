@@ -1,7 +1,5 @@
 """HTTP routes for Auto Ontology model YAML export/import."""
 
-from __future__ import annotations
-
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import ValidationError

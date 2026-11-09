@@ -29,8 +29,6 @@ filtering is switched off application-wide; the point is that when it is
 switched on, this is the module with nowhere to pass it.
 """
 
-from __future__ import annotations
-
 import re
 from typing import Any
 

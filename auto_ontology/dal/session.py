@@ -23,8 +23,6 @@ process boundaries; ``spawn`` (which is what the worker uses) starts a fresh
 interpreter and so builds its own engine anyway.
 """
 
-from __future__ import annotations
-
 import logging
 import os
 from collections.abc import Iterator
@@ -55,7 +53,7 @@ IN_QUERY_BATCH = 1000
 # model reads.
 
 _engine: Engine | None = None
-_active: ContextVar[StoreConn | None] = ContextVar("_active_pg_conn", default=None)
+_active: "ContextVar[StoreConn | None]" = ContextVar("_active_pg_conn", default=None)
 
 
 def sqlalchemy_url() -> str:

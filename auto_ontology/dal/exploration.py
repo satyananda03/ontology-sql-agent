@@ -16,8 +16,6 @@ leave a neighbour out of the payload, and a node whose degree shrank because its
 neighbour was not drawn would contradict the page behind it.
 """
 
-from __future__ import annotations
-
 import logging
 from collections import Counter
 from typing import Any

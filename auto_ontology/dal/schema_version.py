@@ -16,8 +16,6 @@ as their own Job. Reporting the mismatch is safe from any number of processes;
 fixing it is a decision the operator makes.
 """
 
-from __future__ import annotations
-
 import logging
 from dataclasses import dataclass
 from functools import lru_cache

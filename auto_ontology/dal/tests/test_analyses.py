@@ -7,8 +7,6 @@ touches an out-of-zone table discloses that table's name and columns even though
 no rows are ever read.
 """
 
-from __future__ import annotations
-
 import os
 import uuid
 

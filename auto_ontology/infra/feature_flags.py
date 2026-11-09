@@ -11,8 +11,6 @@ opt-in (absent means off), while column profiling is opt-out (absent means on,
 so existing instances keep profiling after an upgrade that adds the toggle).
 """
 
-from __future__ import annotations
-
 import logging
 
 import psycopg

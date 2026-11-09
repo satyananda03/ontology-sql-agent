@@ -5,8 +5,6 @@ as long as the slowest single database — 312s observed on a live store. A rese
 that has to wait that long is indistinguishable from one that hung.
 """
 
-from __future__ import annotations
-
 from collections.abc import Iterator
 from typing import Any
 from unittest.mock import patch

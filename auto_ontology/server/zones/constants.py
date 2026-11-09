@@ -1,7 +1,5 @@
 """Zone graph labels and relationship types."""
 
-from __future__ import annotations
-
 REL_ZONE_OF = "ZONE_OF"
 LABEL_ZONE = "Zone"
 # Label applied to a zone node in place of LABEL_ZONE while it is disabled by

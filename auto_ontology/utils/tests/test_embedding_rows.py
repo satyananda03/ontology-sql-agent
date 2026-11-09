@@ -6,8 +6,6 @@ invalidates every stored embedding — the assertions are deliberately exact
 rather than "contains the table name".
 """
 
-from __future__ import annotations
-
 import pandas as pd
 import pytest
 

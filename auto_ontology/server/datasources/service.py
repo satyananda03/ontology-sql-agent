@@ -5,8 +5,6 @@ This module only keeps the VDB orchestration: update_node_properties
 and its helpers that mix catalog reads with pgvector upserts.
 """
 
-from __future__ import annotations
-
 import logging
 from typing import Any
 

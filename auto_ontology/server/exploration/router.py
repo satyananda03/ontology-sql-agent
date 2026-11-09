@@ -1,7 +1,5 @@
 """API route handlers for data- and semantic-layer Exploration graphs."""
 
-from __future__ import annotations
-
 from typing import Literal
 
 from fastapi import APIRouter, Path, Query

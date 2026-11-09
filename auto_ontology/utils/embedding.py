@@ -14,8 +14,6 @@ Ingest and query MUST use the same model; a mismatch produces garbage results
 or a dimension error from pgvector.
 """
 
-from __future__ import annotations
-
 import contextlib
 import itertools
 import logging

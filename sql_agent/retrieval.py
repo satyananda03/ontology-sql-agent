@@ -9,8 +9,6 @@ rewrote the question and only asks for data, so intent classification, chat
 history and the SQL-generation keys of the full agent are not needed.
 """
 
-from __future__ import annotations
-
 from functools import lru_cache
 from typing import Any
 

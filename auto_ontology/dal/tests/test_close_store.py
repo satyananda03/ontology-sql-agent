@@ -7,8 +7,6 @@ exits holding pooled sockets open.
 It closes one thing, so the suite is correspondingly small.
 """
 
-from __future__ import annotations
-
 from unittest.mock import MagicMock
 
 from auto_ontology.dal import close_store

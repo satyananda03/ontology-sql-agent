@@ -19,8 +19,6 @@ previous version of this code had two copies of it that drifted:
   list behind them each report a different number.
 """
 
-from __future__ import annotations
-
 import logging
 from typing import Any
 

@@ -11,8 +11,6 @@ UUID column keeps exactly the samples profiling found for it — nothing can
 overwrite them with text the warehouse would never return.
 """
 
-from __future__ import annotations
-
 import re
 
 _TEXT_TYPES = frozenset(

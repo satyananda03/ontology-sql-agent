@@ -6,8 +6,6 @@ timeout's message ("Request timed out.") names none of the status tokens the
 fallback matches on.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 import httpx

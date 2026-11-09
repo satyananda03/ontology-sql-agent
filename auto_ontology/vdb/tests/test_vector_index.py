@@ -21,8 +21,6 @@ rows a fixture holds Postgres would prefer a sequential scan either way, and the
 test would prove nothing.
 """
 
-from __future__ import annotations
-
 import uuid
 
 import psycopg

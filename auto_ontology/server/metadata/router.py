@@ -1,7 +1,5 @@
 """API routes for grading entity coverage of a free-text question."""
 
-from __future__ import annotations
-
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 

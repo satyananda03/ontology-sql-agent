@@ -8,8 +8,6 @@ This module performs no import-time side effects (it does not load ``.env``);
 entrypoints are responsible for loading the environment before use.
 """
 
-from __future__ import annotations
-
 import json
 import logging
 import os

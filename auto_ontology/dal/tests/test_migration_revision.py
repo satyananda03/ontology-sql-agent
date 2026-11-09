@@ -1,7 +1,5 @@
 """The migration history has exactly one head, so ``upgrade head`` is unambiguous."""
 
-from __future__ import annotations
-
 import pathlib
 import re
 

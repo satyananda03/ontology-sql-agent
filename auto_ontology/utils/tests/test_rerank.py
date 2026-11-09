@@ -6,8 +6,6 @@ the wrong shape is rejected by the server and every bridge-table owner falls
 back to the first Term without anyone noticing.
 """
 
-from __future__ import annotations
-
 import json
 from typing import Any, Callable
 

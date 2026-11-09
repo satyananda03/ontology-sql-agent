@@ -1,7 +1,5 @@
 """Inline per-Term embedder used during `visit_enter`."""
 
-from __future__ import annotations
-
 import logging
 from dataclasses import dataclass
 from typing import Any

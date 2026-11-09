@@ -12,8 +12,6 @@ schema shows through: deleting a table no longer needs to name its columns,
 because they cascade.
 """
 
-from __future__ import annotations
-
 from sqlalchemy import func, select, update
 
 from auto_ontology.catalog.constants import Labels

@@ -6,8 +6,6 @@ replaying the tagging rules, so columns ingested now are labelled without
 waiting for a compilation — see ``auto_ontology.ingestion_service.rules``.
 """
 
-from __future__ import annotations
-
 import asyncio
 import logging
 import time

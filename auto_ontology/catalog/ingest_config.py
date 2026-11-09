@@ -11,8 +11,6 @@ A missing file, or a database it does not list, means everything is ingested.
 Connection credentials do not belong here; they stay in ``CONNECTION_STRINGS``.
 """
 
-from __future__ import annotations
-
 import logging
 import os
 from pathlib import Path

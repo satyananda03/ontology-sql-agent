@@ -4,8 +4,6 @@ Lightweight on purpose: it only depends on ``httpx`` so the server can trigger
 ingest over HTTP without importing ``auto_ontology.ingestion_service.ingest``
 """
 
-from __future__ import annotations
-
 import logging
 import os
 from typing import Any

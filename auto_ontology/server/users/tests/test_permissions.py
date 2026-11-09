@@ -5,8 +5,6 @@ manage groups and zones, a viewer group cannot, and a viewer group's
 permissions are a subset of an admin's.
 """
 
-from __future__ import annotations
-
 from pathlib import Path
 
 import pytest

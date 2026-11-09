@@ -9,8 +9,6 @@ autogenerate proposes ``drop_table`` for it (see ``include_object`` in
 rule, written down.
 """
 
-from __future__ import annotations
-
 import inspect
 
 import pytest

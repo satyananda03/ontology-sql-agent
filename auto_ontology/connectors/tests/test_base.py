@@ -5,8 +5,6 @@ it is pinned here: dropping a method from the ABC would silently let a
 connector ship without it and fail at ingestion time instead of at import.
 """
 
-from __future__ import annotations
-
 import inspect
 import pathlib
 

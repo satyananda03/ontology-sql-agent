@@ -1,7 +1,5 @@
 """Tests for Column.sample_values normalization."""
 
-from __future__ import annotations
-
 from auto_ontology.utils.sample_values import (
     dump_sample_values,
     parse_sample_values,

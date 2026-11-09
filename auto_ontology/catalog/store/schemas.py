@@ -7,8 +7,6 @@ column that only the stored side carries. Getting that wrong is not a type
 error; it is the diff silently doing nothing.
 """
 
-from __future__ import annotations
-
 import logging
 from threading import Lock
 

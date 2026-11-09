@@ -31,8 +31,6 @@ pool the relevance filter judges, not in the answer: most of them are not
 wanted, and the filter is what separates them.
 """
 
-from __future__ import annotations
-
 import re
 
 _WORD = re.compile(r"[a-z0-9]+")

@@ -1,7 +1,5 @@
 """Accumulate and flush VDB embed rows during Auto Ontology model import."""
 
-from __future__ import annotations
-
 import logging
 from dataclasses import dataclass, field
 from typing import Any

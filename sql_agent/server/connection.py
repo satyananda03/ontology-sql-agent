@@ -3,8 +3,6 @@
 
 """The one source database, for the review UI: its connection and its ingest."""
 
-from __future__ import annotations
-
 from urllib.parse import unquote, urlparse
 
 from fastapi import APIRouter, HTTPException

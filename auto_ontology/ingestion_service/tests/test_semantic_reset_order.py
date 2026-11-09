@@ -6,8 +6,6 @@ sees every table still carrying a Term, compiles nothing, and leaves the
 database wiped but not rebuilt.
 """
 
-from __future__ import annotations
-
 import asyncio
 from typing import Any
 

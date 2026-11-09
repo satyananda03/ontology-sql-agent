@@ -14,8 +14,6 @@ integrate/build.nvidia.com keys — and the set is chosen from the API key that
 applies to the same triplet.
 """
 
-from __future__ import annotations
-
 import os
 
 # Built-in endpoint/model defaults, selected by the triplet's API key prefix.

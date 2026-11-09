@@ -1,7 +1,5 @@
 """Built-in model defaults, chosen by the API key prefix."""
 
-from __future__ import annotations
-
 import pytest
 
 from auto_ontology.utils import model_config

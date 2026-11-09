@@ -8,8 +8,6 @@ must go through :func:`get_user_role` / :func:`is_admin` instead of reading
 a label or property off the graph node.
 """
 
-from __future__ import annotations
-
 import logging
 
 import psycopg

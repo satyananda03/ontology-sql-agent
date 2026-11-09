@@ -13,8 +13,6 @@ Concentrated on the two things that do not survive the move unchanged:
 Needs a migrated database and skips without one.
 """
 
-from __future__ import annotations
-
 import os
 import uuid
 

@@ -15,8 +15,6 @@ a lock (see ``auto_ontology.ingestion_service.scheduler``), so a compile never
 reads a catalog that an ingest is halfway through rewriting.
 """
 
-from __future__ import annotations
-
 import asyncio
 import logging
 import time

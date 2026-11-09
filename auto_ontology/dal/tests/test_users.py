@@ -13,8 +13,6 @@ in aggregate. The rules are asymmetric and easy to get subtly wrong:
 Needs a migrated database and skips without one.
 """
 
-from __future__ import annotations
-
 import os
 import uuid
 

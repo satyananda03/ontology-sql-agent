@@ -6,8 +6,6 @@ the NVIDIA fields riding in the body, the auth header, batching, ordering and
 which failures are retried.
 """
 
-from __future__ import annotations
-
 import json
 import logging
 from typing import Any, Callable

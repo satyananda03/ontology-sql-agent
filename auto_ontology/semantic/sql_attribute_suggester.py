@@ -12,8 +12,6 @@ After the semantic FK pass this module runs once per compilation:
    and embed only the newly written nodes into the semantic VDB.
 """
 
-from __future__ import annotations
-
 import logging
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed

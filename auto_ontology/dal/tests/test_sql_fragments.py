@@ -13,8 +13,6 @@ Three things it has to get right, each of which fails silently if wrong:
 * **no fallback available** yields ``NULL``, not an empty string.
 """
 
-from __future__ import annotations
-
 import os
 import uuid
 

@@ -1,7 +1,5 @@
 """Global-search orchestration: validate, query, rank."""
 
-from __future__ import annotations
-
 from typing import Any, NamedTuple
 
 from sqlalchemy import Select

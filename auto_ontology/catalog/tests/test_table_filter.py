@@ -1,7 +1,5 @@
 """Regex allow/deny filtering of relations at catalog-extraction time."""
 
-from __future__ import annotations
-
 from types import SimpleNamespace
 
 import pandas as pd

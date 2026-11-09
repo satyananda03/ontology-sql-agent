@@ -41,8 +41,6 @@ on, which is why the next identical rule does not adopt them either.
 Needs a migrated database and skips without one.
 """
 
-from __future__ import annotations
-
 import os
 import uuid
 from datetime import datetime, timezone

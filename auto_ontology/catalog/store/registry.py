@@ -34,8 +34,6 @@ Note on naming: "link" rather than "relation" for an association, because in
 relational vocabulary a *relation* is a table — the opposite of what is meant.
 """
 
-from __future__ import annotations
-
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any

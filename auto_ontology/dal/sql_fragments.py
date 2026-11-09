@@ -8,8 +8,6 @@ A paging note that belongs to callers rather than here: without a total
 query must order by something unique.
 """
 
-from __future__ import annotations
-
 from sqlalchemy import ColumnElement, func, select
 
 from auto_ontology.dal import schema as s

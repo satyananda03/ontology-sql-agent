@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import annotations
-
 from typing import Any
 
 import pytest
@@ -56,7 +54,10 @@ def test_prompt_carries_schema_knowledge_semantics_and_feedback(
     system, human = (m.content for m in generator.prompts[0])
     assert "TABLE riset" in system and "DEFINISI BISNIS Researcher" in system
     assert "siapa researcher pariwisata" in human
-    assert "<semantic_matches>x</semantic_matches>" in human
+    assert (
+        "<semantic_context>\n<semantic_matches>x</semantic_matches>\n</semantic_context>"
+        in human
+    )
     assert "<previous_attempt>y</previous_attempt>" in human
 
 

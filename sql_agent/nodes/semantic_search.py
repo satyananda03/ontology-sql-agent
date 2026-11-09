@@ -9,8 +9,6 @@ ini tanpa batas 20 ID. Tanpa schema navigator tidak ada lagi yang menulis
 dan hanya untuk tabel terpilih yang punya kolom ``*_vector``.
 """
 
-from __future__ import annotations
-
 import logging
 from typing import Any
 

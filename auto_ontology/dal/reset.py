@@ -18,8 +18,6 @@ Two consequences worth knowing:
   worse surprise than the gap.
 """
 
-from __future__ import annotations
-
 import logging
 from dataclasses import dataclass
 

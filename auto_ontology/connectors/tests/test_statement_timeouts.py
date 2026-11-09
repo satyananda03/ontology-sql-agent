@@ -6,8 +6,6 @@ The connector is checked against a fake driver for the setting it sends, plus a
 live Postgres check when a fixture database is reachable.
 """
 
-from __future__ import annotations
-
 import os
 from contextlib import contextmanager
 from types import SimpleNamespace

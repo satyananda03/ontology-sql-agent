@@ -16,8 +16,6 @@ change quietly breaks:
   description starts appearing.
 """
 
-from __future__ import annotations
-
 import os
 import uuid
 from collections.abc import Iterator

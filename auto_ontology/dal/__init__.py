@@ -19,8 +19,6 @@ Each module is the single source of truth for a domain:
 engine; everything else queries through them.
 """
 
-from __future__ import annotations
-
 import logging
 
 logger = logging.getLogger(__name__)

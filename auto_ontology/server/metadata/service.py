@@ -7,8 +7,6 @@ The pipeline shares retriever/connector state and is not safe to run in parallel
 (the same constraint that makes chat single-slot), so runs are serialized here.
 """
 
-from __future__ import annotations
-
 import logging
 import threading
 
