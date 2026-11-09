@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Driver errors are classified by whether a different query could fix them."""
 
 from __future__ import annotations

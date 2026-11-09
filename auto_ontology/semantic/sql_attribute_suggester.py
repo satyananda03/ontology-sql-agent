@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Automatic SqlAttribute suggestion from SQL query history.
 
 After the semantic FK pass this module runs once per compilation:
@@ -21,10 +17,10 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 from threading import Lock
 from typing import Any
 
-from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel
 
 from auto_ontology.dal.terms import fetch_table_schema_map, fetch_terms_with_sqls
@@ -39,8 +35,13 @@ from auto_ontology.utils.llm_invoke import (
     get_llm_client,
     invoke_with_structured_output,
 )
+from auto_ontology.utils.prompt_loader import load_chat_prompt_template
 
 logger = logging.getLogger(__name__)
+
+_JUDGE_PROMPT = load_chat_prompt_template(
+    Path(__file__).with_name("prompts.yaml"), "sql_attribute_judge"
+)
 
 _TOP_N = 10
 _TERM_WORKERS = 4
@@ -494,83 +495,11 @@ def _judge_with_llm(
     )
 
     llm = get_llm_client(temperature=0.0)
-    messages = [
-        SystemMessage(
-            content=(
-                "You are an expert data engineer reviewing SQL expressions to decide "
-                "which ones represent reusable business logic worth naming. "
-                "A SqlAttribute is a named, reusable SQL expression — a filter, "
-                "aggregation, or calculation — that captures a clear business concept "
-                "and is specific enough to be useful while general enough to recur."
-            )
-        ),
-        HumanMessage(
-            content=(
-                f"Business term: {term_name}\n"
-                f"Description: {term_description or '(none)'}\n\n"
-                f"Top SQL expressions extracted from queries on tables for this term "
-                f"(ranked by 3-month execution count):\n\n"
-                f"{expr_block}\n\n"
-                f"Which expressions should become a named SqlAttribute for the term "
-                f"'{term_name}'?\n\n"
-                "Rules you MUST follow:\n"
-                "  1. ALWAYS mark an expression as a SqlAttribute if it compares a column "
-                "against a literal value (e.g. status = 'active', amount > 1000, "
-                "type IN ('A','B')). Literal values encode business thresholds and "
-                "categories that are exactly what SqlAttributes are designed to capture. "
-                "Exception: do NOT promote an expression whose only literal is an integer "
-                "that looks like a surrogate or primary-key identifier "
-                "(e.g. request_id = 50000, id = 12). Such values are instance-specific "
-                "record lookups, not reusable business logic. Only promote an expression "
-                "containing such an integer if the surrounding context also encodes a "
-                "reusable business rule (e.g. the same WHERE clause additionally filters "
-                "on a status, category, or date range).\n"
-                "  2. NEVER mark an expression as a SqlAttribute if it only references "
-                "columns from the same table with no literal value, constant, or "
-                "cross-table condition (e.g. start_date < end_date). Such expressions "
-                "describe structural integrity, not reusable business logic.\n"
-                "  4. NEVER mark an IS NULL / IS NOT NULL check on a surrogate or "
-                "primary-key column (any column named 'id' or ending in '_id') as a "
-                "SqlAttribute. These are LEFT JOIN absence checks — structural plumbing "
-                "that detects whether a join matched, not a business concept "
-                "(e.g. request_task_collaborators.id IS NULL). "
-                "Exception: IS NULL on non-key columns that carry business meaning IS "
-                "valid (e.g. deleted_at IS NULL, approved_by IS NULL).\n"
-                "  3. ALWAYS mark a JOIN ON condition or a UNION/INTERSECT/EXCEPT branch "
-                "as a SqlAttribute when it appears frequently AND any of the following "
-                "is true:\n"
-                "     a. It encodes obvious business logic — "
-                "e.g. a join that filters to active records, a union arm that defines a "
-                "named sub-population, or a cross-table condition capturing a business "
-                "relationship.\n"
-                "     b. It is used to define a meaningful business alias — e.g. a SELECT "
-                "branch or subquery whose result column is aliased with a descriptive "
-                "business name (e.g. 'AS active_assignees', 'AS overdue_tasks'). "
-                "The alias itself signals that the expression represents a named concept "
-                "worth capturing.\n"
-                "     c. A UNION combines two or more SELECT branches that each use a "
-                "different join path to reach the same entity type (e.g. one branch joins "
-                "via a direct ownership FK, another via a membership/collaborator table). "
-                "This pattern structurally defines a named aggregate concept — all members "
-                "of a group regardless of their role. Promote the whole UNION as a "
-                "SqlAttribute representing that concept (e.g. 'Task Participants', "
-                "'Order Stakeholders'). When naming and describing it, ignore any "
-                "instance-specific WHERE predicates (like record-ID literals) and focus "
-                "on the reusable structural pattern.\n"
-                "     Ignore pure FK-only joins and UNION branches that select from a "
-                "single table with no join or filter.\n\n"
-                "For each chosen expression provide:\n"
-                "  • name — user-friendly Title Case label with spaces between words, "
-                "matching the ColumnAttribute naming style "
-                "(e.g. 'Active Customer Filter', 'Revenue Above Threshold', "
-                "'Last 90 Days Activity')\n"
-                "  • description — what business logic it captures, why it matters for "
-                "this term, and when a data consumer would apply it\n"
-                "  • expression — the exact SQL expression copied verbatim\n\n"
-                "Return an empty list if none qualify."
-            )
-        ),
-    ]
+    messages = _JUDGE_PROMPT.format_messages(
+        term_name=term_name,
+        term_description=term_description or "(none)",
+        expr_block=expr_block,
+    )
 
     result = invoke_with_structured_output(llm, messages, _Suggestions)
     return result.suggestions if result else []

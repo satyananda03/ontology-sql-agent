@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Zone constants, graph label helpers, and API payload formatting."""
 
 from __future__ import annotations

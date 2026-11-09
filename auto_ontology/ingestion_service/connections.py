@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Resolve configured connections for the ingestion-service schedulers.
 
 The one connection comes from the ``CONNECTION_STRINGS`` env var (see

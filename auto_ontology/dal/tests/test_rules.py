@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Rules on Postgres: the saved search, and the tags it applies.
 
 Concentrated on the parts of a rule that are not a plain row.

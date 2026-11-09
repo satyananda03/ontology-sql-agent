@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Read instance-wide settings from the frontend's ``configurations`` table.
 
 The frontend owns that key/value table through Prisma; the Python services read

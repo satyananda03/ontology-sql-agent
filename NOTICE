@@ -1,0 +1,43 @@
+ontology-sql-agent
+Copyright (c) 2026, onto-sql contributors
+
+This product includes software developed by NVIDIA CORPORATION & AFFILIATES:
+
+    Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
+    All rights reserved.
+    SPDX-License-Identifier: Apache-2.0
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use these files except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    A copy is included in the LICENSE file at the root of this repository.
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+The NVIDIA copyright and license notice above applies to the files that
+carried it in their header before the per-file notices were consolidated into
+this NOTICE. They are in:
+
+    auto_ontology/          (most of the package, including its tests and
+                             the prompt files under it)
+    alembic/                (migration environment and revisions)
+    sql_agent/openapi.py
+    sql_agent/tests/test_openapi.py
+    Makefile, pyproject.toml, alembic.ini, .env.example, .gitignore
+
+The exact list of files is recorded in the git history: each one is a file
+from which the commit that added this NOTICE removed an
+"SPDX-FileCopyrightText: Copyright (c) ..., NVIDIA CORPORATION & AFFILIATES."
+header.
+
+Modifications to those files, and the files that carry the
+"Copyright (c) 2026, onto-sql contributors" notice, are
+Copyright (c) 2026, onto-sql contributors, and are likewise licensed under the
+Apache License, Version 2.0.

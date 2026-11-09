@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Hardened, read-only probe executor.
 
 This is the single choke point for every live query the probing layer issues.

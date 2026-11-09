@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """HTTP client for the ingestion service API.
 
 Lightweight on purpose: it only depends on ``httpx`` so the server can trigger

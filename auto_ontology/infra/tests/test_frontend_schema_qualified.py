@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Backend SQL against Prisma-owned tables must name their schema.
 
 This is a source-level scan rather than a database test, because the failure it

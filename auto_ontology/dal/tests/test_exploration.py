@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """The Exploration graphs.
 
 **The degree invariant is this file's reason to exist**, and the plan names it
@@ -530,6 +526,26 @@ def test_semantic_nodes_and_links(semantic) -> None:
         "target": key[1],
         "relationship_types": ["REPRESENTS"],
     } in payload["links"]
+
+
+def test_semantic_graph_lists_the_tables_each_term_is_built_from(world) -> None:
+    world.table("orders")
+    world.term("Order", represents=("orders",))
+    _other_db, other_schema = world.add_database("other")
+    world.table("secrets", schema_id=other_schema)
+    world.term("Secret", represents=("orders", "secrets"))
+
+    payload = e.fetch_semantic_exploration_graph(database_id=world.database)
+    # Only tables of the chosen database: the graph drawn beside it has no others.
+    assert sorted(
+        (row["term_id"], row["table_id"], row["paths"])
+        for row in payload["term_tables"]
+    ) == sorted(
+        [
+            (world.terms["Order"], world.tables["orders"], ["REPRESENTS"]),
+            (world.terms["Secret"], world.tables["orders"], ["REPRESENTS"]),
+        ]
+    )
 
 
 def test_semantic_degree_equals_the_related_page_total(semantic) -> None:

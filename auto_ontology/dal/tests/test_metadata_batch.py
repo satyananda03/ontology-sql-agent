@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Batched description / sample-value writes.
 
 ``apply_metadata_batch`` has no caller inside Auto Ontology -- it is DAL surface, kept

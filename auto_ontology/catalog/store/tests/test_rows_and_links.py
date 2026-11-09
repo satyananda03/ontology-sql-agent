@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """The generic node/edge layer the rest of the Postgres write path sits on.
 
 Tested directly rather than through the selector, because the remaining store

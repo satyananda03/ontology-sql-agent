@@ -16,7 +16,6 @@ import { GraphLegend } from "@/components/knowledge_graph/GraphLegend";
 import { GraphProperties } from "@/components/knowledge_graph/GraphProperties";
 import { KnowledgeGraphHeader } from "@/components/knowledge_graph/KnowledgeGraphHeader";
 import { sigmaGraphFromRaw, type SigmaGraph } from "../graph";
-import { GRAPH_KINDS } from "../graphKinds";
 import { useKnowledgeGraphStore } from "../store";
 import type { EdgeDisplayData, NodeDisplayData } from "../types";
 import { useKnowledgeGraph } from "../useKnowledgeGraph";
@@ -74,7 +73,7 @@ function sigmaSettings(enableEdgeEvents: boolean, useCurvedEdges: boolean) {
     defaultEdgeColor: EDGE_COLOR_DARK,
     hideEdgesOnMove: true,
     enableEdgeEvents,
-    labelRenderedSizeThreshold: 12,
+    labelRenderedSizeThreshold: 6,
     labelGridCellSize: 60,
     labelSize: 12,
     renderEdgeLabels: false,
@@ -95,7 +94,6 @@ export function KnowledgeGraphViewer({ databaseId }: { databaseId: string }) {
   const dataVersion = useKnowledgeGraphStore((state) => state.dataVersion);
   const rawGraph = useKnowledgeGraphStore((state) => state.rawGraph);
   const isLayoutRunning = useKnowledgeGraphStore((state) => state.isLayoutRunning);
-  const kind = useKnowledgeGraphStore((state) => state.kind);
   const { loading, error, reload } = useKnowledgeGraph(databaseId);
   const edgeCount = rawGraph?.edges.length ?? 0;
   const edgeEvents = edgeCount <= EDGE_PERFORMANCE_LIMIT;
@@ -105,7 +103,7 @@ export function KnowledgeGraphViewer({ databaseId }: { databaseId: string }) {
 
   // Rebuilt from scratch on every new dataset; see sigmaGraphFromRaw.
   const graph = useMemo(
-    () => sigmaGraphFromRaw(useKnowledgeGraphStore.getState().rawGraph ?? { nodes: [], edges: [], groupColors: new Map() }),
+    () => sigmaGraphFromRaw(useKnowledgeGraphStore.getState().rawGraph ?? { nodes: [], edges: [] }),
     // Deliberately narrow deps: dataVersion changes exactly when rawGraph is replaced.
     [dataVersion],
   );
@@ -127,7 +125,9 @@ export function KnowledgeGraphViewer({ databaseId }: { databaseId: string }) {
           {loading ? "Memuat data graf…" : "Menghitung tata letak…"}
         </StatusOverlay>
       )}
-      {!loading && !error && rawGraph?.nodes.length === 0 && <StatusOverlay>{GRAPH_KINDS[kind].emptyMessage}</StatusOverlay>}
+      {!loading && !error && rawGraph?.nodes.length === 0 && (
+        <StatusOverlay>Belum ada term atau tabel. Jalankan Ingest ulang di Pengaturan → Operasi.</StatusOverlay>
+      )}
       {error && <ErrorOverlay message={error} onRetry={reload} />}
     </div>
   );
@@ -231,6 +231,7 @@ function GraphCanvas({ graph, edgeEvents }: { graph: SigmaGraph; edgeEvents: boo
     const activeEdge = edgeEvents ? (focusedEdge ?? selectedEdge) : null;
     const nodeFocusValid = Boolean(activeNode && graph.hasNode(activeNode));
     const edgeFocusValid = !nodeFocusValid && Boolean(activeEdge && graph.hasEdge(activeEdge));
+    const focusing = nodeFocusValid || edgeFocusValid;
 
     const neighbours = new Set<string>();
     if (nodeFocusValid && activeNode) graph.forEachNeighbor(activeNode, (node) => neighbours.add(node));
@@ -239,9 +240,8 @@ function GraphCanvas({ graph, edgeEvents }: { graph: SigmaGraph; edgeEvents: boo
     setSettings({
       enableEdgeEvents: edgeEvents,
       renderLabels: graph.order <= LABEL_PERFORMANCE_LIMIT,
-      nodeReducer:
-        nodeFocusValid || edgeFocusValid
-          ? (node, data) => {
+      nodeReducer: focusing
+        ? (node, data) => {
               const next = { ...data, highlighted: false, labelColor: LABEL_COLOR_DARK };
               const isActive = nodeFocusValid ? node === activeNode || neighbours.has(node) : edgeEnds.includes(node);
               if (!isActive) return { ...next, color: NODE_COLOR_DISABLED };
@@ -252,9 +252,8 @@ function GraphCanvas({ graph, edgeEvents }: { graph: SigmaGraph; edgeEvents: boo
               return next;
             }
           : null,
-      edgeReducer:
-        nodeFocusValid || edgeFocusValid
-          ? (edge, data) => {
+      edgeReducer: focusing
+        ? (edge, data) => {
               const next = { ...data, hidden: false, color: EDGE_COLOR_DARK };
               if (nodeFocusValid) {
                 const touchesActive = graph.source(edge) === activeNode || graph.target(edge) === activeNode;

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Tests for ``is_nullable`` coercion at the ingest boundary.
 
 ``catalog_column.is_nullable`` is a real boolean. It used to hold

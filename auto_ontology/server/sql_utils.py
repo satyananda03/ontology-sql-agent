@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Shared SQL validation helpers used by both CustomAnalysis and SqlAttribute DALs."""
 
 from __future__ import annotations

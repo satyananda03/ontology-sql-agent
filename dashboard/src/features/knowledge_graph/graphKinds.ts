@@ -2,63 +2,50 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { ComponentType } from "react";
-import {
-  ForeignKeyDetails,
-  TableDetails,
-  TermDetails,
-  TermPathDetails,
-} from "@/components/knowledge_graph/GraphDetails";
+import { ForeignKeyDetails, TermPathDetails } from "@/components/knowledge_graph/GraphDetails";
 import { getDataGraph, getSemanticGraph } from "./api";
-import { dataGraphToRaw, semanticGraphToRaw } from "./graph";
-import type { EdgeKind, GraphKind, RawEdge, RawGraph } from "./types";
+import { combinedGraphToRaw } from "./graph";
+import type { EdgeKind, NodeKind, RawEdge, RawGraph } from "./types";
 
-export interface GraphLoadOptions {
-  includeSqlEdges: boolean;
+/** Terms and tables in one graph, from both endpoints at once. */
+export async function loadGraph(databaseId: string): Promise<RawGraph> {
+  const [semantic, data] = await Promise.all([getSemanticGraph(databaseId), getDataGraph(databaseId)]);
+  return combinedGraphToRaw(semantic, data);
 }
 
-/** Everything that differs between the two tabs, so the components stay kind-agnostic. */
-export interface GraphKindConfig {
-  tab: string;
-  load: (databaseId: string, options: GraphLoadOptions) => Promise<RawGraph>;
-  emptyMessage: string;
-  groupLabel: (group: string) => string;
-  edgeLegend: { kind: EdgeKind; label: string }[];
-  /** Whether the header offers the toggle for edges backed only by a shared SQL query. */
-  hasSqlEdgeToggle: boolean;
+export interface NodeKindConfig {
+  /** Legend name and the plain-words line under it. */
+  label: string;
+  hint: string;
   openLink: (nodeId: string) => { to: string; label: string };
-  /** Drill-down shown in the properties panel for the selected node or edge. */
-  NodeDetails: ComponentType<{ nodeId: string }>;
-  EdgeDetails: ComponentType<{ edge: RawEdge }>;
 }
 
-export const GRAPH_KINDS: Record<GraphKind, GraphKindConfig> = {
-  semantic: {
-    tab: "Semantik",
-    load: async (databaseId) => semanticGraphToRaw(await getSemanticGraph(databaseId)),
-    emptyMessage: "Belum ada term. Jalankan kompilasi di Pengaturan → Operasi.",
-    groupLabel: () => "Term",
-    edgeLegend: [
-      { kind: "sharedTable", label: "Berbagi tabel" },
-      { kind: "semanticFk", label: "Join hasil inferensi" },
-    ],
-    hasSqlEdgeToggle: false,
+export const NODE_KINDS: Record<NodeKind, NodeKindConfig> = {
+  term: {
+    label: "Term",
+    hint: "konsep bisnis",
     openLink: (termId) => ({ to: `/terms/${termId}`, label: "Buka di Terms" }),
-    NodeDetails: TermDetails,
-    EdgeDetails: TermPathDetails,
   },
-  data: {
-    tab: "Data",
-    load: async (databaseId, { includeSqlEdges }) =>
-      dataGraphToRaw(await getDataGraph(databaseId), { includeSqlEdges }),
-    emptyMessage: "Belum ada tabel. Jalankan Ingest ulang di Pengaturan → Operasi.",
-    groupLabel: (schema) => schema,
-    edgeLegend: [
-      { kind: "foreignKey", label: "Foreign key" },
-      { kind: "sqlOnly", label: "Query SQL bersama" },
-    ],
-    hasSqlEdgeToggle: true,
+  table: {
+    label: "Tabel",
+    hint: "tabel di database",
     openLink: (tableId) => ({ to: `/catalog?table=${tableId}`, label: "Buka di Katalog" }),
-    NodeDetails: TableDetails,
-    EdgeDetails: ForeignKeyDetails,
   },
 };
+
+/** Name and plain-words meaning of each edge kind, shown in the properties panel. */
+export const EDGE_KINDS: Record<EdgeKind, { label: string; hint: string }> = {
+  termTable: { label: "Term ↔ Tabel", hint: "term dibangun dari tabel ini" },
+  sharedTable: { label: "Term ↔ Term", hint: "memakai tabel yang sama" },
+  semanticFk: { label: "Join inferensi", hint: "terhubung lewat kolom yang mirip foreign key" },
+  foreignKey: { label: "Foreign key", hint: "tabel saling mereferensi" },
+  sqlOnly: { label: "Query SQL", hint: "dipakai bersama di query tersimpan" },
+};
+
+/** The drill-down for an edge, picked by what it connects: term-term has a path, table-table has keys. */
+export function edgeDetails(edge: RawEdge, nodeKind: (id: string) => NodeKind | undefined): ComponentType<{ edge: RawEdge }> | null {
+  const ends = [nodeKind(edge.source), nodeKind(edge.target)];
+  if (ends.every((kind) => kind === "term")) return TermPathDetails;
+  if (ends.every((kind) => kind === "table")) return ForeignKeyDetails;
+  return null;
+}

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Translation from the callers' graph vocabulary into tables and columns.
 
 This is a boundary module, and the asymmetry is the point. On the way in it

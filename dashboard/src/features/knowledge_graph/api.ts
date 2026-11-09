@@ -19,18 +19,6 @@ export async function getSemanticGraph(databaseId: string): Promise<S["SemanticE
   return response.data;
 }
 
-/** The tables a term represents. */
-export async function getTermTables(termId: string): Promise<S["TermExplorationDetails"]> {
-  const response = await api<S["DataResponse_TermExplorationDetails_"]>(`/exploration/terms/${termId}/details`);
-  return response.data;
-}
-
-/** The terms linked to a table and the stored queries that use it. */
-export async function getTableDetails(tableId: string): Promise<S["TableExplorationDetails"]> {
-  const response = await api<S["DataResponse_TableExplorationDetails_"]>(`/exploration/tables/${tableId}/details`);
-  return response.data;
-}
-
 /** The hop chain behind one term-to-term edge: term, table, column, attribute, term. */
 export async function getTermPath(termId: string, otherTermId: string): Promise<S["ExplorationLinkPath"]> {
   const response = await api<S["DataResponse_ExplorationLinkPath_"]>(

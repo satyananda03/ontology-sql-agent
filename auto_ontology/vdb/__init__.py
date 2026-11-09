@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """VDB initialization — data layer and semantic layer collections."""
 
 from auto_ontology.infra.postgres import get_postgres_connection_string

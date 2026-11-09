@@ -1,21 +1,17 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """LLM inference for columns that look like foreign keys."""
 
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
-
-from langchain_core.messages import HumanMessage, SystemMessage
 
 from auto_ontology.semantic.deterministic import fk_source_columns
 from auto_ontology.utils.llm_invoke import (
     get_llm_client,
     invoke_with_structured_output,
 )
+from auto_ontology.utils.prompt_loader import load_chat_prompt_template
 from auto_ontology.utils.sample_values import stringify_sample_values
 from auto_ontology.semantic.models import (
     FkAndPkResult,
@@ -25,53 +21,9 @@ from auto_ontology.semantic.models import (
 
 logger = logging.getLogger(__name__)
 
-_SYSTEM = """\
-You review relational table metadata and produce three outputs:
-
-1. fk_suggestions — columns that are likely foreign keys but are not already declared as
-   FOREIGN_KEY or primary-key columns.
-
-   A likely foreign key typically:
-   - ends with _id or Id and has a meaningful prefix naming a different entity (e.g. customer_id,
-     orderId) — NOT a bare "id"/"_id"/"Id" column or one whose prefix matches the table name,
-     unless it is marked is_unique: false
-   - has a description that contains words like "references", "identifier of", or names another table
-   - has an integer or string type consistent with identifiers
-   - semantically points to a row in another table
-   - is UUID-typed and is not the table's own primary key
-
-   Omit columns that are measures, physical measurements/dimensions (e.g.
-   weight, height, length, width, size, volume), name/label columns (e.g.
-   name, title, label, description), timestamps, free text, flags, or
-   otherwise unlikely to reference another table. Return an empty list when
-   none qualify.
-
-2. pk_column_names — columns that appear to be the table's own primary key even if not
-   explicitly declared as such. These are typically a bare "id", "uuid", or "<table_name>_id"
-   column of integer or UUID type whose description or name conveys it identifies the table's
-   own records. Usually empty or one entry. Only list columns from the candidate list.
-
-3. is_junction_table and junction_table_rationale — classify the table's row grain.
-   Set is_junction_table true ONLY when each row represents an association between at least
-   two entity roles. At least two columns must be foreign-key roles; two distinct roles may
-   point to the same entity. Extra columns may be a surrogate key or relationship properties
-   such as role, quantity, ordering, status, or effective dates, but they must describe the
-   association rather than establish an independent entity grain.
-
-   Set it false for:
-   - an entity table that merely contains ordinary foreign keys
-   - a satellite, extension, or detail table with one parent FK plus descriptive attributes
-   - lookup/reference tables
-   - self-hierarchies with only one relationship role (for example id + parent_id)
-   - event or transaction tables whose rows have their own business identity or lifecycle
-
-   Be conservative. Multiple foreign keys alone do not make a table a junction table.
-
-The is_unique marker comes from sampled column profiling. A column marked is_unique: false
-contains repeated values, so it cannot be the table's own primary key. Never include it in
-pk_column_names. If it is identifier-like, including a bare "id", evaluate it as a possible
-foreign key using its name, type, description, and samples. Non-uniqueness alone does not prove
-that a non-identifier attribute is a foreign key."""
+_PROMPT = load_chat_prompt_template(
+    Path(__file__).with_name("prompts.yaml"), "fk_suggester"
+)
 
 
 def _pk_column_names(table: dict[str, Any]) -> set[str]:
@@ -170,20 +122,18 @@ def suggest_potential_foreign_keys(
         or "  (none)"
     )
 
-    prompt = (
-        f"Table: {table_header}\n"
-        f"Description: {table.get('description') or ''}\n"
-        f"Primary key columns (exclude from suggestions): {pk_block}\n"
-        f"Known foreign key columns (exclude from suggestions): {known_fk_block}\n"
-        f"Known foreign key roles:\n{known_fk_lines}\n"
-        f"All table columns:\n{all_column_lines}\n"
-        f"Candidate columns:\n{candidate_lines}\n"
+    messages = _PROMPT.format_messages(
+        table_header=table_header,
+        description=table.get("description") or "",
+        pk_block=pk_block,
+        known_fk_block=known_fk_block,
+        known_fk_lines=known_fk_lines,
+        all_column_lines=all_column_lines,
+        candidate_lines=candidate_lines,
     )
 
     result = invoke_with_structured_output(
-        get_llm_client(temperature=0.0),
-        [SystemMessage(content=_SYSTEM), HumanMessage(content=prompt)],
-        FkAndPkResult,
+        get_llm_client(temperature=0.0), messages, FkAndPkResult
     )
     if result is None:
         return PotentialFkResult()

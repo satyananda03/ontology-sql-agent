@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Regressions for defects found in review of the Postgres migration.
 
 Each of these was silent: nothing raised, nothing failed, and the wrong value

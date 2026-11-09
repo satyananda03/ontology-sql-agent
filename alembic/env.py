@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Alembic environment for the Auto Ontology catalog/semantic schema.
 
 **Scoped to one schema, deliberately.** Three systems share this database:

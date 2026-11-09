@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Deterministic column mapping — exclude FK columns."""
 
 from __future__ import annotations
@@ -9,9 +5,8 @@ from __future__ import annotations
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 from typing import Any
-
-from langchain_core.messages import HumanMessage, SystemMessage
 
 from auto_ontology.semantic.date_format import is_date_type
 from auto_ontology.semantic.models import ColumnAttributeSpec, ColumnDescriptionResult
@@ -19,6 +14,7 @@ from auto_ontology.utils.llm_invoke import (
     get_llm_client,
     invoke_with_structured_output,
 )
+from auto_ontology.utils.prompt_loader import load_chat_prompt_template
 
 logger = logging.getLogger(__name__)
 
@@ -29,15 +25,9 @@ logger = logging.getLogger(__name__)
 _DESCRIPTION_BATCH_SIZE = 15
 _DESCRIPTION_MAX_WORKERS = 1
 
-_DESCRIPTION_SYSTEM = """\
-You are a data analyst documenting the columns of a relational table for a \
-semantic layer. For every column you are given, write ONE concise sentence \
-describing what the column represents in business terms.
-
-Rules:
-- Use the column name, data type, and sample values as evidence.
-- Keep each description to a single, factual sentence — no speculation.
-- Return exactly one entry per column provided, using the physical column name."""
+_DESCRIPTION_PROMPT = load_chat_prompt_template(
+    Path(__file__).with_name("prompts.yaml"), "column_descriptions"
+)
 
 
 def to_term_name(table_name: str) -> str:
@@ -136,16 +126,11 @@ def _describe_column_batch(
         line = _add_samples_suffix(f"  - {name} ({data_type})", samples)
         lines.append(line)
 
-    prompt = "Columns:\n" + "\n".join(lines)
+    messages = _DESCRIPTION_PROMPT.format_messages(columns="\n".join(lines))
 
     try:
         result = invoke_with_structured_output(
-            get_llm_client(temperature=0.0),
-            [
-                SystemMessage(content=_DESCRIPTION_SYSTEM),
-                HumanMessage(content=prompt),
-            ],
-            ColumnDescriptionResult,
+            get_llm_client(temperature=0.0), messages, ColumnDescriptionResult
         )
     except Exception:
         logger.warning(

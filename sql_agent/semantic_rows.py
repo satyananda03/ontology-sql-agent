@@ -16,9 +16,9 @@ from __future__ import annotations
 
 import logging
 import numbers
+from pathlib import Path
 from typing import Any
 
-from langchain_core.messages import SystemMessage
 from pydantic import BaseModel, Field
 
 from auto_ontology.retrieval.text_to_sql.base import BaseAgent, record_thought
@@ -31,6 +31,7 @@ from auto_ontology.retrieval.text_to_sql.state import (
 )
 from auto_ontology.utils.embedding import embed_texts, get_embed_params
 from auto_ontology.utils.llm_invoke import invoke_with_structured_output
+from auto_ontology.utils.prompt_loader import load_chat_prompt_template
 from auto_ontology.utils.rerank import get_rerank_kwargs, rerank_hits
 from auto_ontology.utils.sql_identifiers import quoted_identifier
 
@@ -45,39 +46,9 @@ VERIFY_K = 50
 SNIPPET_CHARS = 200
 SEARCH_TIMEOUT_S = 20.0
 
-_PLANNER_PROMPT = """\
-Decide whether a data question needs similarity search on free-text columns.
-
-Question: {question}
-
-Searchable columns (table.column: what the text holds):
-{columns}
-
-[USE FOR]
-Topics, themes or abstract concepts stored in free text, such as "peneliti kesenian"
-or "berita pariwisata berkelanjutan".
-
-[NEVER USE FOR] (return an empty list)
-- Names, specific entities, locations, dates or numbers, including a specific title,
-  event or person named after "tentang"/"about".
-- Fixed categorical values, which belong in a normal SQL WHERE clause.
-- Questions without a thematic constraint.
-
-[RULES]
-1. Use one filter per topic, on the most relevant column listed above.
-2. `query` is a core phrase in the language of the data, followed by close synonyms
-   or subtopics. Example: "kesenian: seni pertunjukan, seni rupa, musik, tari, teater".
-"""
-
-_VERIFIER_PROMPT = """\
-Topic: {topic}
-
-Candidates:
-{candidates}
-
-Which candidates are about this topic, including its subtopics? Exclude candidates
-that only share a loose theme.
-"""
+_PROMPTS_FILE = Path(__file__).with_name("prompts.yaml")
+_PLANNER_PROMPT = load_chat_prompt_template(_PROMPTS_FILE, "semantic_planner")
+_VERIFIER_PROMPT = load_chat_prompt_template(_PROMPTS_FILE, "semantic_verifier")
 
 
 class SemanticFilter(BaseModel):
@@ -165,10 +136,8 @@ def _verified_ids(llm: Any, topic: str, candidates: list[dict]) -> list[Any]:
         f"{number}. {' '.join(str(row.get('snippet') or '').split())}"
         for number, row in enumerate(candidates, 1)
     )
-    prompt = _VERIFIER_PROMPT.format(topic=topic, candidates=listing)
-    result = invoke_with_structured_output(
-        llm, [SystemMessage(content=prompt)], RelevantCandidates
-    )
+    messages = _VERIFIER_PROMPT.format_messages(topic=topic, candidates=listing)
+    result = invoke_with_structured_output(llm, messages, RelevantCandidates)
     if result is None:
         raise ValueError("The semantic verifier returned no result.")
     numbers = dict.fromkeys(n for n in result.numbers if 1 <= n <= len(candidates))
@@ -236,17 +205,10 @@ class SemanticRowsAgent(BaseAgent):
             f"- {table}.{column}: {spec['description'] or spec['source']}"
             for (table, column), spec in specs.items()
         )
-        plan = invoke_with_structured_output(
-            llm,
-            [
-                SystemMessage(
-                    content=_PLANNER_PROMPT.format(
-                        question=get_standalone_question(state), columns=columns
-                    )
-                )
-            ],
-            SemanticPlan,
+        messages = _PLANNER_PROMPT.format_messages(
+            question=get_standalone_question(state), columns=columns
         )
+        plan = invoke_with_structured_output(llm, messages, SemanticPlan)
         filters = [
             found
             for found in (plan.filters if plan else [])

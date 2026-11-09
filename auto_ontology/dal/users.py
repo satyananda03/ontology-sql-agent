@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Zone scoping: which catalog a set of zones lets you see.
 
 This is the access-control boundary. Nearly every read in the DAL takes a

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Relevant-table dict shaping and lookup helpers.
 
 The text-to-SQL prompts expect each table to be a flat dict with

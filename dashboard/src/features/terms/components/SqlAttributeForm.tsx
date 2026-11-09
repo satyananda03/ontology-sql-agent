@@ -2,16 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState } from "react";
-import { Badge, ErrorBanner } from "@/components/ui";
+import { Badge, CertifyChoice, ErrorBanner, useCertifyChoice } from "@/components/ui";
 import { useAction } from "@/hooks/useAction";
 import type { S } from "@/types";
-import { saveSqlAttribute, validateSqlExpression } from "../api";
+import { patchSqlAttribute, saveSqlAttribute, validateSqlExpression } from "../api";
 
 interface SqlAttributeFormProps {
   termId: string;
   /** The attribute being edited; omitted to create one. */
   attr?: S["SqlAttribute"];
-  onDone: (saved?: S["SqlAttribute"]) => void;
+  /** `certification` is the owning Term's recomputed badge, when the save changed it. */
+  onDone: (saved?: S["SqlAttribute"], certification?: string | null) => void;
 }
 
 export function SqlAttributeForm({ termId, attr, onDone }: SqlAttributeFormProps) {
@@ -20,6 +21,10 @@ export function SqlAttributeForm({ termId, attr, onDone }: SqlAttributeFormProps
   const [expression, setExpression] = useState(attr?.expression ?? "");
   const [valid, setValid] = useState<boolean>();
   const action = useAction();
+  const changed =
+    !!attr &&
+    (name !== attr.name || description !== (attr.description ?? "") || expression !== attr.expression);
+  const certify = useCertifyChoice(!!attr?.certified, changed);
 
   async function validate() {
     const result = await action.run(() => validateSqlExpression(expression, termId, attr?.id ?? null));
@@ -29,7 +34,14 @@ export function SqlAttributeForm({ termId, attr, onDone }: SqlAttributeFormProps
   async function save() {
     const body = { name, description, expression, term_id: termId };
     const saved = await action.run(() => saveSqlAttribute(attr?.id, body), "Tersimpan");
-    if (saved) onDone(saved.data);
+    if (!saved) return;
+    // The full update keeps the stored flag, so a certify change is a second, metadata-only patch.
+    if (attr && certify.patch !== undefined) {
+      const certified = certify.patch;
+      const flagged = await action.run(() => patchSqlAttribute(attr.id, { certified }));
+      if (flagged) return onDone(flagged.data, flagged.term_certification);
+    }
+    onDone(saved.data);
   }
 
   return (
@@ -55,6 +67,14 @@ export function SqlAttributeForm({ termId, attr, onDone }: SqlAttributeFormProps
           }}
         />
       </label>
+      {changed && (
+        <CertifyChoice
+          checked={certify.checked}
+          onChange={certify.setChecked}
+          certified={!!attr?.certified}
+          disabled={action.busy}
+        />
+      )}
       <ErrorBanner message={action.error} />
       {valid === false && <div className="banner">Ekspresi tidak valid untuk tabel term ini.</div>}
       <div className="row">

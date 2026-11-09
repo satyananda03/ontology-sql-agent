@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Replaying the tagging rules once a pass has finished changing the catalog.
 
 A rule is a standing instruction rather than a one-off labelling -- see

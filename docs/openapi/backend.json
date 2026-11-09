@@ -3359,7 +3359,7 @@
       },
       "SemanticExplorationGraph": {
         "additionalProperties": true,
-        "description": "``{nodes, links}`` for the semantic layer, in one response.",
+        "description": "``{nodes, links, term_tables}`` for the semantic layer, in one response.",
         "properties": {
           "links": {
             "items": {
@@ -3373,6 +3373,13 @@
               "$ref": "#/components/schemas/SemanticGraphNode"
             },
             "title": "Nodes",
+            "type": "array"
+          },
+          "term_tables": {
+            "items": {
+              "$ref": "#/components/schemas/TermTableLink"
+            },
+            "title": "Term Tables",
             "type": "array"
           }
         },
@@ -5717,6 +5724,33 @@
           "id"
         ],
         "title": "TermTable",
+        "type": "object"
+      },
+      "TermTableLink": {
+        "additionalProperties": true,
+        "description": "A term and one table it is built from.\n\n``paths`` names the link(s) that connect them: ``REPRESENTS``,\n``HAS_ATTRIBUTE`` or ``SEMANTIC_FK``.",
+        "properties": {
+          "paths": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Paths",
+            "type": "array"
+          },
+          "table_id": {
+            "title": "Table Id",
+            "type": "string"
+          },
+          "term_id": {
+            "title": "Term Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "term_id",
+          "table_id"
+        ],
+        "title": "TermTableLink",
         "type": "object"
       },
       "TermUpdate": {

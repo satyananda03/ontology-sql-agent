@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Tests for :mod:`auto_ontology.utils.embedding`.
 
 The endpoint is replaced by an ``httpx.MockTransport`` under the real OpenAI

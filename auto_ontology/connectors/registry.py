@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Load and cache the SQLDatabase connector for the one source database.
 
 The source database comes from ``CONNECTION_STRINGS`` only, and it must hold

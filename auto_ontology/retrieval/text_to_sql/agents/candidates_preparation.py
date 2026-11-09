@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """
 Candidate Preparation Agent
 
@@ -26,9 +22,9 @@ Design Decisions:
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 from typing import Any, Dict
 
-from langchain_core.messages import HumanMessage, SystemMessage
 
 from auto_ontology.dal.attributes import (
     fetch_attr_column_contexts,
@@ -60,11 +56,7 @@ from auto_ontology.retrieval.text_to_sql.models import (
     CustomAnalysisRelevanceModel,
     TableRelevanceModel,
 )
-from auto_ontology.retrieval.text_to_sql.prompts import (
-    CUSTOM_ANALYSIS_RELEVANCE_FILTER_PROMPT,
-    SQL_GEN_MAX_ENTITIES,
-    TABLE_RELEVANCE_FILTER_PROMPT,
-)
+from auto_ontology.retrieval.text_to_sql.prompts import SQL_GEN_MAX_ENTITIES
 from auto_ontology.retrieval.text_to_sql.state import (
     AgentState,
     get_question_for_processing,
@@ -75,6 +67,7 @@ from auto_ontology.retrieval.text_to_sql.value_anchors import (
     split_schema_named_anchors,
 )
 from auto_ontology.utils.llm_invoke import invoke_with_structured_output
+from auto_ontology.utils.prompt_loader import load_chat_prompt_template, load_prompt
 
 
 def _qualified_name(t: dict) -> str:
@@ -117,6 +110,15 @@ _RELEVANCE_FILTER_MAX_COLS = int(os.environ.get("RELEVANCE_FILTER_MAX_COLS", "25
 _HUB_SIBLING_EXPANSION_ENABLED = os.environ.get(
     "HUB_SIBLING_EXPANSION_ENABLED", "false"
 ).strip().lower() in ("1", "true", "yes")
+
+_PROMPTS_FILE = Path(__file__).parents[1] / "prompts.yaml"
+_CUSTOM_ANALYSIS_PROMPT = load_chat_prompt_template(
+    _PROMPTS_FILE, "custom_analysis_relevance"
+)
+_TABLE_RELEVANCE_PROMPT = load_chat_prompt_template(_PROMPTS_FILE, "table_relevance")
+_TABLE_RELEVANCE_SECTIONS = load_prompt("table_relevance", _PROMPTS_FILE)["sections"]
+_ANCHOR_PROMPT = load_chat_prompt_template(_PROMPTS_FILE, "anchor_column")
+_ANCHOR_EVIDENCE = load_prompt("anchor_column", _PROMPTS_FILE)["sections"]["evidence"]
 
 # Pools this size or smaller skip the relevance filter. Default 2 is the
 # long-standing behaviour. The filter drops a uniquely-needed table at a
@@ -941,17 +943,10 @@ class CandidatePreparationAgent(BaseAgent):
             for a in analyses
         )
 
-        prompt_text = CUSTOM_ANALYSIS_RELEVANCE_FILTER_PROMPT.format(
+        messages = _CUSTOM_ANALYSIS_PROMPT.format_messages(
             question=question,
             analyses_summary=analyses_summary,
         )
-
-        messages = [
-            SystemMessage(
-                content="You are a database domain expert that filters custom analyses."
-            ),
-            HumanMessage(content=prompt_text),
-        ]
 
         try:
             result = invoke_with_structured_output(
@@ -1028,9 +1023,8 @@ class CandidatePreparationAgent(BaseAgent):
         domain_rules_text = rules_to_text(state.get("domain_rules", []))
         domain_rules_section = ""
         if domain_rules_text:
-            domain_rules_section = (
-                "Domain-specific rules (use these to decide relevance):\n"
-                f"{domain_rules_text}\n"
+            domain_rules_section = _TABLE_RELEVANCE_SECTIONS["domain_rules"].format(
+                rules=domain_rules_text
             )
 
         ca_section = ""
@@ -1045,10 +1039,8 @@ class CandidatePreparationAgent(BaseAgent):
                 if sql:
                     line += f"  SQL: {sql}"
                 ca_lines.append(line)
-            ca_section = (
-                "Selected custom analyses (their SQL references tables that MUST be kept):\n"
-                + "\n".join(ca_lines)
-                + "\n\n"
+            ca_section = _TABLE_RELEVANCE_SECTIONS["custom_analyses"].format(
+                analyses="\n".join(ca_lines)
             )
 
         join_paths_section = ""
@@ -1061,10 +1053,8 @@ class CandidatePreparationAgent(BaseAgent):
                     if src and tgt and src != tgt:
                         chains.add(f"{src} <-> {tgt}")
             if chains:
-                join_paths_section = (
-                    "Known join paths between candidate tables:\n"
-                    + "\n".join(sorted(chains))
-                    + "\n\n"
+                join_paths_section = _TABLE_RELEVANCE_SECTIONS["join_paths"].format(
+                    chains="\n".join(sorted(chains))
                 )
             self.logger.debug(
                 "Relevance filter join_paths_section: %s",
@@ -1082,15 +1072,11 @@ class CandidatePreparationAgent(BaseAgent):
         enriched_question_text = (state.get("enriched_question") or "").strip()
         enriched_question_section = ""
         if enriched_question_text:
-            enriched_question_section = (
-                "The expanded question below is the same question with all formulas, "
-                "thresholds, and terms resolved. Use it for context when deciding "
-                "which tables are relevant.\n"
-                "Expanded question:\n"
-                f"{enriched_question_text}\n\n"
-            )
+            enriched_question_section = _TABLE_RELEVANCE_SECTIONS[
+                "enriched_question"
+            ].format(question=enriched_question_text)
 
-        prompt_text = TABLE_RELEVANCE_FILTER_PROMPT.format(
+        messages = _TABLE_RELEVANCE_PROMPT.format_messages(
             question=question,
             tables_summary=tables_summary,
             domain_rules=domain_rules_section,
@@ -1098,13 +1084,6 @@ class CandidatePreparationAgent(BaseAgent):
             join_paths=join_paths_section,
             enriched_question=enriched_question_section,
         )
-
-        messages = [
-            SystemMessage(
-                content="You are a database schema expert that filters candidate tables."
-            ),
-            HumanMessage(content=prompt_text),
-        ]
 
         try:
             result = invoke_with_structured_output(llm, messages, TableRelevanceModel)
@@ -1243,25 +1222,10 @@ class CandidatePreparationAgent(BaseAgent):
             for aid, ctx in contexts.items()
         )
         evidence = str(state.get("evidence") or "").strip()
-        evidence_block = f"\n\nAuthoritative evidence:\n{evidence}" if evidence else ""
-        messages = [
-            SystemMessage(
-                content=(
-                    "You are identifying the primary column attribute that is the main focus "
-                    "of a user's analytical question."
-                )
-            ),
-            HumanMessage(
-                content=(
-                    f"Question: {question}{evidence_block}\n\n"
-                    f"Available column attributes:\n{attrs_block}\n\n"
-                    "Return the id of the single column attribute that best represents "
-                    "the primary subject of the question. Map evidence concepts to "
-                    "the listed schema.table.column physical references, not to "
-                    "semantic attribute names."
-                )
-            ),
-        ]
+        evidence_block = _ANCHOR_EVIDENCE.format(evidence=evidence) if evidence else ""
+        messages = _ANCHOR_PROMPT.format_messages(
+            question=question, evidence_block=evidence_block, attributes=attrs_block
+        )
 
         try:
             result = invoke_with_structured_output(

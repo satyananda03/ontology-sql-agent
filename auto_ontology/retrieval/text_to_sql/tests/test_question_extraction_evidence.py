@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 from unittest.mock import MagicMock
 
 import pytest
@@ -21,7 +17,7 @@ def test_prompt_limits_evidence_to_sanitized_question_disambiguation() -> None:
         "Show points earned by customers",
         evidence="Points earned refers to loyalty_points, not reward_balance.",
         include_subject=False,
-    )
+    )[-1].content  # evidence travels with the question, in the user message
 
     assert "## Evidence for sanitization" in prompt
     assert "at most one concise disambiguating qualifier" in prompt
@@ -39,7 +35,7 @@ def test_prompt_omits_evidence_section_when_not_provided(
         "Show points earned by customers",
         evidence=evidence,
         include_subject=False,
-    )
+    )[-1].content
 
     assert "## Evidence for sanitization" not in prompt
 
@@ -75,7 +71,7 @@ def test_agent_forwards_state_evidence_without_changing_original_question(
 
     result = QuestionExtractionAgent(include_subject=False).execute(state)
 
-    assert "Points earned refers to loyalty_points." in captured_messages[0].content
+    assert "Points earned refers to loyalty_points." in captured_messages[-1].content
     assert state["initial_question"] == "Show points earned by customers"
     assert result["path_state"]["normalized_question"] == (
         "Show loyalty points earned by customers"

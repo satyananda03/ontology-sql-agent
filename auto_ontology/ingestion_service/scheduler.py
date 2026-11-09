@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """On-demand job runner shared by the ingestion service's background jobs.
 
 A job runs only when :meth:`OnDemandScheduler.trigger` is called — from the

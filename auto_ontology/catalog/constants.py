@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Catalog vocabulary — node labels, edge types, and property keys.
 
 The semantic-tier counterparts live in :mod:`auto_ontology.semantic.constants`.

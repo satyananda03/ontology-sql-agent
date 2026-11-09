@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Trigram index on tag.name for global search
 
 ``tag`` became a searchable kind of its own -- the global search has a Tags tab

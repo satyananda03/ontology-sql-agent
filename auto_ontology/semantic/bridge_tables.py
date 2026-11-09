@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Create SqlAttributes for pure-FK bridge (junction) tables.
 
 After semantic FK resolution, discovers tables whose columns are entirely
@@ -14,9 +10,9 @@ description). No new Term is created for the bridge table itself.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
-from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, ConfigDict
 
 from auto_ontology.dal.datasources import (
@@ -35,9 +31,14 @@ from auto_ontology.utils.llm_invoke import (
     get_llm_client,
     invoke_with_structured_output,
 )
+from auto_ontology.utils.prompt_loader import load_chat_prompt_template, load_prompt
 from auto_ontology.utils.rerank import get_rerank_kwargs, rerank_hits
 
 logger = logging.getLogger(__name__)
+
+_PROMPTS_FILE = Path(__file__).with_name("prompts.yaml")
+_PROMPT = load_chat_prompt_template(_PROMPTS_FILE, "bridge_sql_attribute")
+_SECTIONS = load_prompt("bridge_sql_attribute", _PROMPTS_FILE)["sections"]
 
 
 class _BridgeSqlAttributeProposal(BaseModel):
@@ -168,46 +169,15 @@ def _generate_bridge_sql_attribute(
         }
     )
     self_referential = len(related_tables) == 1
-    join_hint = (
-        "This is a self-referential bridge: both FK columns point at the same "
-        "entity table. Alias that table twice in the JOIN (e.g. product AS buyer "
-        "and product AS also_bought) so each FK role is clear."
-        if self_referential
-        else "Join the bridge table to each related entity table using the FK pairs."
-    )
+    join_hint = _SECTIONS["join_hint_self" if self_referential else "join_hint_default"]
 
     llm = get_llm_client(temperature=0.0)
-    messages = [
-        SystemMessage(
-            content=(
-                "You are an expert data engineer defining reusable join patterns "
-                "for many-to-many junction (bridge) tables. Bridge tables connect "
-                "entities through foreign keys, including self-referential cases "
-                "where multiple columns point at the same target table."
-            )
-        ),
-        HumanMessage(
-            content=(
-                f"Bridge table: {qualified_bridge}\n"
-                f"Related tables: {', '.join(related_tables) or '(unknown)'}\n"
-                f"Foreign key columns (use these exact join keys):\n"
-                f"{_format_fk_block(fk_pairs)}\n\n"
-                f"{join_hint}\n\n"
-                "Produce one SqlAttribute that captures how to join through this "
-                "bridge table to reach all related entities.\n\n"
-                "Rules:\n"
-                "  • expression must be a valid SELECT … FROM … JOIN … statement\n"
-                "  • schema-qualify every table name\n"
-                "  • use ONLY the FK pairs listed above — do not invent columns "
-                "or filters\n"
-                "  • no WHERE clause with literal business filters; structural "
-                "joins only\n"
-                "  • name — user-friendly Title Case label (e.g. 'Order Products', "
-                "'Also Buy')\n"
-                "  • description — what relationship the junction represents\n"
-            )
-        ),
-    ]
+    messages = _PROMPT.format_messages(
+        bridge_table=qualified_bridge,
+        related_tables=", ".join(related_tables) or "(unknown)",
+        fk_block=_format_fk_block(fk_pairs),
+        join_hint=join_hint,
+    )
 
     result = invoke_with_structured_output(llm, messages, _BridgeSqlAttributeProposal)
     return result

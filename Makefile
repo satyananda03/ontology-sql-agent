@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 TAG ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
 .PHONY: help build up dev ingest-dev backend-dev migrate migrate-check \

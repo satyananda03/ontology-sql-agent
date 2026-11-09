@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Classify driver errors by what the caller can actually do about them.
 
 Drivers report "your SQL was wrong" and "the connection is gone" through the

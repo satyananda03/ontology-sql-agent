@@ -3,22 +3,17 @@
 
 import { useEffect } from "react";
 import { useFetch } from "@/hooks/useFetch";
-import { GRAPH_KINDS } from "./graphKinds";
+import { loadGraph } from "./graphKinds";
 import { useKnowledgeGraphStore } from "./store";
 
 /**
- * Load the graph for the active tab into the store.
+ * Load the combined term and table graph into the store.
  *
  * The graph lives in the zustand store rather than in this hook's state: the
  * viewer, the properties panel, the legend and the search all read it there.
  */
 export function useKnowledgeGraph(databaseId: string) {
-  const kind = useKnowledgeGraphStore((state) => state.kind);
-  const includeSqlEdges = useKnowledgeGraphStore((state) => state.includeSqlEdges);
-  const graph = useFetch(
-    () => GRAPH_KINDS[kind].load(databaseId, { includeSqlEdges }),
-    [kind, databaseId, includeSqlEdges],
-  );
+  const graph = useFetch(() => loadGraph(databaseId), [databaseId]);
 
   useEffect(() => {
     if (graph.data) useKnowledgeGraphStore.getState().setRawGraph(graph.data);

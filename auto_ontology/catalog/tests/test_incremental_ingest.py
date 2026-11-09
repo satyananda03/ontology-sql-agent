@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Incremental re-ingest: what changes in the catalog when the source changes.
 
 ``update_diff_from_existing_schema`` decides which tables and columns are added,

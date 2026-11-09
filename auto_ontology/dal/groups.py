@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """User groups and the accounts that belong to them.
 
 Accounts themselves stay in Prisma's ``frontend."user"`` table. This module

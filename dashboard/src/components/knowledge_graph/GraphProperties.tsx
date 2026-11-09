@@ -2,19 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Ported from frontend_references/src/components/knowledge_graph/GraphProperties.tsx,
-// read-only: editing, merge and undo are gone, and the drill-down plus a link
-// to the editing page come from GRAPH_KINDS.
+// read-only: editing, merge and undo are gone. The link to the editing page comes
+// from NODE_KINDS, an edge's drill-down from edgeDetails.
 
 import { useMemo, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { X } from "lucide-react";
-import { GRAPH_KINDS, type GraphKindConfig } from "@/features/knowledge_graph/graphKinds";
+import { EDGE_KINDS, NODE_KINDS, edgeDetails } from "@/features/knowledge_graph/graphKinds";
 import { selectedElement, useKnowledgeGraphStore } from "@/features/knowledge_graph/store";
 import type { RawEdge, RawGraph, RawNode } from "@/features/knowledge_graph/types";
 
 export function GraphProperties() {
   const rawGraph = useKnowledgeGraphStore((state) => state.rawGraph);
-  const config = GRAPH_KINDS[useKnowledgeGraphStore((state) => state.kind)];
   const selectedNode = useKnowledgeGraphStore((state) => state.selectedNode);
   const selectedEdge = useKnowledgeGraphStore((state) => state.selectedEdge);
   const focusedNode = useKnowledgeGraphStore((state) => state.focusedNode);
@@ -29,21 +28,20 @@ export function GraphProperties() {
   // every hover, and fetching on each one would flood the API.
   const showDetails = !focusedNode && !focusedEdge;
   return element.type === "node" ? (
-    <NodePanel node={element.element} graph={rawGraph} config={config} showDetails={showDetails} />
+    <NodePanel node={element.element} graph={rawGraph} />
   ) : (
-    <EdgePanel edge={element.element} graph={rawGraph} config={config} showDetails={showDetails} />
+    <EdgePanel edge={element.element} graph={rawGraph} showDetails={showDetails} />
   );
 }
 
 interface PanelProps {
   graph: RawGraph;
-  config: GraphKindConfig;
   showDetails: boolean;
 }
 
-function NodePanel({ node, graph, config, showDetails }: PanelProps & { node: RawNode }) {
-  const { NodeDetails } = config;
-  const link = config.openLink(node.id);
+function NodePanel({ node, graph }: Omit<PanelProps, "showDetails"> & { node: RawNode }) {
+  const { openLink, label: kindLabel } = NODE_KINDS[node.kind];
+  const link = openLink(node.id);
   const neighbours = new Set(
     graph.edges
       .filter((edge) => edge.source === node.id || edge.target === node.id)
@@ -51,7 +49,7 @@ function NodePanel({ node, graph, config, showDetails }: PanelProps & { node: Ra
   );
 
   return (
-    <Panel title="Node" titleClass="text-[#00E5FF]">
+    <Panel title={kindLabel} titleClass="text-[#00E5FF]">
       <div className="mb-4 space-y-2">
         <InfoRow label="Nama">{node.label}</InfoRow>
         <InfoRow label="Relasi">{node.degree}</InfoRow>
@@ -73,8 +71,6 @@ function NodePanel({ node, graph, config, showDetails }: PanelProps & { node: Ra
         </div>
       </div>
 
-      {showDetails && <NodeDetails nodeId={node.id} />}
-
       {neighbours.size > 0 && (
         <div className="mb-4">
           <h4 className="mb-2 text-xs font-bold tracking-wide text-[#00E676]">Relasi dalam graf</h4>
@@ -86,7 +82,10 @@ function NodePanel({ node, graph, config, showDetails }: PanelProps & { node: Ra
                 onClick={() => useKnowledgeGraphStore.getState().selectNode(id, true)}
                 className="group flex w-full cursor-pointer items-center rounded border border-[#2A2A2A] bg-[#1C1C1C] px-2.5 py-1.5 text-left transition-colors hover:bg-[#252525]"
               >
-                <span className="truncate text-[11px] text-neutral-300 group-hover:text-white">{nodeLabel(graph, id)}</span>
+                <span className="min-w-0 flex-1 truncate text-[11px] text-neutral-300 group-hover:text-white">
+                  {nodeLabel(graph, id)}
+                </span>
+                <span className="shrink-0 text-[10px] text-neutral-500">{NODE_KINDS[nodeKind(graph, id) ?? "term"].label}</span>
               </button>
             ))}
           </div>
@@ -103,16 +102,18 @@ function NodePanel({ node, graph, config, showDetails }: PanelProps & { node: Ra
   );
 }
 
-function EdgePanel({ edge, graph, config, showDetails }: PanelProps & { edge: RawEdge }) {
-  const { EdgeDetails } = config;
+function EdgePanel({ edge, graph, showDetails }: PanelProps & { edge: RawEdge }) {
+  const EdgeDetails = edgeDetails(edge, (id) => nodeKind(graph, id));
+  const kind = EDGE_KINDS[edge.kind];
   return (
-    <Panel title="Relasi" titleClass="text-violet-400">
+    <Panel title={kind.label} titleClass="text-violet-400">
+      <p className="mb-3 text-[11px] text-neutral-400">{kind.hint}</p>
       <div className="mb-4 space-y-2">
         <InfoRow label="Dari">{nodeLabel(graph, edge.source)}</InfoRow>
         <InfoRow label="Ke">{nodeLabel(graph, edge.target)}</InfoRow>
-        <InfoRow label="Jenis">{edge.relationshipTypes.join(", ")}</InfoRow>
+        <InfoRow label="Lewat">{edge.relationshipTypes.join(", ")}</InfoRow>
       </div>
-      {showDetails && <EdgeDetails edge={edge} />}
+      {showDetails && EdgeDetails && <EdgeDetails edge={edge} />}
     </Panel>
   );
 }
@@ -146,3 +147,4 @@ function InfoRow({ label, children }: { label: string; children: ReactNode }) {
 }
 
 const nodeLabel = (graph: RawGraph, id: string): string => graph.nodes.find((node) => node.id === id)?.label ?? id;
+const nodeKind = (graph: RawGraph, id: string) => graph.nodes.find((node) => node.id === id)?.kind;

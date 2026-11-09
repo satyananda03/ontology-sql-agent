@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 from auto_ontology.retrieval.text_to_sql.formatters_util import (
     format_semantic_context,
     format_tables_for_prompt,

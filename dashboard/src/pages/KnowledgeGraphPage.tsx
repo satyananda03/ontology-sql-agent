@@ -13,7 +13,7 @@ export default function KnowledgeGraphPage() {
   return (
     <>
       <PageHeader title="Knowledge Graph">
-        Relasi antar term (Semantik) dan antar tabel (Data). Klik node atau garis untuk melihat detailnya.
+        Term dan tabel dalam satu graf. Klik node atau garis untuk melihat detailnya.
       </PageHeader>
       <ErrorBanner message={database.error} />
       {database.loading && !database.data && <Loading />}

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Infer how a date column stores its values.
 Date columns are the one type kept out of sample-value profiling, on the
 reasoning that a concrete date carries no business meaning. That holds for

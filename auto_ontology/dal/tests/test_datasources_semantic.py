@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """The seven `datasources` functions that reach the semantic tier.
 
 These need terms and attributes to join to, so they get a hand-built fixture

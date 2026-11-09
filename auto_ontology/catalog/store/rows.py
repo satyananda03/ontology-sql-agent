@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Row upserts — the one write primitive the catalog pipeline uses.
 
 Every writer needs the same thing: *find a row by its identity columns, create

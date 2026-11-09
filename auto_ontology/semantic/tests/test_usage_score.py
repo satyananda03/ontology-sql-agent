@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Ranking inputs for the SqlAttribute suggester — currently inert, on purpose.
 
 **These tests pin a known bug rather than the behaviour anyone wants.**

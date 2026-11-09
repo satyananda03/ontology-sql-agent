@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Tests for :func:`auto_ontology.utils.rerank.rerank_hits`.
 
 The two built-in endpoints speak different ranking schemas -- inference-api's

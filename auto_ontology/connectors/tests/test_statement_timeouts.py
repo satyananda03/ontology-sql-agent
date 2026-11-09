@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """The Postgres connector honours ``execute(..., timeout_s=...)``.
 
 The text-to-SQL agent caps each statement at the SQL Query Timeout from Agent

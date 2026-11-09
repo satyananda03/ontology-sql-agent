@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Rerank candidate hits against a query with the configured ranking endpoint.
 
 Mirrors :mod:`auto_ontology.utils.embedding`: the endpoint, model, and API key

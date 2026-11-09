@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Per-database reset: drop a database's catalog rows and pgvector embeddings.
 
 The single source of truth for wiping one database's ingested data.

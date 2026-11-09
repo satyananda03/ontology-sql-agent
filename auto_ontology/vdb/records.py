@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Turn embedded rows into the records :meth:`PostgresVDB.run` writes.
 
 An embedded row is the dict the row builders produce (``text``, ``path``,

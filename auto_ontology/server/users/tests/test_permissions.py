@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """A group's permissions are its role, expanded from the shared access file.
 
 These tests only have to pin the differences that matter: an admin group can

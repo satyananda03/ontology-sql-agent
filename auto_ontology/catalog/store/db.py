@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Database-level writes and the incremental re-ingest diff.
 
 The diff itself — ``update_diff_from_existing_schema`` and the two

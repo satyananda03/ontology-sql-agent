@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Run the SQL a chat turn issues: logged, and capped in time.
 
 Both behaviours deliberately live here rather than in the connectors. A

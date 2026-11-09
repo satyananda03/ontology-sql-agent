@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Turning a typed query into tokens, without touching a database.
 
 The counterpart to ``auto_ontology/dal/tests/test_search.py``, which runs the queries

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """The relational schema: SQLAlchemy Core table metadata, no ORM.
 
 Alembic autogenerates migrations by diffing against :data:`METADATA`, so this

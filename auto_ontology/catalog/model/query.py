@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """A parsed SQL query and the catalog nodes it references."""
 
 from auto_ontology.catalog.model.node import CatalogNode

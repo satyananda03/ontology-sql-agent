@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Auto Ontology-owned catalog layer — the data catalog's vocabulary and write path.
 
 The public surface is deliberately four entry points:

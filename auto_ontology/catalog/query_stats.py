@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Statistics about stored SQL statements, independent of where they are stored.
 
 Both are pure functions over data already in hand — one reads a node object, the

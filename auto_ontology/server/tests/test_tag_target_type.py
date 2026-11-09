@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """The API's tag-target vocabulary must match the DAL's.
 
 ``TagTargetType`` spells the five kinds of taggable object as literals instead

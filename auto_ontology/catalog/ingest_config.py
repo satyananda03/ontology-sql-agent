@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Limit what ingestion reads, per database, from an optional YAML file.
 
 The file is ``ingest.yaml`` at the repo root, or ``INGEST_CONFIG_FILE``::

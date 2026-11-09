@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """API route for triggering semantic compilation on the ingestion service.
 
 These routes relay the review UI's "Jalankan kompilasi" and "Regenerate

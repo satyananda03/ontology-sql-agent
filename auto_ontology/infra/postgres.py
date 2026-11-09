@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Env-derived Postgres connection config, shared across the codebase.
 
 Not VDB-specific: the server, ingestion service, and dev tools all build the

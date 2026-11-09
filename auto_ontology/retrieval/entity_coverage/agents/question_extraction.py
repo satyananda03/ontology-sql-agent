@@ -1,15 +1,9 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Combined question sanitization + entity extraction (single LLM call)."""
 
 from __future__ import annotations
 
 import logging
 from typing import Any, Dict
-
-from langchain_core.messages import SystemMessage
 
 from auto_ontology.retrieval.entity_coverage.models import (
     QuestionExtractionLiteModel,
@@ -77,16 +71,12 @@ class QuestionExtractionAgent(BaseAgent):
         result: Dict[str, Any] = {"path_state": path_state, "glossary": []}
 
         try:
-            messages = [
-                SystemMessage(
-                    content=create_question_extraction_prompt(
-                        original_question,
-                        glossary,
-                        evidence=evidence,
-                        include_subject=self._include_subject,
-                    )
-                )
-            ]
+            messages = create_question_extraction_prompt(
+                original_question,
+                glossary,
+                evidence=evidence,
+                include_subject=self._include_subject,
+            )
             schema = (
                 QuestionExtractionModel
                 if self._include_subject

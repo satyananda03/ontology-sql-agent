@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Index creation — a no-op, because Alembic owns the schema.
 
 Indexes and constraints are declared in ``auto_ontology/dal/schema.py`` and created once

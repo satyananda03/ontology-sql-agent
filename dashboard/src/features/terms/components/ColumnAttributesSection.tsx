@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { CertBadge, CertifyCheck, Empty, ErrorBanner, Loading, TextEditor } from "@/components/ui";
+import { useState } from "react";
+import { CertifyToggle, Empty, ErrorBanner, Loading, TextDialog } from "@/components/ui";
 import { useAction } from "@/hooks/useAction";
 import { useFetch } from "@/hooks/useFetch";
 import { replaceById } from "@/lib/utils";
@@ -16,18 +17,24 @@ interface ColumnAttributesSectionProps {
 export function ColumnAttributesSection({ termId, onCertification }: ColumnAttributesSectionProps) {
   const list = useFetch(() => listColumnAttributes(termId), [termId]);
   const action = useAction();
+  const [editing, setEditing] = useState<S["ColumnAttribute"]>();
 
   async function patch(attr: S["ColumnAttribute"], body: S["ColumnAttributeUpdate"]) {
     const saved = await action.run(() => updateColumnAttribute(termId, attr.id, body), "Tersimpan");
-    if (!saved || !list.data) return;
+    if (!saved || !list.data) return false;
     list.setData({ ...list.data, data: replaceById(list.data.data, saved.data) });
     onCertification(saved.term_certification);
+    return true;
+  }
+
+  async function saveDescription(description: string, certified?: boolean) {
+    if (editing && (await patch(editing, { description, certified }))) setEditing(undefined);
   }
 
   return (
     <section className="card">
       <h2>Atribut kolom {list.data && <span className="muted">({list.data.total})</span>}</h2>
-      <ErrorBanner message={list.error ?? action.error} />
+      <ErrorBanner message={list.error ?? (editing ? undefined : action.error)} />
       {list.loading && !list.data && <Loading />}
       {list.data?.data.length === 0 && <Empty>Term ini belum punya atribut kolom.</Empty>}
       {!!list.data?.data.length && (
@@ -55,29 +62,49 @@ export function ColumnAttributesSection({ termId, onCertification }: ColumnAttri
                     )}
                   </td>
                   <td>
-                    <TextEditor
-                      value={attr.description}
-                      rows={2}
-                      busy={action.busy}
-                      onSave={(description) => patch(attr, { description })}
-                    />
+                    <div className="stack tight">
+                      <div className={attr.description ? "clamp" : "muted"}>
+                        {attr.description || "Belum ada deskripsi."}
+                      </div>
+                      <button
+                        className="link small"
+                        onClick={() => {
+                          action.setError(undefined);
+                          setEditing(attr);
+                        }}
+                      >
+                        Edit deskripsi
+                      </button>
+                    </div>
                   </td>
                   <td>
-                    <div className="stack tight">
-                      <CertBadge value={attr.certified} />
-                      <CertifyCheck
-                        label="Certify"
-                        checked={attr.certified}
-                        disabled={action.busy}
-                        onChange={(certified) => patch(attr, { certified })}
-                      />
-                    </div>
+                    <CertifyToggle
+                      certified={attr.certified}
+                      disabled={action.busy}
+                      onChange={(certified) => patch(attr, { certified })}
+                    />
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+      {editing && (
+        <TextDialog
+          title={`Deskripsi: ${editing.name}`}
+          value={editing.description}
+          certified={!!editing.certified}
+          busy={action.busy}
+          error={action.error}
+          onSave={saveDescription}
+          onClose={() => setEditing(undefined)}
+        >
+          <div className="muted small">
+            Kolom sumber <span className="mono">{editing.source_column}</span> · {editing.datatype}
+            {!!editing.sample_values?.length && <> · contoh: {editing.sample_values.slice(0, 5).join(", ")}</>}
+          </div>
+        </TextDialog>
       )}
     </section>
   );

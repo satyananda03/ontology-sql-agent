@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Read identities forwarded by the trusted private Next.js gateway.
 
 Lives at the top of ``auto_ontology.server`` rather than under ``chat``, where it started:

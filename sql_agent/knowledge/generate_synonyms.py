@@ -18,21 +18,9 @@ from typing import Any
 
 import yaml
 from dotenv import load_dotenv
-from langchain_core.messages import SystemMessage
 from pydantic import BaseModel, Field
 
-_PROMPT = """\
-List the words people use for this business concept when asking about the data.
-
-Term: {name}
-Description: {description}
-Table: {table}
-Columns: {columns}
-
-Return up to 8 synonyms in Indonesian and English, each a word or short phrase a user
-might actually type. Include common abbreviations. Do not repeat the Term's own name,
-and do not list words for a broader or different concept. When unsure, leave it out.
-"""
+_PROMPTS_FILE = Path(__file__).parents[1] / "prompts.yaml"
 
 
 class SynonymProposal(BaseModel):
@@ -53,18 +41,18 @@ def clean_synonyms(term_name: str, proposed: list[str]) -> list[str]:
 
 def propose(terms: list[dict[str, Any]], llm: Any) -> dict[str, list[str]]:
     from auto_ontology.utils.llm_invoke import invoke_with_structured_output
+    from auto_ontology.utils.prompt_loader import load_chat_prompt_template
 
+    prompt = load_chat_prompt_template(_PROMPTS_FILE, "synonym_proposal")
     proposals: dict[str, list[str]] = {}
     for term in terms:
-        prompt = _PROMPT.format(
+        messages = prompt.format_messages(
             name=term["name"],
             description=term.get("description") or "",
             table=term["table_name"],
             columns=", ".join(term.get("columns") or []),
         )
-        result = invoke_with_structured_output(
-            llm, [SystemMessage(content=prompt)], SynonymProposal
-        )
+        result = invoke_with_structured_output(llm, messages, SynonymProposal)
         proposals[term["name"]] = clean_synonyms(
             term["name"], result.synonyms if result else []
         )

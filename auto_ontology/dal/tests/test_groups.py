@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Groups, membership, and the accounts they point at.
 
 Needs a migrated database. The account table is Prisma's, so CI's Alembic

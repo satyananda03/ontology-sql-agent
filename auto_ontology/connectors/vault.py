@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """HashiCorp Vault access for UI-managed database connection secrets.
 
 Connection credentials are stored in Vault keyed by catalog database name. This

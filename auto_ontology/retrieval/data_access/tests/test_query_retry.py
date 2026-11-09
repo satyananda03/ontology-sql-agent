@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """A transient embedding failure is retried; a problem with the request is not.
 
 Without the retry a 502 from the embedding endpoint silently turns one entity

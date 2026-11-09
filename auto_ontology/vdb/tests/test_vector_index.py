@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """The collection's HNSW index must actually be reachable from the store's query.
 
 Nothing fails when it isn't: the same rows come back, in the same order, just

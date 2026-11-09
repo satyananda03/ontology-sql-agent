@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """ColumnAttribute and SEMANTIC_FK reads and writes, plus join-path traversal.
 
 ``find_join_path`` and ``find_table_bridge`` both project semantic FK/owner

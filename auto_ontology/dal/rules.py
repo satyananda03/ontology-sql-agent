@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Rules: a saved global search, and the tags to apply to what it matches.
 
 A rule spans two tables, and which one owns what is the thing to know here.

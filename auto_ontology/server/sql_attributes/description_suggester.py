@@ -1,14 +1,10 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """On-demand LLM description suggestion for a single SqlAttribute."""
 
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
-from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, ConfigDict, Field
 
 from auto_ontology.dal.sql_attributes import (
@@ -16,27 +12,15 @@ from auto_ontology.dal.sql_attributes import (
     set_sql_attribute_description_suggestion,
 )
 from auto_ontology.utils.llm_invoke import get_llm_client, invoke_with_structured_output
+from auto_ontology.utils.prompt_loader import load_chat_prompt_template
 
 logger = logging.getLogger(__name__)
 
 _DESCRIPTION_SUGGESTION_MAX_CHARS = 500
 
-_SYSTEM_PROMPT = f"""\
-You're a helpful AI assistant
-with a specialization in databases and BI
-with a business qualification.
-In a specific business model, attributes are collected within a Business Term.
-A SQL attribute is an attribute that can be defined by a SQL expression.
-You will be provided with a specific attribute and the Business Term that \
-contains the attribute.
-Your job is to describe in up to 3 sentences and no more than \
-{_DESCRIPTION_SUGGESTION_MAX_CHARS} characters the role of the given \
-attribute in the business to the business expert.
-Do not include the attribute name or raw SQL in your answer.
-Provide clear, assertive, and confident responses.
-Be certain in your responses; do not use words like 'likely' or 'maybe'.
-Do not reference the industry in your answers.
-Do not apologize no matter what."""
+_PROMPT = load_chat_prompt_template(
+    Path(__file__).with_name("prompts.yaml"), "description_suggestion"
+)
 
 
 class _DescriptionSuggestionResponse(BaseModel):
@@ -93,16 +77,15 @@ def suggest_sql_attribute_description(attr_id: str) -> str | None:
     if cached:
         return cached
 
-    prompt = (
-        f"The attribute: '{row.get('name', '')}', "
-        f"the term that contains the attribute: '{row.get('term_name', '')}'."
+    messages = _PROMPT.format_messages(
+        max_chars=_DESCRIPTION_SUGGESTION_MAX_CHARS,
+        attribute_name=row.get("name", ""),
+        term_name=row.get("term_name", ""),
     )
 
     llm = get_llm_client(temperature=0.0, max_tokens=400)
     response = invoke_with_structured_output(
-        llm,
-        [SystemMessage(content=_SYSTEM_PROMPT), HumanMessage(content=prompt)],
-        _DescriptionSuggestionResponse,
+        llm, messages, _DescriptionSuggestionResponse
     )
     if response is None:
         return None

@@ -1,52 +1,15 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
 // SPDX-License-Identifier: Apache-2.0
 
-// Drill-down sections of the properties panel, one per node or edge kind.
-// GRAPH_KINDS picks which one a tab shows.
+// Drill-down sections of the properties panel for a selected edge; edgeDetails picks which one.
 
 import type { ReactNode } from "react";
-import { getTableColumns } from "@/features/catalog/api";
-import { getTableDetails, getTermPath, getTermTables } from "@/features/knowledge_graph/api";
+import { getTermPath } from "@/features/knowledge_graph/api";
 import type { RawEdge } from "@/features/knowledge_graph/types";
 import { useFetch } from "@/hooks/useFetch";
 import { truncate } from "@/lib/utils";
 
 const SQL_PREVIEW_LENGTH = 160;
-
-export function TermDetails({ nodeId }: { nodeId: string }) {
-  const details = useFetch(() => getTermTables(nodeId), [nodeId]);
-  return (
-    <Section title="Tabel" state={details}>
-      {details.data?.tables?.map((table) => (
-        <Item key={table.id}>{qualified(table.schema_name, table.name)}</Item>
-      ))}
-    </Section>
-  );
-}
-
-export function TableDetails({ nodeId }: { nodeId: string }) {
-  const columns = useFetch(() => getTableColumns(nodeId), [nodeId]);
-  const details = useFetch(() => getTableDetails(nodeId), [nodeId]);
-  return (
-    <>
-      <Section title="Kolom" state={columns}>
-        {columns.data?.data.columns?.map((column) => (
-          <Item key={column.id}>
-            {column.column_name} <span className="text-neutral-500">{column.data_type}</span>
-          </Item>
-        ))}
-      </Section>
-      <Section title="Term" state={details}>
-        {details.data?.terms?.map((term) => <Item key={term.id}>{term.name}</Item>)}
-      </Section>
-      <Section title="Query SQL" state={details}>
-        {details.data?.queries?.map((query) => (
-          <Item key={query.id}>{truncate(query.sql, SQL_PREVIEW_LENGTH)}</Item>
-        ))}
-      </Section>
-    </>
-  );
-}
 
 /** The real chain behind a term-to-term edge: term, table, column, attribute, term. */
 export function TermPathDetails({ edge }: { edge: RawEdge }) {

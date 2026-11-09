@@ -222,6 +222,15 @@ touching the rest of the dashboard:
     border: 1px solid var(--color-border); border-radius: var(--radius-panel);
   }
   .card .table-wrap { border-radius: var(--radius-control); }
+  .clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  button.link.small { align-self: flex-start; color: var(--color-primary); }
+
+  /* Modal text editor (TextDialog) */
+  dialog.text-dialog {
+    width: min(720px, calc(100vw - 32px)); padding: 24px; color: var(--color-text);
+    background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-card);
+  }
+  dialog.text-dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
 
   /* Feedback */
   .banner {

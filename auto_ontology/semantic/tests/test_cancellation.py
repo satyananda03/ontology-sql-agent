@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Cancelling an in-flight semantic pass stops it at the next table.
 
 Before this, ``abort`` was only checked between databases, so a stop could take

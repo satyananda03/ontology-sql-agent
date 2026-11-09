@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """A failed embed must never reset the live catalog.
 
 ``run_ingest`` resets the data VDB lazily, on the first chunk with something

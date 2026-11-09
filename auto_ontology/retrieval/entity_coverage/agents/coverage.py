@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Deterministic coverage grade: distance filter, the store enrich, 1/n entity coverage."""
 
 from __future__ import annotations

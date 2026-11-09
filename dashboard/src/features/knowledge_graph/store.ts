@@ -3,7 +3,7 @@
 
 import MiniSearch from "minisearch";
 import { create } from "zustand";
-import type { GraphKind, RawEdge, RawGraph, RawNode } from "./types";
+import type { RawEdge, RawGraph, RawNode } from "./types";
 
 // Above this, building the search index costs more than searching saves.
 const SEARCH_INDEX_LIMIT = 50_000;
@@ -11,8 +11,6 @@ const SEARCH_INDEX_LIMIT = 50_000;
 export type SearchIndex = MiniSearch<{ id: string; label: string }>;
 
 interface KnowledgeGraphState {
-  kind: GraphKind;
-  includeSqlEdges: boolean;
   rawGraph: RawGraph | null;
   selectedNode: string | null;
   selectedEdge: string | null;
@@ -28,8 +26,6 @@ interface KnowledgeGraphState {
    * NOT bump this: dragging only moves x/y on the existing instance.
    */
   dataVersion: number;
-  setKind: (kind: GraphKind) => void;
-  setIncludeSqlEdges: (include: boolean) => void;
   setRawGraph: (graph: RawGraph) => void;
   setLayoutRunning: (running: boolean) => void;
   selectNode: (id: string | null, moveTo?: boolean) => void;
@@ -60,15 +56,11 @@ const NO_SELECTION = {
 };
 
 export const useKnowledgeGraphStore = create<KnowledgeGraphState>((set) => ({
-  kind: "semantic",
-  includeSqlEdges: false,
   rawGraph: null,
   ...NO_SELECTION,
   searchIndex: null,
   isLayoutRunning: false,
   dataVersion: 0,
-  setKind: (kind) => set({ kind }),
-  setIncludeSqlEdges: (includeSqlEdges) => set({ includeSqlEdges }),
   setRawGraph: (rawGraph) =>
     set((state) => ({
       rawGraph,

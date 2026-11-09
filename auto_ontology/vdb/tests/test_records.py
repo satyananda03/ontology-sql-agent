@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Embedded rows must reach the store in the shape retrieval reads back.
 
 Retrieval reads a hit's ``metadata["id"]``, ``label``, ``name`` and friends

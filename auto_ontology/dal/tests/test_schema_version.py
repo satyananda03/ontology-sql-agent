@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """The startup schema gate, and the three states it has to tell apart.
 
 The distinction that matters is between *unmigrated* and *unreachable*. Both

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """PostgreSQL-backed lookup of a user's role (Better Auth ``user`` table).
 
 PostgreSQL is the single source of truth for whether a user is an ``admin``

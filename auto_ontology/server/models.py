@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Item models carried inside the response envelopes.
 
 ``auto_ontology/server/responses.py`` owns the envelopes (``{"data": ...}``); this
@@ -785,11 +781,24 @@ class SemanticGraphNode(ApiModel):
     sql_attributes_count: int | None = None
 
 
+class TermTableLink(ApiModel):
+    """A term and one table it is built from.
+
+    ``paths`` names the link(s) that connect them: ``REPRESENTS``,
+    ``HAS_ATTRIBUTE`` or ``SEMANTIC_FK``.
+    """
+
+    term_id: str
+    table_id: str
+    paths: list[str] = Field(default_factory=list)
+
+
 class SemanticExplorationGraph(ApiModel):
-    """``{nodes, links}`` for the semantic layer, in one response."""
+    """``{nodes, links, term_tables}`` for the semantic layer, in one response."""
 
     nodes: list[SemanticGraphNode] = Field(default_factory=list)
     links: list[GraphLink] = Field(default_factory=list)
+    term_tables: list[TermTableLink] = Field(default_factory=list)
 
 
 class TableSqlQuery(ApiModel):

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Term reads and writes.
 
 ColumnAttribute and SEMANTIC_FK operations live in :mod:`auto_ontology.dal.attributes`.

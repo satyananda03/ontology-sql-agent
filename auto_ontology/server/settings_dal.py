@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Acronyms, custom prompts and configuration rows in the ``frontend`` schema.
 
 Upstream, the Next.js app owned these tables through Prisma. Here the readers

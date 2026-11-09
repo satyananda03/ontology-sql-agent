@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Turn ``(tables_df, columns_df)`` into embedding-ready rows.
 
 This is the text that gets embedded and vector-searched, so the templates

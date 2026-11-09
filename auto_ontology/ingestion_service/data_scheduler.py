@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """On-demand data ingestion, triggered by the review UI's "Ingest ulang" button.
 
 Runs :func:`run_ingest` for the source database. The connector is reloaded on

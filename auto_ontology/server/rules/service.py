@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Applying a rule: replaying its search, and labelling what the search finds.
 
 A rule is a saved global search plus the tags to apply to everything it matches,

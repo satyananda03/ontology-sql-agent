@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Catalog-backed schema and node lookups.
 
 Builds the :class:`Schema` objects consumed by the SQL parser plus generic

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Pull schema entities out of a SQLDatabase connector.
 
 ``extract_tabular_db_data`` takes a **connector** directly: it reads nothing

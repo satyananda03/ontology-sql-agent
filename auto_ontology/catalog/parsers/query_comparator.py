@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Compare two SQL queries for structural equivalence.
 The comparison is **insensitive to SELECT-column order** in the main SELECT,
 CTEs, and nested subqueries.  An optional ``ignore_literals`` flag neutralises

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Who may edit a row through an account role or its owner group."""
 
 from auto_ontology.dal.owners import CATALOG_EDIT, EditSubject

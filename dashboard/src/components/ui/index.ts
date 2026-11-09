@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 export { Badge, CertBadge, type BadgeTone } from "./Badge";
-export { CertifyCheck } from "./CertifyCheck";
+export { CertifyChoice, CertifyToggle, useCertifyChoice } from "./Certify";
 export { Empty, ErrorBanner, Loading, Spinner } from "./Feedback";
 export { SearchForm } from "./SearchForm";
+export { TextDialog } from "./TextDialog";
 export { TextEditor } from "./TextEditor";
 export { toast, Toaster } from "./Toaster";

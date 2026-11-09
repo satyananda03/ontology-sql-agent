@@ -3,9 +3,10 @@
 
 import { describe, expect, test } from "vitest";
 import type { S } from "@/types";
-import { dataGraphToRaw, hashPosition, semanticGraphToRaw, sigmaGraphFromRaw } from "./graph";
+import { combinedGraphToRaw, hashPosition, sigmaGraphFromRaw } from "./graph";
 
 const table = (id: string, schema: string): S["DataGraphNode"] => ({ id, name: id, schema_name: schema, zones: [] });
+const term = (id: string): S["SemanticGraphNode"] => ({ id, name: id, zones: [] });
 
 const dataGraph: S["DataExplorationGraph"] = {
   nodes: [table("orders", "public"), table("customers", "public"), table("events", "analytics")],
@@ -17,60 +18,74 @@ const dataGraph: S["DataExplorationGraph"] = {
   ],
 };
 
-describe("dataGraphToRaw", () => {
-  test("shows foreign-key edges only, unless shared-SQL edges are asked for", () => {
-    expect(dataGraphToRaw(dataGraph, { includeSqlEdges: false }).edges.map((edge) => edge.kind)).toEqual(["foreignKey"]);
-    expect(dataGraphToRaw(dataGraph, { includeSqlEdges: true }).edges.map((edge) => edge.kind)).toEqual([
-      "foreignKey",
-      "sqlOnly",
-    ]);
+const semanticGraph: S["SemanticExplorationGraph"] = {
+  nodes: [term("Order"), term("Customer"), term("Product")],
+  links: [
+    { source: "Order", target: "Customer", relationship_types: ["REPRESENTS", "SEMANTIC_FK"] },
+    { source: "Customer", target: "Product", relationship_types: ["REPRESENTS"] },
+  ],
+  term_tables: [
+    { term_id: "Order", table_id: "orders", paths: ["REPRESENTS"] },
+    { term_id: "Customer", table_id: "orders", paths: ["SEMANTIC_FK"] },
+    { term_id: "Customer", table_id: "customers", paths: ["HAS_ATTRIBUTE", "SEMANTIC_FK"] },
+    { term_id: "Product", table_id: "missing", paths: ["REPRESENTS"] },
+  ],
+};
+
+const combined = () => combinedGraphToRaw(semanticGraph, dataGraph);
+const kindOf = (raw: ReturnType<typeof combined>, source: string, target: string) =>
+  raw.edges.find((edge) => edge.source === source && edge.target === target)?.kind;
+
+describe("combinedGraphToRaw", () => {
+  test("puts terms and tables in one graph, each with its kind", () => {
+    const kinds = Object.fromEntries(combined().nodes.map((node) => [node.id, node.kind]));
+    expect(kinds).toEqual({
+      Order: "term",
+      Customer: "term",
+      Product: "term",
+      orders: "table",
+      customers: "table",
+      events: "table",
+    });
+  });
+
+  test("links a term to the tables it is built from, inferred only when that is the sole way in", () => {
+    const raw = combined();
+    expect(kindOf(raw, "Order", "orders")).toBe("termTable");
+    expect(kindOf(raw, "Customer", "orders")).toBe("semanticFk");
+    expect(kindOf(raw, "Customer", "customers")).toBe("termTable");
+    expect(kindOf(raw, "Product", "missing")).toBeUndefined();
+  });
+
+  test("keeps term-to-term links, marking the ones through an inferred join", () => {
+    const raw = combined();
+    expect(kindOf(raw, "Order", "Customer")).toBe("semanticFk");
+    expect(kindOf(raw, "Customer", "Product")).toBe("sharedTable");
+  });
+
+  test("shows every table relation: foreign keys and shared SQL queries", () => {
+    expect(kindOf(combined(), "orders", "customers")).toBe("foreignKey");
+    expect(kindOf(combined(), "orders", "events")).toBe("sqlOnly");
   });
 
   test("drops edges to a missing node and duplicate edges, and counts degrees from the rest", () => {
-    const raw = dataGraphToRaw(dataGraph, { includeSqlEdges: false });
-
-    expect(raw.edges).toHaveLength(1);
-    expect(Object.fromEntries(raw.nodes.map((node) => [node.id, node.degree]))).toEqual({
-      orders: 1,
-      customers: 1,
-      events: 0,
+    const raw = combined();
+    expect(raw.edges.filter((edge) => edge.kind === "foreignKey")).toHaveLength(1);
+    expect(Object.fromEntries(raw.nodes.map((node) => [node.id, node.degree]))).toMatchObject({
+      orders: 4,
+      customers: 2,
+      events: 1,
     });
-  });
-
-  test("colours nodes by schema, in first-seen order", () => {
-    expect([...dataGraphToRaw(dataGraph, { includeSqlEdges: false }).groupColors.keys()]).toEqual([
-      "public",
-      "analytics",
-    ]);
-  });
-});
-
-describe("semanticGraphToRaw", () => {
-  test("marks a term link carrying a semantic foreign key as an inferred join", () => {
-    const raw = semanticGraphToRaw({
-      nodes: [
-        { id: "a", name: "Customer", zones: [] },
-        { id: "b", name: "Order", zones: [] },
-        { id: "c", name: "Product", zones: [] },
-      ],
-      links: [
-        { source: "a", target: "b", relationship_types: ["REPRESENTS", "SEMANTIC_FK"] },
-        { source: "b", target: "c", relationship_types: ["REPRESENTS"] },
-      ],
-    });
-
-    expect(raw.edges.map((edge) => edge.kind)).toEqual(["semanticFk", "sharedTable"]);
-    expect([...raw.groupColors.keys()]).toEqual(["term"]);
   });
 });
 
 describe("sigmaGraphFromRaw", () => {
   test("builds every node and edge, sizing the busiest node largest", () => {
-    const graph = sigmaGraphFromRaw(dataGraphToRaw(dataGraph, { includeSqlEdges: true }));
+    const graph = sigmaGraphFromRaw(combined());
 
-    expect(graph.order).toBe(3);
-    expect(graph.size).toBe(2);
+    expect(graph.order).toBe(6);
     expect(graph.getNodeAttribute("orders", "size")).toBeGreaterThan(graph.getNodeAttribute("events", "size"));
+    expect(graph.getNodeAttribute("orders", "kind")).toBe("table");
   });
 
   test("starts each node at the same position every time", () => {

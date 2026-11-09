@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Ordering of the semantic reset: stop, drain, delete, only then rebuild.
 
 These used to overlap, and both orderings lost data. A compilation pass reads

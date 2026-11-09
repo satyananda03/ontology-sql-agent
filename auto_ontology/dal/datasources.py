@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Catalog reads and writes: databases, schemas, tables, columns.
 
 The functions at the bottom of the file reach the semantic tier — terms and

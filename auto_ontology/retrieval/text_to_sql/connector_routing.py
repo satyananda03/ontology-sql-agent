@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Connector-routing helpers for the text-to-SQL agents.
 
 Given a list of injected ``SQLDatabase`` connectors and the

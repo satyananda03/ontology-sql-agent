@@ -1,15 +1,10 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """LLM Term extraction — names and column display-name assignments only."""
 
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Any
-
-from langchain_core.messages import HumanMessage, SystemMessage
 
 from auto_ontology.semantic.deterministic import to_term_name
 from auto_ontology.semantic.domain import DomainSummary
@@ -17,6 +12,7 @@ from auto_ontology.utils.llm_invoke import (
     get_llm_client,
     invoke_with_structured_output,
 )
+from auto_ontology.utils.prompt_loader import load_chat_prompt_template, load_prompt
 from pydantic import BaseModel, ConfigDict, Field
 
 from auto_ontology.semantic.models import (
@@ -30,25 +26,9 @@ from auto_ontology.semantic.models import (
 _INVALID = {"unnamed", "unknown", "none", ""}
 _LABEL_RE = re.compile(r"^[A-Z][A-Za-z0-9]*(?: [A-Za-z][A-Za-z0-9]*)*$")
 
-_SYSTEM = """\
-You propose business Terms for a relational table and assign candidate columns \
-to each Term with user-friendly display labels.
-
-Rules:
-1. Strongly prefer ONE Term per table. A second Term is warranted ONLY when the \
-table is a true junction between two unrelated entities. Never split a single \
-entity into separate Terms for its core fields versus its metadata, lifecycle, \
-or audit fields — those all belong to the same Term. If in doubt, use one Term.
-2. Term names must be user-friendly with spaces between words (e.g. Purchase Order, \
-not purchase_orders or PurchaseOrder).
-3. Assign EVERY candidate column to exactly one Term. For each assignment return \
-source_column exactly as given and a display_name — a user-friendly ColumnAttribute \
-label with spaces between words (e.g. Order Date, Total Amount).
-4. Do not propose IS_A, PART_OF, or ROLE relationships.
-5. If the table name contains a word that indicates it is a variant of another table \
-(e.g. ARC, ARCHIVE, HIST, HISTORY, STAGING, DELETED, TEMP), prefix every display_name \
-with a qualifying word derived from that suffix \
-(e.g. PEOPLE_ARC → "Archived Is Sales Person", ORDERS_HIST → "Historical Total Amount")."""
+_PROMPTS_FILE = Path(__file__).with_name("prompts.yaml")
+_PROMPT = load_chat_prompt_template(_PROMPTS_FILE, "term_extractor")
+_DOMAIN_BLOCK = load_prompt("term_extractor", _PROMPTS_FILE)["sections"]["domain_block"]
 
 
 class _SynonymExtractionModel(BaseModel):
@@ -63,19 +43,7 @@ class _SynonymExtractionModel(BaseModel):
     )
 
 
-_SYNONYM_SYSTEM = """\
-Your only task is to extract alternate names for a business entity from a table description.
-
-Look for abbreviations, acronyms, or aliases that are explicitly written — for example \
-through phrases like "also referred to as", "also known as", "abbreviated as", \
-"short for", "stands for", or a parenthetical directly after the entity name such as \
-"business unit (BU)".
-
-Return each alternate name verbatim as a separate entry in synonyms.
-Example: "business unit (BU)" → synonyms: ["BU"]
-
-Return an empty list if no alternate names are explicitly stated. \
-Do NOT infer, guess, or add any name that is not directly written in the description."""
+_SYNONYM_PROMPT = load_chat_prompt_template(_PROMPTS_FILE, "term_synonyms")
 
 
 def _normalize_label(name: str, *, fallback: str) -> str:
@@ -206,10 +174,7 @@ def _extract_synonyms(description: str) -> list[str]:
         return []
     result = invoke_with_structured_output(
         get_llm_client(temperature=0.0, max_tokens=1024),
-        [
-            SystemMessage(content=_SYNONYM_SYSTEM),
-            HumanMessage(content=f"Description: {description}"),
-        ],
+        _SYNONYM_PROMPT.format_messages(description=description),
         _SynonymExtractionModel,
     )
     if result is None:
@@ -233,20 +198,19 @@ def extract_term(
     spec_lines = "\n".join(_format_spec_line(spec) for spec in specs[:40])
     domain_block = ""
     if domain_summary:
-        domain_block = (
-            f"\nDomains: {', '.join(domain_summary.domains[:8])}\n"
-            f"Core entities: {', '.join(domain_summary.core_entities[:12])}\n"
+        domain_block = _DOMAIN_BLOCK.format(
+            domains=", ".join(domain_summary.domains[:8]),
+            core_entities=", ".join(domain_summary.core_entities[:12]),
         )
-    prompt = (
-        f"Table: {table['name']}\n"
-        f"Description: {description}\n"
-        f"Candidate columns (assign each to exactly one Term with a display_name):\n"
-        f"{spec_lines}\n"
-        f"{domain_block}"
+    messages = _PROMPT.format_messages(
+        table_name=table["name"],
+        description=description,
+        spec_lines=spec_lines,
+        domain_block=domain_block,
     )
     result = invoke_with_structured_output(
         get_llm_client(temperature=0.0, max_tokens=4096),
-        [SystemMessage(content=_SYSTEM), HumanMessage(content=prompt)],
+        messages,
         RawTableTermsResult,
     )
     if result is None:

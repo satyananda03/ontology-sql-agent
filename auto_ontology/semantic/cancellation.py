@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Cooperative cancellation for an in-flight semantic compilation pass.
 
 Why cooperative rather than a hard kill: compilation runs in worker threads

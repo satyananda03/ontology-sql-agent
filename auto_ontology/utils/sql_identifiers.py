@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Dialect-aware quoting of SQL identifiers.
 
 Shared by the connectors (which build fully-qualified references for metadata

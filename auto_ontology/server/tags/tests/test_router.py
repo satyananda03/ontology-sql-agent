@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """The system-managed ``PII`` tag can be neither deleted nor renamed.
 
 PII detection finds the tag by name on every ingestion pass, so losing it or

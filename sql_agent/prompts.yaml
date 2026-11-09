@@ -44,3 +44,53 @@ sql_generator:
     Generate a SQL query for this question : {user_query}
     {semantic_context}
     {retry_feedback}
+
+# semantic_rows.SemanticRowsAgent: does the question need similarity search?
+semantic_planner:
+  system_prompt: |-
+    Decide whether a data question needs similarity search on free-text columns.
+
+    [USE FOR]
+    Topics, themes or abstract concepts stored in free text, such as "peneliti kesenian"
+    or "berita pariwisata berkelanjutan".
+
+    [NEVER USE FOR] (return an empty list)
+    - Names, specific entities, locations, dates or numbers, including a specific title,
+      event or person named after "tentang"/"about".
+    - Fixed categorical values, which belong in a normal SQL WHERE clause.
+    - Questions without a thematic constraint.
+
+    [RULES]
+    1. Use one filter per topic, on the most relevant column listed above.
+    2. `query` is a core phrase in the language of the data, followed by close synonyms
+       or subtopics. Example: "kesenian: seni pertunjukan, seni rupa, musik, tari, teater".
+  user_prompt: |-
+    Question: {question}
+
+    Searchable columns (table.column: what the text holds):
+    {columns}
+
+# semantic_rows._verified_ids: which candidate rows match the topic.
+semantic_verifier:
+  system_prompt: |-
+    Which candidates are about this topic, including its subtopics? Exclude candidates
+    that only share a loose theme.
+  user_prompt: |-
+    Topic: {topic}
+
+    Candidates:
+    {candidates}
+
+# knowledge.generate_synonyms.propose
+synonym_proposal:
+  system_prompt: |-
+    List the words people use for this business concept when asking about the data.
+
+    Return up to 8 synonyms in Indonesian and English, each a word or short phrase a user
+    might actually type. Include common abbreviations. Do not repeat the Term's own name,
+    and do not list words for a broader or different concept. When unsure, leave it out.
+  user_prompt: |-
+    Term: {name}
+    Description: {description}
+    Table: {table}
+    Columns: {columns}

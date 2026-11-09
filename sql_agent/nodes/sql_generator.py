@@ -10,9 +10,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import sqlglot
-import yaml
 from langchain_core.language_models import BaseChatModel
-from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 from sqlglot import exp
 
@@ -20,6 +18,7 @@ from auto_ontology.utils.llm_invoke import (
     get_llm_client,
     invoke_with_structured_output,
 )
+from auto_ontology.utils.prompt_loader import load_chat_prompt_template
 from sql_agent.nodes.repair import INFO_NOT_FOUND, can_renavigate
 from sql_agent.nodes.semantic_search import fill_semantic_ids
 from sql_agent.state import State
@@ -33,14 +32,8 @@ DEFAULT_GENERATOR_MODEL = "qwen.qwen3-coder-480b-a35b-v1:0"
 # Up from 700, which could cut a multi-join query off mid-statement.
 GENERATOR_MAX_TOKENS = 2000
 
-_PROMPTS = yaml.safe_load(
-    Path(__file__).parents[1].joinpath("prompts.yaml").read_text()
-)
-_PROMPT = ChatPromptTemplate.from_messages(
-    [
-        ("system", _PROMPTS["sql_generator"]["system_prompt"]),
-        ("human", _PROMPTS["sql_generator"]["user_prompt"]),
-    ]
+_PROMPT = load_chat_prompt_template(
+    Path(__file__).parents[1] / "prompts.yaml", "sql_generator"
 )
 
 

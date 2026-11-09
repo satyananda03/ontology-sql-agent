@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Storing parsed SQL statements and what they reference.
 
 ``get_sql_counters`` and ``get_candidate_sql_ids`` are pure and live in

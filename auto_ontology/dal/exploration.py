@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """The data- and semantic-layer Exploration graphs.
 
 Most of this module composes helpers that already exist — which is why the plan
@@ -1292,6 +1288,7 @@ def fetch_semantic_exploration_graph(
         if term_id and table_id and path:
             paths_by_pair.setdefault((term_id, table_id), set()).add(path)
 
+    table_ids: set[str] | None = None
     if database_id is not None:
         table_ids = _table_ids_for_database(database_id)
         term_ids_in_db = {
@@ -1353,6 +1350,13 @@ def fetch_semantic_exploration_graph(
             }
             for source, target in sorted(link_keys)
             if source in kept and target in kept
+        ],
+        # Which tables each term is built from, and by which link -- what joins
+        # this layer to the data graph when a client draws the two together.
+        "term_tables": [
+            {"term_id": term_id, "table_id": table_id, "paths": sorted(paths)}
+            for (term_id, table_id), paths in sorted(paths_by_pair.items())
+            if term_id in kept and (table_ids is None or table_id in table_ids)
         ],
     }
 

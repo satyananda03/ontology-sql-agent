@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """What changed in a schema since the last ingest.
 
 Storage-agnostic: pandas over two frames — one read back from the store, one

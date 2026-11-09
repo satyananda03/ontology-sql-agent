@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """``store_column_sample_values``/``store_column_uniqueness``/``store_column_date_formats``.
 
 All three are thin wrappers over ``_set_column_property``, which had no direct

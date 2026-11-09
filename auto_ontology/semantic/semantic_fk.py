@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Resolve SEMANTIC_FK edges after taxonomy compilation.
 
 Algorithm
@@ -27,9 +23,9 @@ from __future__ import annotations
 
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 from typing import Any
 
-from langchain_core.messages import HumanMessage, SystemMessage
 from sqlglot import exp
 
 from auto_ontology.connectors import get_connectors
@@ -48,6 +44,7 @@ from auto_ontology.utils.llm_invoke import (
     get_llm_client,
     invoke_with_structured_output,
 )
+from auto_ontology.utils.prompt_loader import load_chat_prompt_template
 from auto_ontology.utils.model_config import resolve
 from auto_ontology.utils.retriever import Retriever
 from auto_ontology.utils.sample_values import stringify_sample_values
@@ -64,28 +61,11 @@ _EMBED_ENDPOINT = resolve("EMBED", "ENDPOINT")
 _EMBED_MODEL = resolve("EMBED", "MODEL")
 _NVIDIA_API_KEY = resolve("EMBED", "API_KEY")
 _WORKERS = 2
-_SYSTEM_PROMPT = """\
-You are a database schema expert. You will be given a foreign-key column \
-description and a list of candidate primary-key columns retrieved from a \
-vector search. Each candidate is prefixed with its unique column_id. \
-Your task is to decide which candidate (if any) is the column that the \
-foreign key references.
-
-Rules:
-- Return the exact column_id of the best matching candidate, or null if none fit.
-- Only pick a candidate when you are confident it is the PK being referenced.
-- Do NOT guess. If unsure, return null.
-"""
-
-_JOIN_DEFAULT_SYSTEM_PROMPT = """\
-You are choosing the default foreign-key relationship used to join two database
-tables. Several columns on the same source table reference the same target column,
-but each column can represent a different business role.
-
-Choose the relationship that most naturally represents an unqualified join between
-the source and target tables. Return exactly one supplied source_column_id. Return
-null only when the schema context is genuinely insufficient. Never invent an ID.
-"""
+_PROMPTS_FILE = Path(__file__).with_name("prompts.yaml")
+_PICK_PROMPT = load_chat_prompt_template(_PROMPTS_FILE, "semantic_fk_pick")
+_JOIN_DEFAULT_PROMPT = load_chat_prompt_template(
+    _PROMPTS_FILE, "semantic_fk_join_default"
+)
 
 
 def resolve_semantic_fks(database_name: str) -> int:
@@ -361,26 +341,19 @@ def _select_join_default_with_llm(
         )
         for row in group
     )
-    prompt = f"""\
-Source table: {first["source_table_name"]}
-Source table description: {first.get("source_table_description") or "(none)"}
-Target table: {first["target_table_name"]}
-Target table description: {first.get("target_table_description") or "(none)"}
-Target column: {first["target_column_name"]}
-Target column description: {first.get("target_column_description") or "(none)"}
-Target semantic attribute: {first.get("target_attribute_name") or "(none)"}
-
-Candidate relationships:
-{candidates}
-"""
+    messages = _JOIN_DEFAULT_PROMPT.format_messages(
+        source_table=first["source_table_name"],
+        source_table_description=first.get("source_table_description") or "(none)",
+        target_table=first["target_table_name"],
+        target_table_description=first.get("target_table_description") or "(none)",
+        target_column=first["target_column_name"],
+        target_column_description=first.get("target_column_description") or "(none)",
+        target_attribute=first.get("target_attribute_name") or "(none)",
+        candidates=candidates,
+    )
     try:
         result = invoke_with_structured_output(
-            llm,
-            [
-                SystemMessage(content=_JOIN_DEFAULT_SYSTEM_PROMPT),
-                HumanMessage(content=prompt),
-            ],
-            SemanticFkJoinDefaultSelection,
+            llm, messages, SemanticFkJoinDefaultSelection
         )
     except Exception:
         logger.exception(
@@ -665,31 +638,22 @@ def _llm_pick_hit(
     candidate list and the instruction that references it — but it *is* part of
     the prompt, so changing it changes model behaviour.
     """
-    col_ctx = (
-        f"Foreign-key column: {col.get('name', '')} "
-        f"(table: {col.get('table_name', '')})\n"
-        f"Description: {col.get('description') or '(none)'}\n"
-        f"Sample values: {_format_sample_values(col.get('sample_values')) or '(none)'}"
-    )
-
     candidates_lines: list[str] = []
     for hit in hits:
         column_id = (hit.get("metadata") or {}).get("id", "")
         text = (hit.get("text") or "")[:300]
         candidates_lines.append(f"column_id={column_id} | {text}")
-    candidates_block = "\n".join(candidates_lines)
 
-    human_text = (
-        f"{col_ctx}\n\n"
-        f"Candidate PK columns (from vector search):\n{candidates_block}\n\n"
-        "Which candidate does this FK column reference? "
-        "Return its exact column_id value, or null if none are a confident match."
+    messages = _PICK_PROMPT.format_messages(
+        column_name=col.get("name", ""),
+        table_name=col.get("table_name", ""),
+        description=col.get("description") or "(none)",
+        sample_values=_format_sample_values(col.get("sample_values")) or "(none)",
+        candidates_block="\n".join(candidates_lines),
     )
 
     result = invoke_with_structured_output(
-        get_llm_client(max_tokens=4096),
-        [SystemMessage(content=_SYSTEM_PROMPT), HumanMessage(content=human_text)],
-        FkHitSelection,
+        get_llm_client(max_tokens=4096), messages, FkHitSelection
     )
     if result is None:
         return None

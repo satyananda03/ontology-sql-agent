@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Tag CRUD on Postgres, and the objects a tag labels.
 
 Concentrated on the two parts of a tag that are not a plain row.

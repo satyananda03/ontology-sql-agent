@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Payload type for the entity-coverage pipeline.
 
 Reuses ``AgentState`` and question helpers from text-to-sql.

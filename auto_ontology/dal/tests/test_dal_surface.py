@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Freeze the DAL's public function surface.
 
 ``auto_ontology.dal`` is consumed by ``auto_ontology.semantic``, ``auto_ontology.retrieval``, eleven routers

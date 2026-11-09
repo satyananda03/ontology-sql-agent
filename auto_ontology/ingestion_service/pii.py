@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Carrying ``PII`` from columns onto the attributes built from them.
 
 Attributes are written by semantic compilation, after the ingest that classified

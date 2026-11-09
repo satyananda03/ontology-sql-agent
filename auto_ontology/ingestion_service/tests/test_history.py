@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Semantic compilation history.
 
 The table is declared in :mod:`auto_ontology.dal.schema` and created by a migration, like

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """CustomAnalysis and UI-managed connections.
 
 The zone rule on ``list_custom_analyses`` is the sharpest thing here. It is

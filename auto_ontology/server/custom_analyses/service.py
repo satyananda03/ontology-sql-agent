@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Data Access Layer — CustomAnalysis write orchestration.
 
 All direct store access lives in auto_ontology/dal/custom_analyses.py.

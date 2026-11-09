@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState } from "react";
-import { CertBadge, CertifyCheck, ErrorBanner } from "@/components/ui";
+import { CertifyToggle, ErrorBanner } from "@/components/ui";
 import { useAction } from "@/hooks/useAction";
 import type { S } from "@/types";
 import { deleteSqlAttribute, patchSqlAttribute } from "../api";
@@ -35,9 +35,9 @@ export function SqlAttributeCard({ termId, attr, onChange, onDeleted }: SqlAttri
       <SqlAttributeForm
         termId={termId}
         attr={attr}
-        onDone={(saved) => {
+        onDone={(saved, certification) => {
           setEditing(false);
-          if (saved) onChange(saved);
+          if (saved) onChange(saved, certification);
         }}
       />
     );
@@ -47,17 +47,9 @@ export function SqlAttributeCard({ termId, attr, onChange, onDeleted }: SqlAttri
   return (
     <div className="card stack">
       <div className="row spread">
+        <strong>{attr.name}</strong>
         <div className="row">
-          <strong>{attr.name}</strong>
-          <CertBadge value={attr.certified} />
-        </div>
-        <div className="row">
-          <CertifyCheck
-            label="Certify"
-            checked={attr.certified}
-            disabled={action.busy}
-            onChange={(certified) => patch({ certified })}
-          />
+          <CertifyToggle certified={attr.certified} disabled={action.busy} onChange={(certified) => patch({ certified })} />
           <button onClick={() => setEditing(true)}>Edit</button>
           <button className="danger" onClick={remove} disabled={action.busy}>
             Hapus
@@ -68,10 +60,15 @@ export function SqlAttributeCard({ termId, attr, onChange, onDeleted }: SqlAttri
       <p>{attr.description || <span className="muted">Tanpa deskripsi.</span>}</p>
       {suggestion && suggestion !== attr.description && (
         <div className="card dashed stack">
-          <div className="muted small">Saran deskripsi</div>
+          <div className="muted small">
+            Saran deskripsi{attr.certified && " · menerapkannya mengembalikan status ke Pending"}
+          </div>
           <p>{suggestion}</p>
           <div>
-            <button disabled={action.busy} onClick={() => patch({ description: suggestion })}>
+            <button
+              disabled={action.busy}
+              onClick={() => patch({ description: suggestion, certified: attr.certified ? false : undefined })}
+            >
               Terapkan saran
             </button>
           </div>

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Postgres + pgvector vector store for the data and semantic layers.
 
 Backed by :class:`langchain_postgres.PGVectorStore` (the v2 vector store API).

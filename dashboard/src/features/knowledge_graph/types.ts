@@ -4,11 +4,11 @@
 import type { Attributes } from "graphology-types";
 import type { S } from "@/types";
 
-/** Which layer the viewer draws: terms (semantic) or tables (data). */
-export type GraphKind = "semantic" | "data";
+/** What a node is: a business term or a database table. Picks its colour and legend row. */
+export type NodeKind = "term" | "table";
 
 /** How two nodes are connected; picks the edge colour and its legend row. */
-export type EdgeKind = "foreignKey" | "sqlOnly" | "semanticFk" | "sharedTable";
+export type EdgeKind = "termTable" | "sharedTable" | "semanticFk" | "foreignKey" | "sqlOnly";
 
 /** One row of the properties panel; empty values are left out when shown. */
 export type NodeProperties = Record<string, string | number | null | undefined>;
@@ -16,8 +16,7 @@ export type NodeProperties = Record<string, string | number | null | undefined>;
 export interface RawNode {
   id: string;
   label: string;
-  /** Colour group: the schema of a table, "term" for a term. */
-  group: string;
+  kind: NodeKind;
   properties: NodeProperties;
   degree: number;
   x?: number;
@@ -31,7 +30,7 @@ export interface RawEdge {
   kind: EdgeKind;
   weight: number;
   relationshipTypes: string[];
-  /** Data layer only: the key columns and stored queries behind the edge. */
+  /** Table-to-table edges only: the key columns and stored queries behind the edge. */
   foreignKeys: S["ForeignKeyRef"][];
   queries: string[];
 }
@@ -39,14 +38,13 @@ export interface RawEdge {
 export interface RawGraph {
   nodes: RawNode[];
   edges: RawEdge[];
-  /** Colour per node group, in first-seen order: the legend's rows. */
-  groupColors: Map<string, string>;
 }
 
 export interface NodeDisplayData extends Attributes {
   x: number;
   y: number;
   label: string;
+  kind: NodeKind;
   color: string;
   labelColor?: string;
   size: number;
@@ -56,6 +54,7 @@ export interface NodeDisplayData extends Attributes {
 
 export interface EdgeDisplayData extends Attributes {
   rawId: string;
+  kind: EdgeKind;
   originalWeight: number;
   size: number;
   hidden?: boolean;

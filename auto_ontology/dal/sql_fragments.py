@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Reusable SQL expressions shared across the catalog and semantic reads.
 
 Small, but disproportionately load-bearing: the description fallback here

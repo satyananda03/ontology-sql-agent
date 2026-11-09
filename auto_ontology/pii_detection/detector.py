@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 """Rules-first PII detection with a configured LLM fallback."""
 
 import json
@@ -9,11 +5,11 @@ import logging
 import os
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from threading import Lock
 from typing import Protocol
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from auto_ontology.pii_detection.models import ColumnInput, PiiDecision, PiiStatus
@@ -22,20 +18,15 @@ from auto_ontology.utils.llm_invoke import (
     get_llm_client,
     invoke_with_structured_output,
 )
+from auto_ontology.utils.prompt_loader import load_chat_prompt_template
 
 logger = logging.getLogger(__name__)
 
 PII_LLM_MAX_WORKERS = int(os.environ.get("PII_LLM_MAX_WORKERS", "6"))
 
-SYSTEM_PROMPT = """\
-You classify database columns for personally identifiable information (PII).
-Use the column name, table name, and description together.
-PII is information that identifies a person directly or can identify them when combined
-with other data. Do not classify business, product, or aggregate information as PII.
-If context is insufficient or you are unsure whether the column is PII, classify it as
-"pii". This is a conservative policy: uncertainty must be treated as PII, not "review".
-Always return status, category, confidence, and a short reason.
-Never include hidden reasoning."""
+_PROMPT = load_chat_prompt_template(
+    Path(__file__).with_name("prompts.yaml"), "pii_classifier"
+)
 
 
 class PiiBackend(Protocol):
@@ -90,10 +81,7 @@ class LlmPiiClassifier:
         }
         response = invoke_with_structured_output(
             self._get_llm(),
-            [
-                SystemMessage(content=SYSTEM_PROMPT),
-                HumanMessage(content=json.dumps(payload)),
-            ],
+            _PROMPT.format_messages(payload=json.dumps(payload)),
             _PiiResponse,
         )
         if response is None:
