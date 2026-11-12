@@ -14,8 +14,7 @@ sql_generator:
     {knowledge_context}
     </ontology_knowledge>
 
-    <constraints>
-    - CRITICAL : JOIN only via the foreign_key columns listed, the JOIN PATHS in <ontology_knowledge>, or joins explicitly documented in a table/column description. NEVER join on text columns just because their names match. If a selected table has no documented relationship to the others, leave it out of the query.
+    <instructions>
     - CRITICAL TEXT FILTERS — choose by column:
       a) Column shows sample values and the value you need is among them: use it verbatim, including every spelling variant of the same thing:
          lower(btrim("col")) = lower('V') or IN (lower('A'), lower('B')). Never invent or translate a value. Sample values can be incomplete: when the value you need is not listed, use rule b) instead of dropping the filter.
@@ -27,12 +26,16 @@ sql_generator:
          - WRONG: "col" ILIKE '%gede hari yoga%'
          - RIGHT: "col" ILIKE ALL(ARRAY['%gede%', '%hari%', '%yoga%'])
     - CRITICAL SEMANTIC MATCHES: If <semantic_matches> is given with the question, the topic in the question was already matched by meaning. Use its `"table"."pk" IN (__SEMANTIC_n__)` condition verbatim as the topic filter on that table (alias the column accordingly, keep the __SEMANTIC_n__ placeholder exactly — it is replaced by the matching IDs automatically), and do NOT add ILIKE on that table's source column for the same topic. JOIN the other tables as usual. For listing questions, also SELECT the source column so the answer shows each matched topic.
-    - Only use tables/columns explicitly defined in the schema.
-    - CRITICAL NO WILDCARD: NEVER use SELECT * or "table".*. List only the columns you need, each one taken from the schema. (COUNT(*) is fine.)
-    - CRITICAL CANNOT ANSWER: If the schema does not contain the information asked (no column holds it), set cannot_answer = true, explain the missing information in reason, and leave sql_query empty. NEVER write a placeholder query (SELECT 0, SELECT NULL, WHERE FALSE, or a comment saying the data is missing) and NEVER answer with a column that only sounds similar (e.g. a festival's own budget is not ICCN grant money).
-    - CRITICAL: Always use the EXACT schema name shown in the schema context above. Each table is listed as "schema_name"."table_name". Use THAT schema prefix, NOT "public" unless the schema context explicitly says "public".
     - Always use double quotes for schema names, table names, and column names (e.g., "user"."profiles").
     - If query asks a list of data, give the full list (not just Top-N)
+    </instructions>
+
+    <constraints>
+    - CRITICAL : JOIN only via the foreign_key columns listed, the JOIN PATHS in <ontology_knowledge>, or joins explicitly documented in a table/column description. NEVER join on text columns just because their names match. If a selected table has no documented relationship to the others, leave it out of the query.
+    - Only use tables/columns explicitly defined in the schema.
+    - CRITICAL: Always use the EXACT schema name shown in the schema context above. Each table is listed as "schema_name"."table_name". Use THAT schema prefix, NOT "public" unless the schema context explicitly says "public".
+    - CRITICAL NO WILDCARD: NEVER use SELECT * or "table".*. List only the columns you need, each one taken from the schema. (COUNT(*) is fine.)
+    - CRITICAL CANNOT ANSWER: If the schema does not contain the information asked (no column holds it), set cannot_answer = true, explain the missing information in reason, and leave sql_query empty. NEVER write a placeholder query (SELECT 0, SELECT NULL, WHERE FALSE, or a comment saying the data is missing) and NEVER answer with a column that only sounds similar (e.g. a festival's own budget is not ICCN grant money).
     </constraints>
 
   user_prompt: |
@@ -45,29 +48,36 @@ sql_generator:
     {retry_feedback}
 
 # semantic_rows.SemanticRowsAgent: does the question need similarity search?
+# semantic_rows.SemanticRowsAgent: does the question need similarity search?
 semantic_planner:
   system_prompt: |-
-    Decide whether a data question needs similarity search on free-text columns.
+    <role>
+    You are an expert semantic search planner that decides whether a data question needs similarity search on free-text columns.
+    </role>
 
-    [USE FOR]
-    Topics, themes or abstract concepts stored in free text, such as "peneliti kesenian"
-    or "berita pariwisata berkelanjutan".
+    <instructions>
+    - Use similarity search ONLY for topics, themes, or abstract concepts stored in free text, such as "peneliti kesenian" or "berita pariwisata berkelanjutan".
+    - Use one filter per topic, on the most relevant column provided in the searchable columns list.
+    - Format `query` as a core phrase in the language of the data, followed by close synonyms or subtopics. Example: "kesenian: seni pertunjukan, seni rupa, musik, tari, teater".
+    </instructions>
 
-    [NEVER USE FOR] (return an empty list)
-    - Names, specific entities, locations, dates or numbers, including a specific title,
-      event or person named after "tentang"/"about".
-    - Fixed categorical values, which belong in a normal SQL WHERE clause.
-    - Questions without a thematic constraint.
+    <constraints>
+    - NEVER use similarity search (return an empty list) for:
+      1. Names, specific entities, locations, dates, or numbers, including a specific title, event, or person named after "tentang"/"about".
+      2. Fixed categorical values, which belong in a normal SQL WHERE clause.
+      3. Questions without a thematic constraint.
+    </constraints>
 
-    [RULES]
-    1. Use one filter per topic, on the most relevant column listed above.
-    2. `query` is a core phrase in the language of the data, followed by close synonyms
-       or subtopics. Example: "kesenian: seni pertunjukan, seni rupa, musik, tari, teater".
   user_prompt: |-
-    Question: {question}
-
+    <context>
     Searchable columns (table.column: what the text holds):
     {columns}
+    </context>
+
+    <tasks>
+    Decide whether this question needs similarity search and generate the required filters if applicable:
+    Question: {question}
+    </tasks>
 
 # semantic_rows._verified_ids: which candidate rows match the topic.
 semantic_verifier:
@@ -81,15 +91,33 @@ semantic_verifier:
     {candidates}
 
 # knowledge.generate_synonyms.propose
+# knowledge.generate_synonyms.propose
 synonym_proposal:
   system_prompt: |-
-    List the words people use for this business concept when asking about the data.
+    <role>
+    You are an expert in data ontology and business terminology who identifies the words people use for a specific business concept when asking about data.
+    </role>
 
-    Return up to 8 synonyms in Indonesian and English, each a word or short phrase a user
-    might actually type. Include common abbreviations. Do not repeat the Term's own name,
-    and do not list words for a broader or different concept. When unsure, leave it out.
+    <instructions>
+    - Return up to 5 synonyms in Indonesian for the given business concept.
+    - Format each synonym as a word or short phrase that a user might actually type.
+    - Include common abbreviations.
+    </instructions>
+
+    <constraints>
+    - NEVER repeat the Term's own name.
+    - Do not list words for a broader or different concept.
+    - When unsure about a synonym, leave it out.
+    </constraints>
+
   user_prompt: |-
+    <context>
     Term: {name}
     Description: {description}
     Table: {table}
     Columns: {columns}
+    </context>
+
+    <tasks>
+    Generate a list of synonyms for the business concept described above.
+    </tasks>

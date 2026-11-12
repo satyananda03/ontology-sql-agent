@@ -16,11 +16,12 @@ Design Decisions:
 - Stores fetched data in path_state for reusability across multiple SQL agents
 - Handles embeddings and conversation history lookup
 - LLM relevance filter removes noise tables before SQL construction
-- Extra table retrieve runs in parallel with the anchor-column LLM
+- Extra table retrieve runs in parallel with the join-path work
 """
 
 import logging
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict
@@ -49,13 +50,10 @@ from auto_ontology.retrieval.data_access.relevant_tables import (
     get_relevant_tables_from_candidates,
 )
 from auto_ontology.retrieval.data_access.semantic_search import search_semantic_index
+from auto_ontology.retrieval.text_to_sql.anchor import select_anchor
 from auto_ontology.retrieval.text_to_sql.base import BaseAgent, record_thought
 from auto_ontology.retrieval.text_to_sql.formatters_util import qualify_table
-from auto_ontology.retrieval.text_to_sql.models import (
-    AnchorColumnModel,
-    CustomAnalysisRelevanceModel,
-    TableRelevanceModel,
-)
+from auto_ontology.retrieval.text_to_sql.models import TableRelevanceModel
 from auto_ontology.retrieval.text_to_sql.prompts import SQL_GEN_MAX_ENTITIES
 from auto_ontology.retrieval.text_to_sql.state import (
     AgentState,
@@ -112,13 +110,8 @@ _HUB_SIBLING_EXPANSION_ENABLED = os.environ.get(
 ).strip().lower() in ("1", "true", "yes")
 
 _PROMPTS_FILE = Path(__file__).parents[1] / "prompts.yaml"
-_CUSTOM_ANALYSIS_PROMPT = load_chat_prompt_template(
-    _PROMPTS_FILE, "custom_analysis_relevance"
-)
 _TABLE_RELEVANCE_PROMPT = load_chat_prompt_template(_PROMPTS_FILE, "table_relevance")
 _TABLE_RELEVANCE_SECTIONS = load_prompt("table_relevance", _PROMPTS_FILE)["sections"]
-_ANCHOR_PROMPT = load_chat_prompt_template(_PROMPTS_FILE, "anchor_column")
-_ANCHOR_EVIDENCE = load_prompt("anchor_column", _PROMPTS_FILE)["sections"]["evidence"]
 
 # Pools this size or smaller skip the relevance filter. Default 2 is the
 # long-standing behaviour. The filter drops a uniquely-needed table at a
@@ -253,10 +246,14 @@ class CandidatePreparationAgent(BaseAgent):
     - path_state["sql_attributes_str"]: String representation of SqlAttributes for prompts
     - value_anchors: Caller-supplied anchors, narrowed to those naming data
         rather than a table/column in scope (only when anchors were supplied)
+
+    With *rerank_pool*, the extra-table search fetches that many vector hits per
+    query and lets the reranker choose which to keep.
     """
 
-    def __init__(self):
+    def __init__(self, *, rerank_pool: int | None = None):
         super().__init__("candidate_preparation")
+        self._rerank_pool = rerank_pool
 
     def validate_input(self, state: AgentState) -> bool:
         """Validate that retrieval produced at least one hit."""
@@ -302,6 +299,16 @@ class CandidatePreparationAgent(BaseAgent):
         sql_attributes_raw = list(path_state.get("retrieved_sql_attributes") or [])
         candidates = custom_analyses + column_attributes + sql_attributes_raw
 
+        # Coarse per-phase timing; the LLM call in phase "filter" logs its own.
+        phase_started = time.perf_counter()
+        phase_seconds: dict[str, float] = {}
+
+        def _end_phase(name: str) -> None:
+            nonlocal phase_started
+            now = time.perf_counter()
+            phase_seconds[name] = now - phase_started
+            phase_started = now
+
         # --- 1. Custom analyses ---
         self.logger.info("Retrieved %d custom analyses", len(custom_analyses))
 
@@ -314,8 +321,8 @@ class CandidatePreparationAgent(BaseAgent):
         custom_analyses_str = self._build_custom_analyses_str(relevant_queries)
 
         # Extra-table retrieval only needs the question + entities — independent
-        # of the anchor-column LLM/join-path work below. Kick it off in the
-        # background so the two multi-second steps overlap instead of stacking.
+        # of the join-path work below. Kick it off in the background so the two
+        # multi-second steps overlap instead of stacking.
         extra_pool = ThreadPoolExecutor(max_workers=1)
         extra_future = extra_pool.submit(
             self._retrieve_additional_tables,
@@ -356,12 +363,7 @@ class CandidatePreparationAgent(BaseAgent):
                 term_synonyms = fetch_term_synonyms(attr_ids)
                 self.logger.info("Fetched synonyms for %d term(s)", len(term_synonyms))
 
-                anchor_id, anchor_reasoning = self._identify_anchor(
-                    state, question, attr_contexts
-                )
-                self.logger.info("Anchor attribute id: %s", anchor_id)
-                if anchor_reasoning:
-                    record_thought(path_state, _GRAPH_NODE_NAME, anchor_reasoning)
+                anchor_id = self._identify_anchor(state, attr_contexts)
 
                 if anchor_id and anchor_id in attr_contexts:
                     anchor_ctx = attr_contexts[anchor_id]
@@ -462,6 +464,7 @@ class CandidatePreparationAgent(BaseAgent):
                         "No valid anchor attribute found — skipping join path computation"
                     )
 
+            _end_phase("joins")
             # --- 4. Retrieve relevant tables ---
             relevant_tables = get_relevant_tables_from_candidates(candidates)
 
@@ -637,6 +640,7 @@ class CandidatePreparationAgent(BaseAgent):
         # "don't remove a needed bridge" rule.
         pre_filter_candidate_ids = {t["id"] for t in relevant_tables if t.get("id")}
 
+        _end_phase("tables")
         # --- 5. Filter tables by relevance ---
         relevant_tables, table_relevance_reasoning = self._filter_tables_by_relevance(
             state,
@@ -653,6 +657,7 @@ class CandidatePreparationAgent(BaseAgent):
         if table_relevance_reasoning:
             record_thought(path_state, _GRAPH_NODE_NAME, table_relevance_reasoning)
 
+        _end_phase("filter")
         # --- 5b. One-hop junction-table expansion ---
         # Junction tables are join structure, not relevance candidates: once
         # the filter has chosen a table, include every catalog-classified
@@ -754,6 +759,12 @@ class CandidatePreparationAgent(BaseAgent):
                 ],
             )
 
+        _end_phase("reconcile")
+        self.logger.info(
+            "[TIMING] candidate_preparation phases: %s",
+            " ".join(f"{k}={v:.2f}s" for k, v in phase_seconds.items()),
+        )
+
         result: Dict[str, Any] = {
             "path_state": {
                 **path_state,
@@ -815,6 +826,9 @@ class CandidatePreparationAgent(BaseAgent):
         failure — retriever missing, search error, etc. — so this can only
         ever do as well as or better than the old behavior, never worse.
 
+        A *cap* of zero keeps no sibling, so nothing is ranked: the hub comes
+        back alone without a single search.
+
         Returns ``(kept_hops, truncated_count)`` in the same shape
         ``find_anchor_hub_siblings`` returns.
         """
@@ -825,7 +839,9 @@ class CandidatePreparationAgent(BaseAgent):
             kept = sibling_entries[:cap]
             return hub_entries + kept, len(sibling_entries) - len(kept)
 
-        if len(sibling_entries) <= cap or not entities:
+        # Ranking only decides which siblings survive the cap. When none can
+        # (cap of zero) or all do, the order changes nothing.
+        if cap <= 0 or len(sibling_entries) <= cap or not entities:
             return _unranked_fallback()
 
         retriever = state.get("data_retriever")
@@ -887,8 +903,8 @@ class CandidatePreparationAgent(BaseAgent):
     ) -> list[dict]:
         """Embed the question and entities and search for extra Table hits.
 
-        Independent of the anchor-column LLM/join-path work in ``execute`` —
-        intended to run in a background thread in parallel with it.
+        Independent of the join-path work in ``execute`` — intended to run in
+        a background thread in parallel with it.
         """
         search_queries = [question] + list(entities)
         k_per_query = max(1, SQL_GEN_MAX_ENTITIES // len(search_queries))
@@ -899,6 +915,7 @@ class CandidatePreparationAgent(BaseAgent):
                 query,
                 k=k_per_query,
                 database_name=target_db,
+                rerank_pool=self._rerank_pool,
             )
 
         additional_tables: list[dict] = []
@@ -917,83 +934,6 @@ class CandidatePreparationAgent(BaseAgent):
                         "Table retrieval failed for query: %s", query, exc_info=True
                     )
         return dedupe_merge_relevant_tables(additional_tables)[:20]
-
-    def _filter_custom_analyses_by_relevance(
-        self,
-        state: AgentState,
-        question: str,
-        analyses: list[dict],
-    ) -> list[dict]:
-        """Use the LLM to decide which retrieved custom analyses are relevant."""
-        if len(analyses) <= 1:
-            return analyses
-
-        try:
-            llm = state["llm"]
-        except KeyError:
-            self.logger.warning(
-                "No LLM in state — skipping custom analysis relevance filter"
-            )
-            return analyses
-
-        analyses_summary = "\n".join(
-            f"- {a.get('name', '(unnamed)')}: "
-            f"{(a.get('description') or '(no description)').strip()}"
-            f"{('  SQL: ' + a['sql'].strip()) if a.get('sql') else ''}"
-            for a in analyses
-        )
-
-        messages = _CUSTOM_ANALYSIS_PROMPT.format_messages(
-            question=question,
-            analyses_summary=analyses_summary,
-        )
-
-        try:
-            result = invoke_with_structured_output(
-                llm, messages, CustomAnalysisRelevanceModel
-            )
-        except Exception as e:
-            self.logger.warning(
-                "Custom analysis relevance LLM call failed: %s — keeping all",
-                e,
-            )
-            return analyses
-
-        if result is None:
-            self.logger.warning(
-                "Custom analysis relevance filter returned None — keeping all"
-            )
-            return analyses
-
-        names_to_remove = {name.lower() for name in result.analyses_to_remove}
-
-        filtered = [
-            a for a in analyses if (a.get("name") or "").lower() not in names_to_remove
-        ]
-        removed = [
-            a.get("name")
-            for a in analyses
-            if (a.get("name") or "").lower() in names_to_remove
-        ]
-
-        reasoning = (result.reasoning or "").strip()
-        self.logger.info(
-            "Custom analysis filter reasoning: %s",
-            reasoning if reasoning else "(empty)",
-        )
-        if removed:
-            self.logger.info("Custom analysis filter removed: %s", removed)
-        self.logger.info(
-            "Custom analysis filter kept: %s", [a.get("name") for a in filtered]
-        )
-
-        if not filtered:
-            self.logger.warning(
-                "Custom analysis filter removed ALL analyses — keeping all"
-            )
-            return analyses
-
-        return filtered
 
     def _filter_tables_by_relevance(
         self,
@@ -1063,10 +1003,7 @@ class CandidatePreparationAgent(BaseAgent):
 
         # Optional and not specific to any one caller — only present when an
         # upstream flow (e.g. interactive clarification) populated
-        # state["enriched_question"]. Deliberately NOT the full
-        # state["evidence"] blob: that also carries sort/scalar/output-shape
-        # hints and a raw Phase 1 SQL reference, which are noise for a
-        # table-relevance decision. Guard sentence lives inside this block
+        # state["enriched_question"]. Guard sentence lives inside this block
         # (not a standalone Rules bullet) so the prompt is byte-identical to
         # before when no enriched question is present.
         enriched_question_text = (state.get("enriched_question") or "").strip()
@@ -1131,8 +1068,7 @@ class CandidatePreparationAgent(BaseAgent):
                 unjustified.append(
                     f"{name} (no_needed_column="
                     f"{removal.supplies_no_needed_column}, "
-                    f"cannot_change_rows={removal.cannot_change_qualifying_rows}: "
-                    f"{(removal.justification or '').strip()})"
+                    f"cannot_change_rows={removal.cannot_change_qualifying_rows})"
                 )
         if unjustified:
             self.logger.info(
@@ -1184,70 +1120,19 @@ class CandidatePreparationAgent(BaseAgent):
         return filtered, reasoning
 
     def _identify_anchor(
-        self,
-        state: "AgentState",
-        question: str,
-        contexts: dict[str, dict],
-    ) -> tuple[str | None, str]:
-        """Use the LLM to pick the primary (anchor) ColumnAttribute for the question.
-
-        Returns ``(anchor_id, reasoning)`` — reasoning is empty when no LLM
-        call was needed (0 or 1 candidates) or the call failed.
-        """
-        ids = list(contexts.keys())
-        if not ids:
-            return None, ""
-        if len(ids) == 1:
-            return ids[0], ""
-
-        try:
-            llm = state["llm"]
-        except KeyError:
-            self.logger.warning(
-                "_identify_anchor: no LLM in state — using first attribute"
-            )
-            return ids[0], ""
-
-        def _physical_column(ctx: dict) -> str:
-            parts = (
-                ctx.get("schema_name"),
-                ctx.get("table_name"),
-                ctx.get("col_name"),
-            )
-            return ".".join(str(part) for part in parts if part) or "(unknown)"
-
-        attrs_block = "\n".join(
-            f"- id: {aid} | physical column: {_physical_column(ctx)}"
-            + (f" — {ctx['attr_description']}" if ctx.get("attr_description") else "")
-            for aid, ctx in contexts.items()
+        self, state: AgentState, contexts: dict[str, dict]
+    ) -> str | None:
+        """The ColumnAttribute every join path starts from; see ``select_anchor``."""
+        path_state = state.get("path_state", {})
+        subject_term = path_state.get("retrieved_subject_term") or {}
+        anchor_id, rule = select_anchor(
+            path_state.get("retrieved_column_attributes") or [],
+            contexts,
+            subject=path_state.get("subject") or "",
+            subject_term_id=str(subject_term.get("id") or "") or None,
         )
-        evidence = str(state.get("evidence") or "").strip()
-        evidence_block = _ANCHOR_EVIDENCE.format(evidence=evidence) if evidence else ""
-        messages = _ANCHOR_PROMPT.format_messages(
-            question=question, evidence_block=evidence_block, attributes=attrs_block
-        )
-
-        try:
-            result = invoke_with_structured_output(
-                llm.bind(max_tokens=1024), messages, AnchorColumnModel
-            )
-        except Exception:
-            self.logger.warning(
-                "_identify_anchor: LLM call failed — using first attribute",
-                exc_info=True,
-            )
-            return ids[0], ""
-
-        if result and result.anchor_id and result.anchor_id in contexts:
-            self.logger.info(
-                "Anchor column identified: %s (%s)", result.anchor_id, result.reasoning
-            )
-            return result.anchor_id, (result.reasoning or "").strip()
-
-        self.logger.warning(
-            "_identify_anchor: LLM returned invalid id — using first attribute"
-        )
-        return ids[0], ""
+        self.logger.info("Anchor attribute id: %s (rule=%s)", anchor_id, rule)
+        return anchor_id
 
     def _build_custom_analyses_str(self, relevant_queries: list[dict]) -> list[str]:
         """Build string representation of custom analyses for prompts."""

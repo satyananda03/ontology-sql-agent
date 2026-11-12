@@ -9,6 +9,7 @@ rewrote the question and only asks for data, so intent classification, chat
 history and the SQL-generation keys of the full agent are not needed.
 """
 
+import os
 from functools import lru_cache
 from typing import Any
 
@@ -26,6 +27,11 @@ from auto_ontology.retrieval.text_to_sql.state import (
     AgentState,
     get_standalone_question,
 )
+from sql_agent.utils import llm_timeout_s, timed
+
+# Ceiling on one retrieval reply (entities, candidate and table filters). They
+# run to a few hundred tokens; ingestion keeps the client's larger default.
+RETRIEVAL_MAX_TOKENS = 5000
 
 
 class CallerQuestionExtractionAgent(QuestionExtractionAgent):
@@ -37,27 +43,21 @@ class CallerQuestionExtractionAgent(QuestionExtractionAgent):
         return result
 
 
-class TopHitCandidatePreparationAgent(CandidatePreparationAgent):
-    """Start join paths from the best retrieval hit rather than asking an LLM."""
-
-    def _identify_anchor(
-        self,
-        state: AgentState,
-        question: str,
-        contexts: dict[str, dict],
-    ) -> tuple[str | None, str]:
-        hits = state.get("path_state", {}).get("retrieved_column_attributes") or []
-        for hit in hits:
-            attribute_id = str(hit.get("id") or "")
-            if attribute_id in contexts:
-                return attribute_id, ""
-        return next(iter(contexts), None), ""
+def rerank_pool() -> int | None:
+    """Vector hits each catalog search hands the reranker; ``0`` turns it off."""
+    return int(os.environ.get("SQL_AGENT_RERANK_POOL") or 10) or None
 
 
 RETRIEVAL_STEPS = (
-    agent_wrapper(CallerQuestionExtractionAgent()),
-    agent_wrapper(CandidateRetrievalAgent()),
-    agent_wrapper(TopHitCandidatePreparationAgent()),
+    timed("question_extraction", agent_wrapper(CallerQuestionExtractionAgent())),
+    timed(
+        "candidate_retrieval",
+        agent_wrapper(CandidateRetrievalAgent(rerank_pool=rerank_pool())),
+    ),
+    timed(
+        "candidate_preparation",
+        agent_wrapper(CandidatePreparationAgent(rerank_pool=rerank_pool())),
+    ),
 )
 
 
@@ -65,10 +65,12 @@ RETRIEVAL_STEPS = (
 def _llm() -> Any:
     from auto_ontology.utils.llm_invoke import get_non_reasoning_llm_client
 
-    return get_non_reasoning_llm_client()
+    return get_non_reasoning_llm_client(
+        max_tokens=RETRIEVAL_MAX_TOKENS, timeout=llm_timeout_s()
+    )
 
 
-def build_state(question: str, *, evidence: str = "") -> dict[str, Any]:
+def build_state(question: str) -> dict[str, Any]:
     """The agent state the retrieval steps read, for one question."""
     # Imported here: these open connection pools at import time, which must not
     # happen just because the server registered the route.
@@ -91,7 +93,6 @@ def build_state(question: str, *, evidence: str = "") -> dict[str, Any]:
     return {
         "llm": _llm(),
         "initial_question": question,
-        "evidence": evidence,
         "enriched_question": "",
         "value_anchors": [],
         "connectors": connectors,
@@ -103,6 +104,20 @@ def build_state(question: str, *, evidence: str = "") -> dict[str, Any]:
     }
 
 
+def warm_up() -> None:
+    """Build the state once and run one throwaway search per vector store.
+
+    Pools and vector stores connect on first use, not when they are built, so
+    without a real query the first question pays for every connection.
+    """
+    state = build_state("warm up")
+    # ponytail: opens one connection per pool; the parallel searches of the
+    # first real question open the rest (measured ~3s, once). Warm up with
+    # parallel searches if that first question matters.
+    for retriever in (state["semantic_retriever"], state["data_retriever"]):
+        retriever.query("warm up", top_k=1)
+
+
 def merge(state: dict[str, Any], output: dict[str, Any] | None) -> None:
     """Fold one step's output into *state*; ``path_state`` merges key by key."""
     if not output:
@@ -111,9 +126,9 @@ def merge(state: dict[str, Any], output: dict[str, Any] | None) -> None:
     state.update({key: value for key, value in output.items() if key != "path_state"})
 
 
-def retrieve(question: str, *, evidence: str = "") -> dict[str, Any]:
+def retrieve(question: str) -> dict[str, Any]:
     """Run the retrieval steps for *question* and return the agent state."""
-    state = build_state(question, evidence=evidence)
+    state = build_state(question)
     for step in RETRIEVAL_STEPS:
         merge(state, step(state))
     return state

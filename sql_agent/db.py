@@ -30,17 +30,6 @@ def db_error(error: Exception) -> tuple[str | None, str]:
     return getattr(error, "sqlstate", None), message
 
 
-def explain(query: str, connector: Any) -> dict[str, Any]:
-    """Validasi SQL tanpa mengeksekusinya: Postgres memeriksa nama, tipe, dan fungsi."""
-    result: dict[str, Any] = {"valid_syntax": True, "error": None, "error_code": None}
-    try:
-        execute_chat_sql(connector, f"EXPLAIN {query}", kind="validation")
-    except Exception as error:  # noqa: BLE001 — every driver error goes to repair
-        result["valid_syntax"] = False
-        result["error_code"], result["error"] = db_error(error)
-    return result
-
-
 def run_query(query: str, connector: Any) -> dict[str, Any]:
     """Execute SQL query and return formatted results."""
     result: dict[str, Any] = {

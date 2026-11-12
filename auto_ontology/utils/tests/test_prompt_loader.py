@@ -73,7 +73,6 @@ EXPECTED: dict[str, dict[str, tuple[set[str], dict[str, set[str]]]]] = {
         "description_suggestion": ({"max_chars", "attribute_name", "term_name"}, {}),
     },
     "auto_ontology/retrieval/text_to_sql/prompts.yaml": {
-        "custom_analysis_relevance": ({"question", "analyses_summary"}, {}),
         "table_relevance": (
             {
                 "question",
@@ -90,10 +89,6 @@ EXPECTED: dict[str, dict[str, tuple[set[str], dict[str, set[str]]]]] = {
                 "enriched_question": {"question"},
             },
         ),
-        "anchor_column": (
-            {"question", "evidence_block", "attributes"},
-            {"evidence": {"evidence"}},
-        ),
         "candidate_filter": ({"candidate_type", "question", "candidates_block"}, {}),
         "combined_filter": ({"question", "custom_block", "sql_attr_block"}, {}),
     },
@@ -104,7 +99,6 @@ EXPECTED: dict[str, dict[str, tuple[set[str], dict[str, set[str]]]]] = {
                 "max_entities",
                 "subject_rules",
                 "glossary_section",
-                "evidence_section",
                 "question",
             },
             {
@@ -112,7 +106,6 @@ EXPECTED: dict[str, dict[str, tuple[set[str], dict[str, set[str]]]]] = {
                 "intro_lite": set(),
                 "subject_rules": set(),
                 "glossary": {"definitions"},
-                "evidence": {"evidence"},
             },
         ),
     },

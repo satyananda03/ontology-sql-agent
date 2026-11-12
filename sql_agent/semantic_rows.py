@@ -6,7 +6,7 @@
 Ported from ``classic_sql_agent``. A keyword filter misses a topic worded differently
 in the data, so this pre-fetches the matching row ids and hands them to SQL generation
 through a placeholder: ids never pass through the LLM, and the generation prompt stays
-the original one because the instruction travels as evidence.
+the original one because the instruction travels separately, as ``semantic_instructions``.
 
 The classic node kept at most 20 ids, which silently undercounted larger topics. This
 one verifies more candidates and reports when even those may not be all of them.
@@ -14,6 +14,7 @@ one verifies more candidates and reports when even those may not be all of them.
 
 import logging
 import numbers
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -179,11 +180,6 @@ def _fallback_context(
     return "\n".join(lines)
 
 
-def _with_evidence(state: AgentState, addition: str) -> str:
-    existing = (state.get("evidence") or "").strip()
-    return f"{existing}\n\n{addition}" if existing else addition
-
-
 class SemanticRowsAgent(BaseAgent):
     """Pre-fetch row ids for topic constraints in the question."""
 
@@ -221,12 +217,12 @@ class SemanticRowsAgent(BaseAgent):
             self.logger.warning("Semantic search failed", exc_info=True)
             return {
                 "path_state": path_state,
-                "evidence": _with_evidence(state, _fallback_context(filters, specs)),
+                "semantic_instructions": _fallback_context(filters, specs),
             }
         path_state["semantic_ids"] = ids_by_placeholder
         return {
             "path_state": path_state,
-            "evidence": _with_evidence(state, _matches_context(matches)),
+            "semantic_instructions": _matches_context(matches),
         }
 
     def _search(
@@ -238,15 +234,38 @@ class SemanticRowsAgent(BaseAgent):
     ) -> tuple[list[tuple[SemanticFilter, dict, list[Any]]], dict[str, str]]:
         path_state = state.get("path_state", {})
         connector = resolve_connector_from_tables(tables, state.get("connectors") or [])
-        vectors = embed_texts([f.query for f in filters], get_embed_params(), "query")
+        # Interactive limits: the defaults are ingest-sized (600s x 5 retries).
+        vectors = embed_texts(
+            [f.query for f in filters],
+            get_embed_params(),
+            "query",
+            timeout=SEARCH_TIMEOUT_S,
+            retries=1,
+        )
 
-        matches: list[tuple[SemanticFilter, dict, list[Any]]] = []
-        ids_by_placeholder: dict[str, str] = {}
-        for number, (found, vector) in enumerate(zip(filters, vectors, strict=True), 1):
+        def search_one(
+            found: SemanticFilter, vector: list[float]
+        ) -> tuple[list[dict], list[dict], list[Any]]:
             spec = specs[(found.table, found.column)]
             rows = _nearest_rows(connector, spec, found.column, vector)
             candidates = _best_candidates(found.query, rows)
-            ids = _verified_ids(state["llm"], found.query, candidates)
+            return (
+                rows,
+                candidates,
+                _verified_ids(state["llm"], found.query, candidates),
+            )
+
+        # Topics are independent: search, rerank and verify them in parallel,
+        # bounded by the connector pool (max_size=4).
+        with ThreadPoolExecutor(max_workers=min(len(filters), 4)) as pool:
+            results = list(pool.map(search_one, filters, vectors))
+
+        matches: list[tuple[SemanticFilter, dict, list[Any]]] = []
+        ids_by_placeholder: dict[str, str] = {}
+        for number, (found, (rows, candidates, ids)) in enumerate(
+            zip(filters, results, strict=True), 1
+        ):
+            spec = specs[(found.table, found.column)]
             if candidates and len(ids) == len(candidates) and len(rows) == RECALL_K:
                 # Every reviewed candidate matched and more were left unreviewed.
                 record_thought(path_state, _NODE_NAME, SEMANTIC_TRUNCATED_NOTE)

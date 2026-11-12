@@ -20,6 +20,7 @@ def test_get_relevant_tables_uses_default_limit_when_k_is_omitted(
         per_label_k: int,
         database_name: str | None,
         schema_name: str | None,
+        rerank_pool: int | None,
     ) -> list[dict]:
         captured.update(
             {

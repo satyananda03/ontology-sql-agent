@@ -252,6 +252,7 @@ def get_relevant_tables(
     k: int = 1,
     database_name: str | None = None,
     schema_name: str | None = None,
+    rerank_pool: int | None = None,
 ) -> list[dict]:
     """Semantic search over the same vector index as candidate retrieval, label ``table`` only."""
     try:
@@ -262,6 +263,7 @@ def get_relevant_tables(
             per_label_k=k,
             database_name=database_name,
             schema_name=schema_name,
+            rerank_pool=rerank_pool,
         )
     except Exception:
         logger.exception("get_relevant_tables: vector search failed")

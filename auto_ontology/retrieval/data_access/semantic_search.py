@@ -25,6 +25,8 @@ import random
 import time
 from typing import TYPE_CHECKING, Literal
 
+from auto_ontology.utils.rerank import get_rerank_kwargs, rerank_hits
+
 
 if TYPE_CHECKING:
     from auto_ontology.utils.retriever import Retriever
@@ -36,6 +38,9 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_FETCH_LIMIT = 20
 PER_LABEL_LIMIT = 10
+# Reranking sits on an interactive path; past this it is cheaper to keep the
+# vector order than to wait.
+_RERANK_TIMEOUT_S = 10.0
 
 # ``retriever.query`` embeds the entity text via the remote NIM embeddings
 # endpoint before it can run the vector search — a transient 5xx there
@@ -123,8 +128,19 @@ def _parse_hit_metadata(hit: dict) -> dict:
     return {}
 
 
+def hit_distance(hit: dict) -> float:
+    """A hit's ``score`` as a sortable distance; a missing score sorts last.
+
+    Use this instead of ``float(hit.get("score") or inf)``: the score is a
+    cosine distance, so ``0.0`` is the best possible match, and ``or`` would
+    treat it as missing.
+    """
+    score = hit.get("score")
+    return float(score) if score is not None else float("inf")
+
+
 def _vector_distance_value(distance: object | None) -> float:
-    """Coerce a vector ``_distance`` score (L2) to float; lower is better. Missing → +inf."""
+    """Coerce a vector ``_distance`` (cosine) to float; lower is better. Missing → +inf."""
     if distance is None:
         return float("inf")
     try:
@@ -271,6 +287,7 @@ def search_semantic_index(
     per_label_k: "int | dict[str, int]" = PER_LABEL_LIMIT,
     database_name: str | None = None,
     schema_name: str | None = None,
+    rerank_pool: int | None = None,
 ) -> list[dict]:
     """Vector search via the injected :class:`~auto_ontology.utils.retriever.Retriever`.
 
@@ -280,6 +297,10 @@ def search_semantic_index(
     ``{label: k}`` dict (e.g. ``{"Column": 10, "CustomAnalysis": 3}``).
     When no *label_filter* is given, falls back to a single query with
     ``DEFAULT_FETCH_LIMIT``.
+
+    With *rerank_pool*, each label fetches that many rows instead and the
+    reranker picks the *k* to keep. ``score`` stays the vector distance either
+    way, so callers compare and threshold hits exactly as before.
 
     The filter format (SQL string vs. dict) is read off the VDB the caller
     plugged into the retriever — see :func:`_metadata_filter_format`.
@@ -304,9 +325,48 @@ def search_semantic_index(
             else DEFAULT_FETCH_LIMIT
         )
 
-        hits = _query_with_retry(retriever, entity, top_k, vdb_kwargs)
-        all_hits.extend(hits)
+        fetch_k = max(top_k, rerank_pool or 0)
+        all_hits.extend(_query_with_retry(retriever, entity, fetch_k, vdb_kwargs))
 
-    return _hits_to_semantic_rows(
-        all_hits, label_filter=allowed_labels, per_label_k=per_label_k
+    if not rerank_pool:
+        return _hits_to_semantic_rows(
+            all_hits, label_filter=allowed_labels, per_label_k=per_label_k
+        )
+    pool = _hits_to_semantic_rows(
+        all_hits, label_filter=allowed_labels, per_label_k=rerank_pool
     )
+    return _keep_most_relevant(entity, pool, per_label_k)
+
+
+def _keep_most_relevant(
+    query: str, rows: list[dict], per_label_k: "int | dict[str, int]"
+) -> list[dict]:
+    """Cut each label's *rows* down to its *k*, chosen by the reranker.
+
+    Vector distance ranks a short query against short catalog text poorly when
+    the wording differs; the reranker reads both together. A reranker failure
+    keeps the vector order: a worse pick beats no candidates.
+    """
+    by_label: dict[str, list[dict]] = {}
+    for row in rows:
+        by_label.setdefault(str(row.get("label") or ""), []).append(row)
+
+    kept: list[dict] = []
+    for label, label_rows in by_label.items():
+        k = _resolve_label_k(per_label_k, label)
+        if len(label_rows) > k:
+            try:
+                label_rows = rerank_hits(
+                    query,
+                    label_rows,
+                    top_n=k,
+                    timeout_s=_RERANK_TIMEOUT_S,
+                    **get_rerank_kwargs(),
+                )
+            except Exception:
+                logger.warning(
+                    "Rerank failed for %r; keeping vector order", query, exc_info=True
+                )
+                label_rows = label_rows[:k]
+        kept.extend(label_rows)
+    return kept

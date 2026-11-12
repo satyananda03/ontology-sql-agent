@@ -19,7 +19,7 @@ export default function PlaygroundPage() {
     bottom.current?.scrollIntoView({ behavior: "smooth" });
   }, [turns.length]);
 
-  async function ask(question: string, evidence: string) {
+  async function ask(question: string) {
     const id = Date.now();
     const finish = (patch: Partial<Turn>) =>
       setTurns((all) =>
@@ -27,7 +27,7 @@ export default function PlaygroundPage() {
       );
     setTurns((all) => [...all, { id, question, startedAt: id }]);
     try {
-      finish({ result: await querySqlAgent(question, evidence) });
+      finish({ result: await querySqlAgent(question) });
     } catch (e) {
       finish({ error: (e as Error).message });
     }

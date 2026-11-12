@@ -29,25 +29,22 @@ class TextToSQLPayload(TypedDict):
     """Payload for the text-to-SQL agent flow (data + semantic retrievers)."""
 
     question: str
-    evidence: NotRequired[str]
     # Question/SQL pairs retrieved as structural precedent for this question,
-    # each a ``{"question": ..., "sql": ...}`` mapping. Unlike `evidence` these
-    # are advisory and usually come from *other* databases, so they inform
-    # query shape only — never identifiers or filter values.
+    # each a ``{"question": ..., "sql": ...}`` mapping. They are advisory and
+    # usually come from *other* databases, so they inform query shape only —
+    # never identifiers or filter values.
     sql_examples: NotRequired[list[dict[str, str]]]
     value_anchors: NotRequired[list[dict[str, str]]]
     # When true, intent preprocessing skips top-level type selection but still
-    # classifies the calculation subtype and extracts inline evidence.
+    # classifies the calculation subtype.
     calculation_only: NotRequired[bool]
     shorten_answer: NotRequired[bool]
     validate_sql_values: NotRequired[bool]
-    skip_evidence_refinement: NotRequired[bool]
     # For graders that compare numbers exactly: rewrite explicit float casts in
     # the generated Postgres SQL to NUMERIC (see ``numeric_types``).
     numeric_type_alignment: NotRequired[bool]
     # The clarified/merged question on its own — no hint blocks or SQL
-    # references mixed in (unlike `evidence`, which carries those too).
-    # Omitted by callers that never enrich the question.
+    # references mixed in. Omitted by callers that never enrich the question.
     enriched_question: NotRequired[str]
     processing_question: NotRequired[str]
     data_retriever: Retriever
@@ -66,7 +63,6 @@ class RetryRestoreState(TypedDict):
     """Immutable request boundary used to restart the full SQL pipeline."""
 
     initial_question: str
-    evidence: str
     messages: list[BaseMessage]
     sql_examples: list[dict[str, str]]
     value_anchors: list[dict[str, str]]
@@ -80,13 +76,11 @@ class AgentState(TypedDict):
     llm: ChatNVIDIA
     reasoning_llm: NotRequired[ChatNVIDIA]
     initial_question: str
-    evidence: NotRequired[str]
     sql_examples: NotRequired[list[dict[str, str]]]
     value_anchors: NotRequired[list[dict[str, str]]]
     calculation_only: bool
     shorten_answer: bool
     validate_sql_values: bool
-    skip_evidence_refinement: bool
     numeric_type_alignment: NotRequired[bool]
     sql_value_validation_cache: dict
     enriched_question: NotRequired[str]

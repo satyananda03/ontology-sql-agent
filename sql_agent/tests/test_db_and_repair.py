@@ -53,17 +53,6 @@ def test_timeout_is_classified_as_fixable_not_transient() -> None:
     assert classify_error(code) == "fixable"
 
 
-def test_explain_checks_without_running() -> None:
-    connector = FakeConnector(pd.DataFrame())
-    assert db.explain("SELECT 1", connector)["valid_syntax"]
-    assert connector.statements == ["EXPLAIN SELECT 1"]
-
-
-def test_explain_reports_the_sqlstate() -> None:
-    result = db.explain("SELECT x", FakeConnector(PgError("bad", "42703")))
-    assert result == {"valid_syntax": False, "error": "bad", "error_code": "42703"}
-
-
 def test_query_nulls_reach_the_caller_as_none() -> None:
     frame = pd.DataFrame({"a": [1.5, None], "b": ["x", None]})
     result = db.run_query(" SELECT a, b FROM t ", FakeConnector(frame))

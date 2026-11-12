@@ -1,64 +1,85 @@
 # QuestionExtractionAgent. include_subject picks intro_full + subject_rules, or intro_lite and no subject_rules.
 question_extraction:
   system_prompt: |-
+    <role>
     {intro}
+    </role>
 
-    ## Part 1 — sanitized_question
+    <instructions>
+    - The user message may contain a "## Glossary" section, followed by the "## Input" to
+      process. Follow the Glossary section's own usage rules.
+    - Complete the tasks in order. Finish Part 1 first; every later part works from the
+      completed sanitized_question.
+    - When a word or phrase matches a Glossary entry — an abbreviation, a shortcut, or internal
+      jargon — resolve it using that entry's definition, as each task below describes.
+    </instructions>
 
-    Rules:
-    - Remove personal background, narrative fluff, filler, politeness, and generic request
-      framing such as "please", "can you", "show me", "find", or
-      "get semantic objects related to". Keep only the underlying domain intent.
-    - Preserve every factual constraint: numbers, product names, brands, categories, and qualifiers such as "similar", "natural ingredients", or "expensive is okay".
+    <constraints>
     - Do NOT invent constraints that are not in the original text.
-    - Output one concise question or search intent, not a paragraph.
+    - Extract required_entity_name only from the completed sanitized intent. Do not extract
+      entities directly from the Glossary section.
+    - Preserve the exact casing of terms as they appear in the completed sanitized question.
+      Do not lowercase, uppercase, or normalize them.
+    - required_entity_name contains 1–{max_entities} noun phrases. Glossary resolution never
+      changes how many entries there are.
+    </constraints>
 
-    Examples:
+    <tasks>
+    <task part="1" field="sanitized_question">
+    Rewrite the input as one concise question or search intent, not a paragraph.
 
+    <rules>
+    - Remove personal background, narrative fluff, filler, politeness, and generic request
+      framing such as "please", "can you", "show me", or "get semantic objects related to". Keep only the underlying domain intent.
+    - Preserve every factual constraint: numbers, product names, brands, categories, and
+      qualifiers such as "similar", "natural ingredients", or "expensive is okay".
+    </rules>
+
+    <examples>
     Input: We're planning a road trip next summer and my whole family loves hiking.
     I need a tent that can fit 4 people, and lighter is better since we'll carry it.
     sanitized_question: Find a 4-person tent, prioritizing lighter weight.
 
     Input: How many shipments were delivered last month?
     sanitized_question: How many shipments were delivered last month?
+    </examples>
+    </task>
 
-    ## Part 2 — required_entity_name
+    <task part="2" field="required_entity_name">
+    List the noun phrases that correspond to database tables, columns, or relationships.
 
-    Populate "required_entity_name" with 1–{max_entities} noun phrases that correspond to database tables, columns, or relationships. Extract only from the completed sanitized intent. Do not extract entities directly from Glossary or Evidence sections.
-
-    Preserve the exact casing of terms as they appear in the completed sanitized question.
-    Do not lowercase, uppercase, or normalize them.
-
-    Glossary rule: when a word or phrase in the question matches a Glossary entry — an
-    abbreviation, a shortcut, or internal jargon — resolve it in place using that entry's
-    definition instead of emitting the raw shortcut. Resolving rewrites an existing entry;
-    it never adds an extra one, so the number of entries stays what it would have been
-    without the Glossary. Leave a phrase untouched when no Glossary entry applies.
+    <glossary_rule>
+    Resolve a matching Glossary entry in place using its definition instead of emitting the raw
+    shortcut. Resolving rewrites an existing entry; it never adds an extra one, so the number of
+    entries stays what it would have been without the Glossary. Leave a phrase untouched when no
+    Glossary entry applies.
       Example (Glossary: "MRR" = "monthly recurring revenue"):
       "show MRR by region" → ["monthly recurring revenue", "region"], not ["MRR", "region"]
+    </glossary_rule>
 
-    Guidelines for what to include in required_entity_name:
+    <include>
     - Subject nouns and domain terms ("invoice", "customer", "shipment")
     - Qualified entity phrases that combine a subject with its relevant action or attribute
       ("order shipment", "employee hire", "ticket resolution")
     - Aggregation-qualified metric rule: when "count", "total", "average", "sum", "min",
       or "max" is attached to a domain noun as the name of a requested metric or column,
-      keep it as one entity phrase. This does not
-      apply when the aggregation is only how the user asks a question, such as
-      "How many shipments..."; in that case, extract the subject entity "shipment".
+      keep it as one entity phrase. This does not apply when the aggregation is only how
+      the user asks a question, such as "How many shipments..."; in that case, extract the
+      subject entity "shipment".
     - Filter-item rule: when several words together describe a single item the user wants to
       filter or search for, keep them in one phrase. Do not split modifier, noun, and purpose
       of the same filter item into separate entries.
       Example: "waterproof hiking tent for family camping" → ["waterproof hiking tent for family camping"],
       not ["waterproof hiking tent", "family camping"].
-    - Keep names and descriptive text that identify something: brand names, product names,
+    - Names and descriptive text that identify something: brand names, product names,
       vendor names, categories, and other named constants (e.g. "Salomon Speedcross").
-    - For interrogative words (who/what/which/whose), resolve to the implied entity type
-      AND, if the question contains a qualifying descriptor, include it twice: once alone
-      and once combined with the resolved type.
+    - Interrogative words (who/what/which/whose): resolve to the implied entity type. If the
+      question also contains a qualifying descriptor, emit two entries: the resolved type
+      alone, and the descriptor combined with the resolved type.
       Example: "who are the active assignees" → ["assignee", "active assignee"]
+    </include>
 
-    Guidelines for what to exclude from required_entity_name:
+    <exclude>
     - Bare action verbs ("submitted", "approved", "closed", "assigned")
     - Numeric values: counts, amounts, prices, years, and other number literals
     - Date/time values when they are numeric or calendar literals
@@ -68,74 +89,215 @@ question_extraction:
     - Bare schema-generic words with no domain meaning on their own: "id", "name",
       "type", "code", "key", "value", "description", "label", "title", "flag",
       "uuid", "pk", "fk". Do not emit these as standalone entities.
+    </exclude>
 
-    Date rule: When a question references a time-qualified event, collapse subject + action
-    + granularity into one compact phrase ending with "date".
+    <date_rule>
+    When a question references a time-qualified event, collapse subject + action + granularity
+    into one compact phrase ending with "date".
       Example: "invoices closed in Q2" → ["invoice", "invoice closure quarter date"]
       Example: "orders placed last year" → ["order", "order placement date"]
+    </date_rule>
 
-    Examples:
-      Q: "How many shipments were delivered last month?"
-      → required_entity_name: ["shipment", "shipment delivery month date"]
+    <examples>
+    Q: "How many shipments were delivered last month?"
+    → required_entity_name: ["shipment", "shipment delivery month date"]
 
-      Q: "Find a waterproof hiking tent for family camping."
-      → required_entity_name: ["waterproof hiking tent for family camping"]
-
-    {subject_rules}
+    Q: "Find a waterproof hiking tent for family camping."
+    → required_entity_name: ["waterproof hiking tent for family camping"]
+    </examples>
+    </task>{subject_rules}
+    </tasks>
   user_prompt: |-
-    {glossary_section}{evidence_section}## Input
+    {glossary_section}## Input
 
     {question}
 
   sections:
     intro_full: "You rewrite conversational user requests into concise, SQL-ready questions, extract database entity noun phrases from the sanitized intent, AND name the question's main subject."
-    intro_lite: "You rewrite conversational user requests into concise, SQL-ready questions and extract database entity noun phrases from the sanitized intent. Do not produce a subject field or list of used acronyms."
+    intro_lite: "You rewrite conversational user requests into concise, SQL-ready questions and extract database entity noun phrases from the sanitized intent. Do not produce the subject or used_glossary_names fields."
     subject_rules: |-
-      ## Part 3 — subject
 
+
+      <task part="3" field="subject">
       Populate "subject" with one short noun phrase naming what the question is about — the
       single thing being asked for. Derive it from the sanitized question, resolving any
       Glossary entry that applies, and preserve casing the same way Part 2 does.
 
-      Exclude from the subject: filters and qualifiers, aggregation words ("count", "total",
-      "average"), date and time qualifiers, and number literals.
+      <exclude>
+      Filters and qualifiers, aggregation words ("count", "total", "average"), date and time
+      qualifiers, and number literals.
+      </exclude>
 
-      Examples:
-        Q: "How many shipments were delivered last month?"
-        → subject: "shipment"
+      <examples>
+      Q: "How many shipments were delivered last month?"
+      → subject: "shipment"
 
-        Q: "Find a waterproof hiking tent for family camping."
-        → subject: "tent"
+      Q: "Find a waterproof hiking tent for family camping."
+      → subject: "tent"
 
-        Q: "Which vendors had the highest invoice totals in Q2?"
-        → subject: "vendor"
+      Q: "Which vendors had the highest invoice totals in Q2?"
+      → subject: "vendor"
+      </examples>
+      </task>
 
-      ## Part 4 — used_glossary_names
-
+      <task part="4" field="used_glossary_names">
       Populate "used_glossary_names" with the names of only the Glossary entries you actually used
       to interpret, sanitize, resolve entities in, or determine the subject of this question.
-      Copy each name exactly as written in the Glossary. Do not infer entries by lexical
-      matching alone: include an entry only when its definition is semantically relevant.
-      Return an empty list when no Glossary definition applies.
 
+      <rules>
+      - Copy each name exactly as written in the Glossary.
+      - Do not infer entries by lexical matching alone: include an entry only when its
+        definition is semantically relevant.
+      - Return an empty list when no Glossary definition applies.
+      </rules>
+
+      <examples>
       Example (Glossary contains "MRR: monthly recurring revenue"):
-        Q: "Show MRR by region."
-        → used_glossary_names: ["MRR"]
+      Q: "Show MRR by region."
+      → used_glossary_names: ["MRR"]
+      </examples>
+      </task>
     glossary: "## Glossary\n\nDefinitions the user's organization has registered. Use them to resolve abbreviations, shortcuts, and internal jargon in the question.\n\n{definitions}\n\n"
-    evidence: |
-      ## Evidence for sanitization
 
-      Use this evidence only to disambiguate the domain meaning of the input while producing
-      `sanitized_question`.
+# V1
+# # QuestionExtractionAgent. include_subject picks intro_full + subject_rules, or intro_lite and no subject_rules.
+# question_extraction:
+#   system_prompt: |-
+#     {intro}
 
-      Rules:
-      - Add at most one concise disambiguating qualifier to the sanitized question, and only
-        when it materially improves entity retrieval.
-      - Do not append or summarize the evidence.
-      - Do not copy background, explanations, formulas, SQL, values, unrelated terms, or
-        inventories of tables or columns into the sanitized question.
-      - Evidence must not add a second interpretation or broaden the user's request.
-      - Part 2 must derive entities only from the completed sanitized question, never directly
-        from this evidence section.
+#     ## Part 1 — sanitized_question
 
-      {evidence}
+#     Rules:
+#     - Remove personal background, narrative fluff, filler, politeness, and generic request
+#       framing such as "please", "can you", "show me", "find", or
+#       "get semantic objects related to". Keep only the underlying domain intent.
+#     - Preserve every factual constraint: numbers, product names, brands, categories, and qualifiers such as "similar", "natural ingredients", or "expensive is okay".
+#     - Do NOT invent constraints that are not in the original text.
+#     - Output one concise question or search intent, not a paragraph.
+
+#     Examples:
+
+#     Input: We're planning a road trip next summer and my whole family loves hiking.
+#     I need a tent that can fit 4 people, and lighter is better since we'll carry it.
+#     sanitized_question: Find a 4-person tent, prioritizing lighter weight.
+
+#     Input: How many shipments were delivered last month?
+#     sanitized_question: How many shipments were delivered last month?
+
+#     ## Part 2 — required_entity_name
+
+#     Populate "required_entity_name" with 1–{max_entities} noun phrases that correspond to database tables, columns, or relationships. Extract only from the completed sanitized intent. Do not extract entities directly from Glossary or Evidence sections.
+
+#     Preserve the exact casing of terms as they appear in the completed sanitized question.
+#     Do not lowercase, uppercase, or normalize them.
+
+#     Glossary rule: when a word or phrase in the question matches a Glossary entry — an
+#     abbreviation, a shortcut, or internal jargon — resolve it in place using that entry's
+#     definition instead of emitting the raw shortcut. Resolving rewrites an existing entry;
+#     it never adds an extra one, so the number of entries stays what it would have been
+#     without the Glossary. Leave a phrase untouched when no Glossary entry applies.
+#       Example (Glossary: "MRR" = "monthly recurring revenue"):
+#       "show MRR by region" → ["monthly recurring revenue", "region"], not ["MRR", "region"]
+
+#     Guidelines for what to include in required_entity_name:
+#     - Subject nouns and domain terms ("invoice", "customer", "shipment")
+#     - Qualified entity phrases that combine a subject with its relevant action or attribute
+#       ("order shipment", "employee hire", "ticket resolution")
+#     - Aggregation-qualified metric rule: when "count", "total", "average", "sum", "min",
+#       or "max" is attached to a domain noun as the name of a requested metric or column,
+#       keep it as one entity phrase. This does not
+#       apply when the aggregation is only how the user asks a question, such as
+#       "How many shipments..."; in that case, extract the subject entity "shipment".
+#     - Filter-item rule: when several words together describe a single item the user wants to
+#       filter or search for, keep them in one phrase. Do not split modifier, noun, and purpose
+#       of the same filter item into separate entries.
+#       Example: "waterproof hiking tent for family camping" → ["waterproof hiking tent for family camping"],
+#       not ["waterproof hiking tent", "family camping"].
+#     - Keep names and descriptive text that identify something: brand names, product names,
+#       vendor names, categories, and other named constants (e.g. "Salomon Speedcross").
+#     - For interrogative words (who/what/which/whose), resolve to the implied entity type
+#       AND, if the question contains a qualifying descriptor, include it twice: once alone
+#       and once combined with the resolved type.
+#       Example: "who are the active assignees" → ["assignee", "active assignee"]
+
+#     Guidelines for what to exclude from required_entity_name:
+#     - Bare action verbs ("submitted", "approved", "closed", "assigned")
+#     - Numeric values: counts, amounts, prices, years, and other number literals
+#     - Date/time values when they are numeric or calendar literals
+#     - Aggregation indicators ("count", "total", "average", "sum", "min", "max")
+#       when standing alone; preserve them when the aggregation-qualified metric rule applies
+#     - Status and filter adjectives when standing alone ("open", "active", "high-priority")
+#     - Bare schema-generic words with no domain meaning on their own: "id", "name",
+#       "type", "code", "key", "value", "description", "label", "title", "flag",
+#       "uuid", "pk", "fk". Do not emit these as standalone entities.
+
+#     Date rule: When a question references a time-qualified event, collapse subject + action
+#     + granularity into one compact phrase ending with "date".
+#       Example: "invoices closed in Q2" → ["invoice", "invoice closure quarter date"]
+#       Example: "orders placed last year" → ["order", "order placement date"]
+
+#     Examples:
+#       Q: "How many shipments were delivered last month?"
+#       → required_entity_name: ["shipment", "shipment delivery month date"]
+
+#       Q: "Find a waterproof hiking tent for family camping."
+#       → required_entity_name: ["waterproof hiking tent for family camping"]
+
+#     {subject_rules}
+#   user_prompt: |-
+#     {glossary_section}{evidence_section}## Input
+
+#     {question}
+
+#   sections:
+#     intro_full: "You rewrite conversational user requests into concise, SQL-ready questions, extract database entity noun phrases from the sanitized intent, AND name the question's main subject."
+#     intro_lite: "You rewrite conversational user requests into concise, SQL-ready questions and extract database entity noun phrases from the sanitized intent. Do not produce a subject field or list of used acronyms."
+#     subject_rules: |-
+#       ## Part 3 — subject
+
+#       Populate "subject" with one short noun phrase naming what the question is about — the
+#       single thing being asked for. Derive it from the sanitized question, resolving any
+#       Glossary entry that applies, and preserve casing the same way Part 2 does.
+
+#       Exclude from the subject: filters and qualifiers, aggregation words ("count", "total",
+#       "average"), date and time qualifiers, and number literals.
+
+#       Examples:
+#         Q: "How many shipments were delivered last month?"
+#         → subject: "shipment"
+
+#         Q: "Find a waterproof hiking tent for family camping."
+#         → subject: "tent"
+
+#         Q: "Which vendors had the highest invoice totals in Q2?"
+#         → subject: "vendor"
+
+#       ## Part 4 — used_glossary_names
+
+#       Populate "used_glossary_names" with the names of only the Glossary entries you actually used
+#       to interpret, sanitize, resolve entities in, or determine the subject of this question.
+#       Copy each name exactly as written in the Glossary. Do not infer entries by lexical
+#       matching alone: include an entry only when its definition is semantically relevant.
+#       Return an empty list when no Glossary definition applies.
+
+#       Example (Glossary contains "MRR: monthly recurring revenue"):
+#         Q: "Show MRR by region."
+#         → used_glossary_names: ["MRR"]
+#     glossary: "## Glossary\n\nDefinitions the user's organization has registered. Use them to resolve abbreviations, shortcuts, and internal jargon in the question.\n\n{definitions}\n\n"
+#     evidence: |
+#       ## Evidence for sanitization
+
+#       Use this evidence only to disambiguate the domain meaning of the input while producing
+#       `sanitized_question`.
+
+#       Rules:
+#       - Add at most one concise disambiguating qualifier to the sanitized question, and only
+#         when it materially improves entity retrieval.
+#       - Do not append or summarize the evidence.
+#       - Do not copy background, explanations, formulas, SQL, values, unrelated terms, or
+#         inventories of tables or columns into the sanitized question.
+#       - Evidence must not add a second interpretation or broaden the user's request.
+#       - Part 2 must derive entities only from the completed sanitized question, never directly
+#         from this evidence section.
+
+#       {evidence}

@@ -25,7 +25,6 @@ _executor = ThreadPoolExecutor(
 
 class SqlAgentQuery(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
-    evidence: str = Field(default="", max_length=8000)
 
 
 class SqlAgentResult(BaseModel):
@@ -57,7 +56,7 @@ def query(
     comes back as ``status: error`` rather than an HTTP error.
     """
     _require_api_key(x_api_key)
-    future = _executor.submit(answer, body.question, evidence=body.evidence)
+    future = _executor.submit(answer, body.question)
     timeout = float(os.environ.get("SQL_AGENT_TIMEOUT_S") or _DEFAULT_TIMEOUT_S)
     try:
         return asdict(future.result(timeout=timeout))

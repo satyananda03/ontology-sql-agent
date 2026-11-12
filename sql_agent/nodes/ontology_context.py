@@ -69,8 +69,6 @@ def knowledge_context(
             )
         )
     sections.append(format_glossary_section(ontology.get("glossary") or []))
-    if ontology.get("evidence"):
-        sections.append(f"ATURAN DARI PEMANGGIL:\n{ontology['evidence']}")
     return "\n\n".join(section.strip() for section in sections if section.strip())
 
 
@@ -99,13 +97,9 @@ def context_update(ontology: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _retrieve(question: str, state: State) -> dict[str, Any]:
-    return retrieval.retrieve(question, evidence=state.evidence)
-
-
 def ontology_context(state: State) -> dict[str, Any]:
     logger.info("Ontology Context - retrieving relevant tables")
-    update = context_update(_retrieve(state.user_query, state))
+    update = context_update(retrieval.retrieve(state.user_query))
     logger.info(f"Selected tables: {update['selected_table']}")
     return update
 
@@ -124,7 +118,7 @@ def schema_renavigator(state: State) -> dict[str, Any]:
         f"pertanyaan ini ({state.error}). Pilih tabel yang benar-benar memuat "
         "kolom yang dibutuhkan."
     )
-    update = context_update(_retrieve(note, state))
+    update = context_update(retrieval.retrieve(note))
     update["renavigation_count"] = count
     if update["selected_table"]:
         update.update(retry_feedback=None, last_error=None)

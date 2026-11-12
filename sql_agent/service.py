@@ -4,6 +4,7 @@
 """Run the graph and render its result for a calling agent."""
 
 import logging
+import time
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -45,10 +46,16 @@ def render_error(message: str) -> QueryResult:
     )
 
 
-def run(question: str, *, evidence: str = "") -> dict[str, Any]:
+def run(question: str) -> dict[str, Any]:
     """The graph's final state for one standalone question."""
-    request = State(user_query=question, evidence=evidence)
-    return get_workflow().invoke(request, config={"recursion_limit": RECURSION_LIMIT})
+    request = State(user_query=question)
+    started = time.perf_counter()
+    try:
+        return get_workflow().invoke(
+            request, config={"recursion_limit": RECURSION_LIMIT}
+        )
+    finally:
+        logger.info(f"[TIMING] sql_agent total {time.perf_counter() - started:.2f}s")
 
 
 def _semantic_search_was_cut(state: dict[str, Any]) -> bool:
@@ -87,10 +94,26 @@ def to_query_result(state: dict[str, Any]) -> QueryResult:
     )
 
 
-def answer(question: str, *, evidence: str = "") -> QueryResult:
+def warm_up() -> None:
+    """Pay the first query's setup cost up front: graph, LLM clients, DB/VDB pools."""
+    from sql_agent import retrieval
+    from sql_agent.nodes import sql_generator
+
+    started = time.perf_counter()
+    try:
+        get_workflow()
+        sql_generator._llm()
+        retrieval.warm_up()
+    except Exception:  # noqa: BLE001 — warm-up is best effort; queries still work
+        logger.warning("SQL agent warm-up failed", exc_info=True)
+        return
+    logger.info(f"[TIMING] sql_agent warm-up {time.perf_counter() - started:.2f}s")
+
+
+def answer(question: str) -> QueryResult:
     """Answer one standalone question from the database."""
     try:
-        state = run(question, evidence=evidence)
+        state = run(question)
     except Exception as error:  # noqa: BLE001 — the tool reports, it does not crash
         logger.exception("SQL agent failed")
         return render_error(str(error))

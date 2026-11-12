@@ -1,13 +1,14 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
 # SPDX-License-Identifier: Apache-2.0
 
+import time
 from decimal import Decimal
 from typing import Any
 
 import pandas as pd
 import pytest
 
-from sql_agent.nodes import result_analyzer, sql_executor, syntax_validator
+from sql_agent.nodes import result_analyzer, sql_executor
 from sql_agent.nodes import value_probe as probe
 from sql_agent.nodes.safety_validator import (
     check_sql_safety,
@@ -57,21 +58,6 @@ def test_safety_reads_the_statement_not_its_words(sql: str, status: str) -> None
     assert check_sql_safety(_state(**update)) == status
 
 
-def test_syntax_failure_routes_to_repair(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        syntax_validator,
-        "explain",
-        lambda sql, connector: {
-            "valid_syntax": False,
-            "error": "missing column",
-            "error_code": "42703",
-        },
-    )
-    update = syntax_validator.sql_syntax_validator(_state(sql_query="SELECT x"))
-    assert update["sql_syntax_status"] == "invalid"
-    assert syntax_validator.check_sql_syntax(_state(**update)) == "repair"
-
-
 def test_execution_failure_is_reported_with_its_sqlstate(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -119,6 +105,23 @@ def test_probe_lists_real_values_for_filtered_columns() -> None:
     assert "'BALI', 'BANTEN'" in update["retry_feedback"]
     assert connector.calls[0][1] == ["Bali"]
     assert '"provinsi"' in connector.calls[0][0]
+
+
+def test_parallel_probes_keep_filter_order() -> None:
+    class Slow(FakeConnector):
+        def execute(self, sql: str, parameters: list, timeout_s: float) -> pd.DataFrame:
+            # The first probe finishes last; lines must still follow the SQL.
+            time.sleep(0.2 if parameters == ["Bali"] else 0)
+            return pd.DataFrame({"v": [f"{parameters[0]}!"], "s": [1.0]})
+
+    sql = (
+        'SELECT count(*) FROM "iccn_dwh"."fact_partisipasi_program" '
+        "WHERE provinsi = 'Bali' AND nama_pendaftar = 'Ani'"
+    )
+    feedback = probe.value_probe(_state(sql_query=sql, connector=Slow([])))[
+        "retry_feedback"
+    ]
+    assert feedback.index("'Bali!'") < feedback.index("'Ani!'")
 
 
 def test_probe_skips_tables_the_query_does_not_read() -> None:

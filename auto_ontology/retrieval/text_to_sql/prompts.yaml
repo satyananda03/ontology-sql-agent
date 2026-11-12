@@ -1,35 +1,13 @@
-# CandidatePreparationAgent._filter_custom_analyses_by_relevance
-custom_analysis_relevance:
-  system_prompt: "You are a database domain expert that filters custom analyses."
-  user_prompt: |-
-    You are a database domain expert.
-    Given a user's question and retrieved custom analyses, decide which analyses
-    are NOT relevant to answering the question.
-
-    Rules:
-    - Only remove an analysis if you are confident it is NOT needed.
-    - When in doubt, keep it — it is safer to include an extra analysis
-      than to remove a necessary one.
-    - Consider both the analysis description AND its SQL when judging relevance.
-
-    User's question:
-    {question}
-
-    Retrieved custom analyses:
-    {analyses_summary}
-
-    Return the names of analyses to REMOVE. If unsure, return an empty list.
-
 # CandidatePreparationAgent._filter_tables_by_relevance. Sections fill the {domain_rules}... slots only when there is data for them.
 table_relevance:
-  system_prompt: "You are a database schema expert that filters candidate tables."
-  user_prompt: |-
-    You are a database schema expert.
-    Given a user's question and a list of candidate tables, decide which tables
-    are actually needed to answer the question.
+  system_prompt: |-
+    <role>
+    ROLE : You are a database schema expert that filters candidate tables.
+    </role>
 
-    Rules:
-    - Only remove tables you are confident are NOT needed in the SQL query.
+    <instructions>
+    Given a user's question and a list of candidate tables, decide which tables are actually needed to answer the question.
+
     - A table can be required even when none of its columns appear in the answer:
       joining it may restrict WHICH rows qualify (only schools that appear in
       frpm; only patients who have an examination record). "No column of mine is
@@ -37,26 +15,40 @@ table_relevance:
     - Before removing a table, confirm BOTH: (a) it supplies no column the answer
       needs, AND (b) removing it cannot change the set of rows that qualify.
       Report both per table — a table stays unless both hold.
+    - Provide brief reasoning (1-2 sentences), then for each table you want REMOVED
+      give its name together with both removal checks: whether it supplies no column
+      the answer needs, and whether removing it cannot change which rows qualify.
+      Verify the row-scoping check for each table separately before you answer it.
+    </instructions>
+
+    <constraints>
+    - CRITICAL : Only remove tables you are confident are NOT needed in the SQL query.
     - If table A must be joined through tables B and C to reach table D, do NOT
-      remove any table in the join chain (A, B, C, or D). The join paths below
+      remove any table in the join chain (A, B, C, or D). The join paths provided
       show real table connections. Keep the full bridges between tables that
       you deem relevant.
     - If a selected custom analysis references a table in its SQL, do NOT
       remove that table.
     - When in doubt, do NOT remove — it is safer to include an extra table
       than to remove a necessary one.
+    </constraints>
 
+  user_prompt: |-
+    <context>
     {domain_rules}{custom_analyses}{join_paths}{enriched_question}User's question:
     {question}
 
     Candidate tables:
     {tables_summary}
+    </context>
 
+    <tasks>
     Provide brief reasoning (1-2 sentences), then for each table you want REMOVED
     give its name together with both removal checks: whether it supplies no column
     the answer needs, and whether removing it cannot change which rows qualify.
-    State in its justification how you verified the row-scoping check.
+    Verify the row-scoping check for each table separately before you answer it.
     Only remove a table if you are confident it is not needed. When in doubt, do NOT remove.
+    </tasks>
   sections:
     domain_rules: |
       Domain-specific rules (use these to decide relevance):
@@ -65,46 +57,98 @@ table_relevance:
     join_paths: "Known join paths between candidate tables:\n{chains}\n\n"
     enriched_question: "The expanded question below is the same question with all formulas, thresholds, and terms resolved. Use it for context when deciding which tables are relevant.\nExpanded question:\n{question}\n\n"
 
-# CandidatePreparationAgent._identify_anchor
-anchor_column:
-  system_prompt: "You are identifying the primary column attribute that is the main focus of a user's analytical question."
-  user_prompt: |-
-    Question: {question}{evidence_block}
-
-    Available column attributes:
-    {attributes}
-
-    Return the id of the single column attribute that best represents the primary subject of the question. Map evidence concepts to the listed schema.table.column physical references, not to semantic attribute names.
-  sections:
-    evidence: "\n\nAuthoritative evidence:\n{evidence}"
-
 # candidates_retrieval._llm_filter_candidates
 candidate_filter:
   system_prompt: |-
-    You are filtering candidate {candidate_type} for relevance to a user question.
-    Keep only candidates that could meaningfully contribute to answering the question.
-    Remove any that share no common domain, idea, or intent with the question.
+    <role>
+    ROLE : You are filtering candidate {candidate_type} for relevance to a user question.
+    </role>
 
-    Return the list of IDs to KEEP. If none are relevant, return an empty list.
+    <instructions>
+    - Keep only candidates that could meaningfully contribute to answering the question.
+    - Remove any candidate that shares no common domain, idea, or intent with the question.
+    </instructions>
+
+    <constraints>
+    - CRITICAL NOTES : If none are relevant, return an empty list.
+    </constraints>
   user_prompt: |-
-    User question: {question}
-
-    Candidates:
+    <inputs>
+    <candidates>
     {candidates_block}
+    </candidates>
+
+    <user_question>
+    {question}
+    </user_question>
+    </inputs>
+
+    <tasks>
+    From the candidates above, return the list of IDs to KEEP.
+    </tasks>
 
 # candidates_retrieval._llm_filter_both
 combined_filter:
   system_prompt: |-
+    <role>
     You are filtering two sets of candidates for relevance to a user question.
-    Keep only candidates that could meaningfully contribute to answering the question.
-    Remove any that share no common domain, idea, or intent with the question.
+    </role>
 
-    Return the IDs to KEEP for each set separately. Use empty lists if none are relevant.
+    <instructions>
+    - Keep only candidates that could meaningfully contribute to answering the question.
+    - Remove any candidate that shares no common domain, idea, or intent with the question.
+    </instructions>
+
+    <constraints>
+    - Treat the two sets separately.
+    - If none in a set are relevant, use an empty list for that set.
+    </constraints>
   user_prompt: |-
-    User question: {question}
-
-    Custom analyses:
+    <inputs>
+    <custom_analyses>
     {custom_block}
+    </custom_analyses>
 
-    SQL attributes:
+    <sql_attributes>
     {sql_attr_block}
+    </sql_attributes>
+
+    <user_question>
+    {question}
+    </user_question>
+    </inputs>
+
+    <tasks>
+    From the candidates above, return the IDs to KEEP for each set separately: one list for the custom analyses and one list for the SQL attributes.
+    </tasks>
+
+# # candidates_retrieval._llm_filter_candidates
+# candidate_filter:
+#   system_prompt: |-
+#     You are filtering candidate {candidate_type} for relevance to a user question.
+#     Keep only candidates that could meaningfully contribute to answering the question.
+#     Remove any that share no common domain, idea, or intent with the question.
+
+#     Return the list of IDs to KEEP. If none are relevant, return an empty list.
+#   user_prompt: |-
+#     User question: {question}
+
+#     Candidates:
+#     {candidates_block}
+
+# # candidates_retrieval._llm_filter_both
+# combined_filter:
+#   system_prompt: |-
+#     You are filtering two sets of candidates for relevance to a user question.
+#     Keep only candidates that could meaningfully contribute to answering the question.
+#     Remove any that share no common domain, idea, or intent with the question.
+
+#     Return the IDs to KEEP for each set separately. Use empty lists if none are relevant.
+#   user_prompt: |-
+#     User question: {question}
+
+#     Custom analyses:
+#     {custom_block}
+
+#     SQL attributes:
+#     {sql_attr_block}

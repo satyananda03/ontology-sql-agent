@@ -11,7 +11,6 @@ class State(BaseModel):
 
     # ─── Request ───
     user_query: str
-    evidence: str = ""
     # ─── Ontology context (nodes/ontology_context.py) ───
     # auto_ontology's agent state. Its retrieval agents read and write it, and
     # semantic search reuses the tables they found.
@@ -29,7 +28,6 @@ class State(BaseModel):
     sql_query: str | None = None
     raw_sql_query: str | None = None
     sql_safety_status: Literal["safe", "unsafe"] | None = None
-    sql_syntax_status: Literal["valid", "invalid"] | None = None
     sql_execution_status: Literal["success", "failure"] | None = None
     sql_execution_result: dict[str, Any] | None = None
     # ─── Loop perbaikan (error & hasil kosong), lihat nodes/repair.py ───

@@ -1,12 +1,39 @@
 """Tests for term extraction sanitization."""
 
+import pytest
+
 from auto_ontology.semantic.models import (
     ColumnAttributeSpec,
     RawTableTermsResult,
     RawTermProposal,
     TermColumnRef,
 )
-from auto_ontology.semantic.term_extractor import _sanitize_result
+from auto_ontology.semantic.term_extractor import (
+    _fallback_result,
+    _normalize_label,
+    _sanitize_result,
+)
+
+
+@pytest.mark.parametrize(
+    ("label", "expected"),
+    [
+        ("Rata-rata Nilai", "Rata-Rata Nilai"),  # reduplication keeps its hyphen
+        ("Tanggal Pesanan", "Tanggal Pesanan"),
+        ("PurchaseOrder", "Purchase Order"),
+        ("tidak diketahui", "fallback"),
+        ("Unknown", "fallback"),
+        ("Jumlah (Rp)", "fallback"),
+        ("-Nilai", "fallback"),
+    ],
+)
+def test_normalize_label(label: str, expected: str) -> None:
+    assert _normalize_label(label, fallback="fallback") == expected
+
+
+def test_fallback_term_is_described_in_indonesian() -> None:
+    term = _fallback_result({"name": "dim_program"}, specs=[]).terms[0]
+    assert term.description == "Entitas bisnis yang diwakili tabel dim_program"
 
 
 def test_sanitize_uses_llm_display_names() -> None:

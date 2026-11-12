@@ -9,6 +9,7 @@ from auto_ontology.env import load_env
 
 import logging
 import os
+import threading
 
 logging.basicConfig(
     level=logging.INFO,
@@ -56,6 +57,11 @@ async def lifespan(_app: FastAPI):
     require_current_schema()
     # Raises when CONNECTION_STRINGS holds more than one database.
     source_connection_string()
+    if os.environ.get("SQL_AGENT_API_KEY"):
+        # Background: a slow DB or LLM endpoint must not hold up startup.
+        from sql_agent.service import warm_up
+
+        threading.Thread(target=warm_up, name="sql-agent-warm-up", daemon=True).start()
     try:
         yield
     finally:

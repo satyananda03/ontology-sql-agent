@@ -8,11 +8,15 @@ import threading
 import time
 import warnings
 import weakref
-from typing import Iterator, Type, TypeVar
+from typing import Any, Iterator, Type, TypeVar
 
 import requests as _requests
+from langchain_core.exceptions import OutputParserException
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
+from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.outputs import Generation
+from langchain_core.runnables import Runnable
 from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 
 from auto_ontology.utils.model_config import resolve
@@ -214,6 +218,11 @@ _NON_REASONING_MODEL_NAME = resolve("NON_REASONING", "MODEL")
 _NON_REASONING_API_KEY = resolve("NON_REASONING", "API_KEY")
 
 
+def _uses_chat_openai(model: str) -> bool:
+    """Whether ``_build_client`` serves *model* through ``ChatOpenAI``."""
+    return model.startswith(("openai/", "azure/", "aws/"))
+
+
 def _build_client(
     *,
     model: str,
@@ -221,14 +230,17 @@ def _build_client(
     base_url: str,
     temperature: float,
     max_tokens: int,
+    timeout: float | None = None,
 ) -> BaseChatModel:
     """Build a chat client for the given model/endpoint.
 
     OpenAI-family models (``openai/``, ``azure/``, ``aws/`` prefixes) go through
     ``ChatOpenAI``, which supports structured output. Everything else uses
-    ``ChatNVIDIA``.
+    ``ChatNVIDIA``. *timeout* (seconds per request) defaults to
+    ``LLM_INVOKE_TIMEOUT_S``.
     """
-    if model.startswith(("openai/", "azure/", "aws/")):
+    timeout = timeout or LLM_INVOKE_TIMEOUT_S
+    if _uses_chat_openai(model):
         from langchain_openai import ChatOpenAI
 
         return ChatOpenAI(
@@ -240,7 +252,7 @@ def _build_client(
             # temperature field, so the provider default applies.
             # temperature=temperature,
             max_tokens=max_tokens,
-            timeout=LLM_INVOKE_TIMEOUT_S,
+            timeout=timeout,
             max_retries=0,
         )
 
@@ -253,7 +265,7 @@ def _build_client(
         temperature=temperature,
         max_tokens=max_tokens,
     )
-    client._client.get_session_fn = lambda: _TimeoutSession(LLM_INVOKE_TIMEOUT_S)
+    client._client.get_session_fn = lambda: _TimeoutSession(timeout)
     return client
 
 
@@ -262,6 +274,7 @@ def get_llm_client(
     model: str | None = None,
     temperature: float = 0.0,
     max_tokens: int = 8192,
+    timeout: float | None = None,
 ) -> BaseChatModel:
     """Create an LLM client for the main reasoning model.
 
@@ -279,6 +292,7 @@ def get_llm_client(
         base_url=_BASE_URL,
         temperature=temperature,
         max_tokens=max_tokens,
+        timeout=timeout,
     )
 
 
@@ -287,6 +301,7 @@ def get_non_reasoning_llm_client(
     model: str | None = None,
     temperature: float = 0.0,
     max_tokens: int = 8192,
+    timeout: float | None = None,
 ) -> BaseChatModel:
     """Create an LLM client for the non-reasoning model.
 
@@ -308,6 +323,7 @@ def get_non_reasoning_llm_client(
         base_url=_NON_REASONING_BASE_URL,
         temperature=temperature,
         max_tokens=max_tokens,
+        timeout=timeout,
     )
     _remember_non_reasoning(client)
     return client
@@ -418,10 +434,14 @@ def _ensure_non_system_message(messages: list[BaseMessage]) -> list[BaseMessage]
     return converted
 
 
+def _model_name(llm: BaseChatModel) -> str:
+    """The model *llm* serves, whichever attribute its client class keeps it in."""
+    return str(getattr(llm, "model_name", "") or getattr(llm, "model", "") or "")
+
+
 def _is_claude(llm: BaseChatModel) -> bool:
     """True when *llm* serves an Anthropic/Claude model, matched by name."""
-    model = str(getattr(llm, "model_name", "") or getattr(llm, "model", "") or "")
-    lowered = model.lower()
+    lowered = _model_name(llm).lower()
     return "anthropic" in lowered or "claude" in lowered
 
 
@@ -478,6 +498,52 @@ def _structured_output_kwargs(llm: BaseChatModel) -> dict:
     if _is_claude(llm):
         return {"method": "function_calling", "tool_choice": None}
     return {}
+
+
+def _send_nim_params() -> bool:
+    """Whether the chat endpoint is a NIM, which honours NVIDIA's ``guided_json``."""
+    return os.environ.get("LLM_SEND_NIM_PARAMS", "").strip().lower() != "false"
+
+
+class _ParseOrNone(PydanticOutputParser[Any]):
+    """Parse the reply into the schema, or ``None`` when it does not fit.
+
+    ``None`` is the signal ``safe_invoke_with_structured_output`` retries on,
+    and the one ChatNVIDIA's own structured-output parser gives.
+    """
+
+    def parse_result(self, result: list[Generation], *, partial: bool = False) -> Any:
+        try:
+            return super().parse_result(result, partial=partial)
+        except OutputParserException:
+            return None
+
+
+def _structured_llm(llm: BaseChatModel, schema: Type[T]) -> Runnable:
+    """*llm* bound to answer with *schema*.
+
+    ChatNVIDIA asks an endpoint that is not NVIDIA's own with ``guided_json``
+    twice before the OpenAI ``response_format``. A gateway that is not a NIM
+    ignores ``guided_json`` and answers in prose, so every call paid for two
+    discarded generations first (measured: 17s, 11s of it discarded).
+    ``LLM_SEND_NIM_PARAMS=false`` asks with the format that works straight away.
+
+    Claude and the ``ChatOpenAI`` models keep the library's own path: they never
+    sent ``guided_json``, and Claude rejects ``response_format``.
+    """
+    if _send_nim_params() or _is_claude(llm) or _uses_chat_openai(_model_name(llm)):
+        return llm.with_structured_output(schema, **_structured_output_kwargs(llm))
+    response_format = {
+        "type": "json_schema",
+        "json_schema": {
+            "name": schema.__name__,
+            "schema": schema.model_json_schema(),
+            "strict": True,
+        },
+    }
+    return llm.bind(response_format=response_format) | _ParseOrNone(
+        pydantic_object=schema
+    )
 
 
 def _invoke_text_once(llm: BaseChatModel, prompt: str) -> str:
@@ -564,17 +630,15 @@ def safe_invoke_with_structured_output(
     """LLM structured call with retry."""
     current_messages = _ensure_non_system_message(messages.copy())
     schema_name = getattr(schema, "__name__", str(schema))
-    structured_kwargs = _structured_output_kwargs(llm)
 
     for attempt in range(RETRY_MAX_ATTEMPTS):
         try:
-            model_llm = llm.with_structured_output(schema, **structured_kwargs)
+            model_llm = _structured_llm(llm, schema)
             with _inflight_guard():
                 result = model_llm.invoke(_system_messages_first(llm, current_messages))
         except _requests.exceptions.ReadTimeout:
             logger.error(
-                "LLM invoke timed out after %ds on attempt %d/%d for %s",
-                LLM_INVOKE_TIMEOUT_S,
+                "LLM invoke timed out on attempt %d/%d for %s",
                 attempt + 1,
                 RETRY_MAX_ATTEMPTS,
                 schema_name,
@@ -663,6 +727,7 @@ def invoke_with_structured_output(
     on the reasoning model. Reasoning clients are not retried on a second model.
     """
     schema_name = getattr(schema, "__name__", str(schema))
+    started = time.perf_counter()
     try:
         return safe_invoke_with_structured_output(llm, messages, schema)
     except Exception as e:
@@ -685,6 +750,9 @@ def invoke_with_structured_output(
             exc_info=True,
         )
         return None
+    finally:
+        # Wall time including retries and fallback: what the caller waited.
+        logger.info("[TIMING] llm %s %.2fs", schema_name, time.perf_counter() - started)
 
 
 def safe_invoke_text_nr(prompt: str) -> str:

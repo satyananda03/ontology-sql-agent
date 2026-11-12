@@ -4,9 +4,15 @@
 """Helper query untuk node-node SQL agent."""
 
 import json
+import logging
 import os
 import re
+import time
+from collections.abc import Callable
+from functools import wraps
 from typing import Any, Literal
+
+logger = logging.getLogger(__name__)
 
 _FENCE_RE = re.compile(
     r"```[ \t]*[A-Za-z0-9_+-]*[ \t]*\r?\n(?P<body>.*?)(?:\r?\n[ \t]*```|$)",
@@ -93,3 +99,28 @@ def format_query_results_for_llm(
 def max_rows() -> int:
     """Rows handed to the calling agent; the rest are counted, not shown."""
     return int(os.environ.get("SQL_AGENT_MAX_ROWS") or 200)
+
+
+def llm_timeout_s() -> float:
+    """Per-request LLM timeout for this tool, well under the route's 120s budget.
+
+    The shared ``LLM_INVOKE_TIMEOUT_S`` (120s) is sized for the chat agent; one
+    hung call at that size alone uses the whole budget of a tool call.
+    """
+    # ponytail: retries (3x) and the reasoning fallback (shared timeout) still
+    # multiply this; a run-wide deadline is the upgrade if runs overshoot.
+    return float(os.environ.get("SQL_AGENT_LLM_TIMEOUT_S") or 45)
+
+
+def timed(name: str, step: Callable[[Any], Any]) -> Callable[[Any], Any]:
+    """Log how long *step* takes, so latency can be attributed per step."""
+
+    @wraps(step)
+    def run(state: Any) -> Any:
+        started = time.perf_counter()
+        try:
+            return step(state)
+        finally:
+            logger.info(f"[TIMING] {name} {time.perf_counter() - started:.2f}s")
+
+    return run

@@ -27,9 +27,9 @@ def test_retrieval_runs_the_steps_in_order(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr(retrieval, "RETRIEVAL_STEPS", (step("a"), step("b")))
     monkeypatch.setattr(retrieval, "build_state", build_state)
 
-    state = retrieval.retrieve("q", evidence="rule")
+    state = retrieval.retrieve("q")
 
-    assert requests == [{"question": "q", "evidence": "rule"}]
+    assert requests == [{"question": "q"}]
     assert ran == ["a", "b"]
     assert state["path_state"] == {"processing_question": "q", "a": True, "b": True}
     assert state["decision"] == "b"
@@ -60,10 +60,9 @@ def _build_state(
 def test_state_carries_what_the_retrieval_agents_read(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    state = _build_state(monkeypatch, [_Connector("iccn")], evidence="rule")
+    state = _build_state(monkeypatch, [_Connector("iccn")])
 
     assert state["initial_question"] == "berapa peserta?"
-    assert state["evidence"] == "rule"
     assert state["path_state"] == {
         "processing_question": "berapa peserta?",
         "target_db": "iccn",
@@ -75,3 +74,41 @@ def test_state_carries_what_the_retrieval_agents_read(
 def test_no_connection_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(ValueError, match="No database connection"):
         _build_state(monkeypatch, [])
+
+
+@pytest.mark.parametrize(
+    ("configured", "pool"), [(None, 10), ("25", 25), ("0", None), ("", 10)]
+)
+def test_rerank_pool_comes_from_the_environment(
+    monkeypatch: pytest.MonkeyPatch, configured: str | None, pool: int | None
+) -> None:
+    if configured is None:
+        monkeypatch.delenv("SQL_AGENT_RERANK_POOL", raising=False)
+    else:
+        monkeypatch.setenv("SQL_AGENT_RERANK_POOL", configured)
+    assert retrieval.rerank_pool() == pool
+
+
+class _Retriever:
+    def __init__(self) -> None:
+        self.queries: list[tuple[str, int]] = []
+
+    def query(self, text: str, top_k: int) -> list[dict[str, Any]]:
+        self.queries.append((text, top_k))
+        return []
+
+
+def test_warm_up_runs_one_search_on_each_vector_store(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Building a retriever opens nothing; only a query connects its pool.
+    semantic, data = _Retriever(), _Retriever()
+    monkeypatch.setattr(
+        retrieval,
+        "build_state",
+        lambda _question: {"semantic_retriever": semantic, "data_retriever": data},
+    )
+
+    retrieval.warm_up()
+
+    assert semantic.queries == data.queries == [("warm up", 1)]

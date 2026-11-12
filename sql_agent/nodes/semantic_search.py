@@ -22,10 +22,8 @@ _search_rows = agent_wrapper(SemanticRowsAgent())
 
 
 def semantic_search(state: State) -> dict[str, Any]:
-    # Empty evidence: the node appends its instructions to whatever it is given,
-    # and only those instructions belong in the semantic block.
-    update = _search_rows({**state.ontology, "evidence": ""})
-    context = update.get("evidence") or ""
+    update = _search_rows(state.ontology)
+    context = update.get("semantic_instructions") or ""
     ids = update.get("path_state", {}).get("semantic_ids") or {}
     if not context:
         return {"semantic_context": "", "semantic_ids": {}}

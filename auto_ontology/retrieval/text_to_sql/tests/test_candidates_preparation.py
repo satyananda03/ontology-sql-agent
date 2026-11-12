@@ -8,64 +8,11 @@ from auto_ontology.retrieval.text_to_sql.agents.candidates_preparation import (
     CandidatePreparationAgent,
 )
 from auto_ontology.retrieval.text_to_sql.models import (
-    AnchorColumnModel,
     TableRelevanceModel,
     TableRemovalModel,
 )
 from auto_ontology.retrieval.text_to_sql.prompts import SQL_GEN_MAX_ENTITIES
 from auto_ontology.retrieval.text_to_sql.state import AgentState
-
-
-def test_anchor_maps_evidence_to_schema_table_column(
-    monkeypatch,
-) -> None:
-    captured: dict = {}
-
-    class FakeLlm:
-        def bind(self, **_kwargs):
-            return self
-
-    def fake_invoke(_llm, messages, _model):
-        captured["prompt"] = messages[-1].content
-        return AnchorColumnModel(anchor_id="frpm", reasoning="Evidence matches")
-
-    monkeypatch.setattr(
-        candidates_preparation, "invoke_with_structured_output", fake_invoke
-    )
-    state = cast(
-        AgentState,
-        {
-            "llm": FakeLlm(),
-            "evidence": "eligible rate = FRPM / Enrollment",
-        },
-    )
-    contexts = {
-        "frpm": {
-            "attr_name": "FRPM Count (K-12)",
-            "schema_name": "main",
-            "table_name": "frpm",
-            "col_name": "frpm_count_k12",
-            "attr_description": "Eligible meal-program students.",
-        },
-        "enrollment": {
-            "attr_name": "Enrollment (K-12)",
-            "schema_name": "main",
-            "table_name": "frpm",
-            "col_name": "enrollment_k12",
-            "attr_description": "K-12 student enrollment.",
-        },
-    }
-
-    anchor_id, _ = CandidatePreparationAgent()._identify_anchor(
-        state, "Which school has the highest eligible rate?", contexts
-    )
-
-    assert anchor_id == "frpm"
-    assert "Authoritative evidence:" in captured["prompt"]
-    assert "main.frpm.frpm_count_k12" in captured["prompt"]
-    assert "main.frpm.enrollment_k12" in captured["prompt"]
-    assert "FRPM Count (K-12)" not in captured["prompt"]
-    assert "schema.table.column physical references" in captured["prompt"]
 
 
 def test_column_metadata_backfill_requires_samples_nullability_and_semantic_fk() -> (
@@ -299,6 +246,24 @@ def test_a_table_two_searches_return_merges_the_same_way_whichever_finishes_firs
     assert out[0]["description"] == "found by q"
 
 
+def test_extra_table_search_gets_the_agents_rerank_pool(monkeypatch) -> None:
+    pools: list[object] = []
+
+    def fake_get_relevant_tables(retriever, query, **kwargs) -> list[dict]:
+        pools.append(kwargs["rerank_pool"])
+        return []
+
+    monkeypatch.setattr(
+        candidates_preparation, "get_relevant_tables", fake_get_relevant_tables
+    )
+
+    CandidatePreparationAgent(rerank_pool=7)._retrieve_additional_tables(
+        object(), "q", ["e1"], "db"
+    )
+
+    assert pools == [7, 7]
+
+
 def test_additional_table_retrieve_starts_before_anchor_returns(monkeypatch) -> None:
     retrieve_started = threading.Event()
     release_retrieve = threading.Event()
@@ -309,10 +274,10 @@ def test_additional_table_retrieve_starts_before_anchor_returns(monkeypatch) -> 
         assert release_retrieve.wait(timeout=2)
         return [{"id": "extra", "name": "extra", "database_name": "db"}]
 
-    def fake_anchor(self, state, question, contexts):
+    def fake_anchor(self, state, contexts):
         retrieve_was_running.append(retrieve_started.wait(timeout=2))
         release_retrieve.set()
-        return "a1", "anchor reason"
+        return "a1"
 
     monkeypatch.setattr(
         CandidatePreparationAgent, "_retrieve_additional_tables", fake_retrieve
@@ -639,6 +604,23 @@ def test_the_table_an_anchor_points_at_reaches_the_relevance_filter(
 # --------------------------------------------------------------------------
 
 
+def test_a_zero_hub_sibling_cap_keeps_the_hub_without_searching(monkeypatch) -> None:
+    def unexpected(*_args, **_kwargs):
+        raise AssertionError("nothing survives a cap of zero, so nothing is ranked")
+
+    monkeypatch.setattr(candidates_preparation, "search_semantic_index", unexpected)
+    hub = {"id": "hub", "is_hub": True}
+    siblings = [{"id": "sibling-1"}, {"id": "sibling-2"}]
+    state = cast(AgentState, {"data_retriever": object()})
+
+    kept, truncated = CandidatePreparationAgent()._rank_and_cap_hub_siblings(
+        state, ["member"], "iccn", [hub, *siblings], cap=0
+    )
+
+    assert kept == [hub]
+    assert truncated == 2
+
+
 def _table(name: str) -> dict:
     return {
         "id": name,
@@ -659,7 +641,6 @@ def _removal(
         table=table,
         supplies_no_needed_column=no_column,
         cannot_change_qualifying_rows=cannot_change_rows,
-        justification="checked both",
     )
 
 

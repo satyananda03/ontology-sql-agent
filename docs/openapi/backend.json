@@ -3610,12 +3610,6 @@
       },
       "SqlAgentQuery": {
         "properties": {
-          "evidence": {
-            "default": "",
-            "maxLength": 8000,
-            "title": "Evidence",
-            "type": "string"
-          },
           "question": {
             "maxLength": 4000,
             "minLength": 1,

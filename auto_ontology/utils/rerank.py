@@ -47,7 +47,13 @@ def _ranking_url(endpoint: str) -> str:
 
 
 def _scores(
-    query: str, documents: list[str], *, url: str, model_name: str, api_key: str
+    query: str,
+    documents: list[str],
+    *,
+    url: str,
+    model_name: str,
+    api_key: str,
+    timeout_s: float,
 ) -> list[float]:
     """One score per document, higher is better; ``-inf`` for any not returned."""
     v1 = url.endswith("/rerank")
@@ -69,7 +75,7 @@ def _scores(
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
 
-    response = httpx.post(url, json=payload, headers=headers, timeout=_TIMEOUT_S)
+    response = httpx.post(url, json=payload, headers=headers, timeout=timeout_s)
     response.raise_for_status()
     data = response.json()
 
@@ -97,11 +103,13 @@ def rerank_hits(
     api_key: str = "",
     top_n: int | None = None,
     text_key: str = "text",
+    timeout_s: float = _TIMEOUT_S,
 ) -> list[dict[str, Any]]:
     """*hits* sorted by relevance to *query*, best first, each with ``_rerank_score``.
 
     A hit that already carries ``_rerank_score`` keeps it. Ties keep their
-    input order. Raises on an endpoint error; the caller picks the fallback.
+    input order. Raises on an endpoint error or after *timeout_s*; the caller
+    picks the fallback.
     """
     if not hits:
         return hits
@@ -111,6 +119,7 @@ def rerank_hits(
         url=_ranking_url(rerank_invoke_url),
         model_name=model_name,
         api_key=api_key,
+        timeout_s=timeout_s,
     )
     ranked = sorted(
         ({"_rerank_score": score, **hit} for hit, score in zip(hits, scores)),

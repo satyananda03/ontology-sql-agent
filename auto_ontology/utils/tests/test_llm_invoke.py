@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from langchain_core.language_models.fake_chat_models import FakeListChatModel
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from pydantic import BaseModel
 
@@ -493,3 +494,72 @@ def test_missing_reasoning_client_keeps_the_original_failure(monkeypatch: Any) -
     monkeypatch.setattr(llm_invoke, "get_llm_client", unavailable)
 
     assert llm_invoke.invoke_with_structured_output(primary, [], _Schema) is None
+
+
+class _Answer(BaseModel):
+    answer: str
+
+
+class _RecordingChat(FakeListChatModel):
+    """A chat model that replays canned replies and keeps each request's kwargs."""
+
+    seen: list[dict[str, Any]] = []
+
+    def _call(self, *args: Any, **kwargs: Any) -> str:
+        self.seen.append(kwargs)
+        return super()._call(*args, **kwargs)
+
+
+def test_a_gateway_that_is_not_a_nim_is_asked_once_with_response_format(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("LLM_SEND_NIM_PARAMS", "false")
+    llm = _RecordingChat(responses=['{"answer": "ok"}'])
+
+    result = llm_invoke.safe_invoke_with_structured_output(
+        llm, [HumanMessage(content="question")], _Answer
+    )
+
+    assert result == _Answer(answer="ok")
+    assert len(llm.seen) == 1
+    assert llm.seen[0]["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "_Answer",
+            "schema": _Answer.model_json_schema(),
+            "strict": True,
+        },
+    }
+
+
+def test_a_reply_that_does_not_fit_the_schema_is_none(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # None is what the retry loop acts on; an exception would skip the retries.
+    monkeypatch.setenv("LLM_SEND_NIM_PARAMS", "false")
+    llm = _RecordingChat(responses=["The answer is ok."])
+
+    assert llm_invoke._structured_llm(llm, _Answer).invoke("question") is None
+
+
+@pytest.mark.parametrize(
+    ("send_nim_params", "model"),
+    [
+        (None, "meta/llama-3.1-70b-instruct"),  # a NIM: the default
+        ("false", "claude-3-5-sonnet"),  # rejects response_format
+        ("false", "openai/gpt-5"),  # ChatOpenAI never sent guided_json
+    ],
+)
+def test_other_clients_keep_the_librarys_own_structured_output(
+    monkeypatch: pytest.MonkeyPatch, send_nim_params: str | None, model: str
+) -> None:
+    if send_nim_params is None:
+        monkeypatch.delenv("LLM_SEND_NIM_PARAMS", raising=False)
+    else:
+        monkeypatch.setenv("LLM_SEND_NIM_PARAMS", send_nim_params)
+    llm = MagicMock(model_name=model)
+
+    llm_invoke._structured_llm(llm, _Answer)
+
+    llm.with_structured_output.assert_called_once()
+    llm.bind.assert_not_called()

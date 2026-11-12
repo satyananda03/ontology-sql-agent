@@ -21,8 +21,18 @@ from auto_ontology.semantic.models import (
     TermProposal,
 )
 
-_INVALID = {"unnamed", "unknown", "none", ""}
-_LABEL_RE = re.compile(r"^[A-Z][A-Za-z0-9]*(?: [A-Za-z][A-Za-z0-9]*)*$")
+_INVALID = {
+    "unnamed",
+    "unknown",
+    "none",
+    "",
+    "tanpa nama",
+    "tidak diketahui",
+    "tidak ada",
+}
+# A hyphen may join words: Indonesian reduplication ("Rata-rata") is one word, and
+# rejecting it would replace a good label with one derived from the physical name.
+_LABEL_RE = re.compile(r"^[A-Z][A-Za-z0-9]*(?:[ -][A-Za-z][A-Za-z0-9]*)*$")
 
 _PROMPTS_FILE = Path(__file__).with_name("prompts.yaml")
 _PROMPT = load_chat_prompt_template(_PROMPTS_FILE, "term_extractor")
@@ -48,7 +58,8 @@ def _normalize_label(name: str, *, fallback: str) -> str:
     cleaned = name.strip()
     if cleaned.lower() in _INVALID or not _LABEL_RE.match(cleaned):
         return fallback
-    return to_term_name(cleaned)
+    # to_term_name splits on every non-alphanumeric, so apply it between hyphens.
+    return "-".join(to_term_name(piece) for piece in cleaned.split("-"))
 
 
 def _format_spec_line(spec: ColumnAttributeSpec) -> str:
@@ -88,7 +99,7 @@ def _fallback_result(
         terms=[
             TermProposal(
                 name=name,
-                description=f"Business entity represented by table {table['name']}",
+                description=f"Entitas bisnis yang diwakili tabel {table['name']}",
                 attributes=attributes,
             )
         ]

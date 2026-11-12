@@ -3,6 +3,7 @@
 
 import logging
 import re
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Literal
 
 import sqlglot
@@ -17,6 +18,8 @@ MAX_PROBES = 5
 PROBE_LIMIT = 15
 PROBE_VALUE_CHARS = 100
 PROBE_TIMEOUT_S = 10.0
+# Probes run in parallel, bounded by the connector pool (max_size=4).
+PROBE_WORKERS = 4
 _TEXT_PREDICATES = (exp.EQ, exp.NEQ, exp.Like, exp.ILike, exp.In)
 
 
@@ -74,11 +77,15 @@ def value_probe(state: State) -> dict[str, Any]:
     logger.info("Value Probe")
     lines = []
     try:
-        for table, col, literal in _probe_targets(state):
-            values = ", ".join(
-                f"'{_clip(v)}'"
-                for v in _closest_values(state.connector, table, col, literal)
+        targets = _probe_targets(state)
+        with ThreadPoolExecutor(
+            max_workers=min(len(targets), PROBE_WORKERS) or 1
+        ) as pool:
+            found = list(
+                pool.map(lambda t: _closest_values(state.connector, *t), targets)
             )
+        for (table, col, literal), closest in zip(targets, found, strict=True):
+            values = ", ".join(f"'{_clip(v)}'" for v in closest)
             lines.append(
                 f'- "{table.get("schema_name")}"."{table["name"]}"."{col}" '
                 f"(dicari: '{literal}'): {values or '(kolom kosong)'}"

@@ -18,6 +18,10 @@ class TableRemovalModel(BaseModel):
     provenance alone and stops there, which is exactly the blind spot.
     ``candidates_preparation`` enforces the two flags rather than trusting
     the prose, so a removal the model cannot justify is not applied.
+
+    No sentence is asked for per table: only the flags are enforced, and a
+    sentence for every removed table made the reply, and the wait for it,
+    grow with each table removed (about half of an 800-token reply).
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -41,13 +45,6 @@ class TableRemovalModel(BaseModel):
             "none of that table's columns are returned."
         ),
     )
-    justification: str = Field(
-        ...,
-        description=(
-            "One sentence stating how you verified the two flags above, "
-            "naming the row-scoping check explicitly."
-        ),
-    )
 
 
 class TableRelevanceModel(BaseModel):
@@ -65,21 +62,6 @@ class TableRelevanceModel(BaseModel):
             "Tables that can be safely removed, each with its removal checks. "
             "Leave EMPTY [] if unsure or none should be removed."
         ),
-    )
-
-
-class CustomAnalysisRelevanceModel(BaseModel):
-    """LLM output for custom analysis relevance filtering."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    reasoning: str = Field(
-        ...,
-        description="Brief reasoning (1-2 sentences max) on which custom analyses are relevant.",
-    )
-    analyses_to_remove: list[str] = Field(
-        ...,
-        description="Names of custom analyses that can be safely removed. Leave empty if unsure.",
     )
 
 
@@ -116,16 +98,4 @@ class CombinedCandidateFilterModel(BaseModel):
     sql_attribute_ids: list[str] = Field(
         ...,
         description="IDs of SQL attributes to KEEP. Empty list if none are relevant.",
-    )
-
-
-class AnchorColumnModel(BaseModel):
-    """LLM output for identifying the primary ColumnAttribute for the question."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    reasoning: str = Field(..., description="Brief reasoning (1-2 sentences max).")
-    anchor_id: str | None = Field(
-        ...,
-        description="The id of the ColumnAttribute that is the primary focus of the question.",
     )

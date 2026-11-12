@@ -50,10 +50,9 @@ class FakeConnector:
         return self.frame
 
 
-def _state(connector: FakeConnector, evidence: str = "") -> dict[str, Any]:
+def _state(connector: FakeConnector) -> dict[str, Any]:
     return {
         "llm": object(),
-        "evidence": evidence,
         "connectors": [connector],
         "initial_question": "siapa peneliti pariwisata",
         "path_state": {"relevant_tables": [TABLE]},
@@ -76,7 +75,7 @@ def _stub(
     monkeypatch.setattr(module, "invoke_with_structured_output", invoke)
     monkeypatch.setattr(module, "get_embed_params", lambda: None)
     monkeypatch.setattr(
-        module, "embed_texts", lambda texts, *_: [[0.1, 0.2] for _ in texts]
+        module, "embed_texts", lambda texts, *_, **__: [[0.1, 0.2] for _ in texts]
     )
     monkeypatch.setattr(
         module, "rerank_hits", lambda query, rows, **_: rows[: module.VERIFY_K]
@@ -104,19 +103,18 @@ def test_no_llm_call_without_searchable_columns(
     state["path_state"]["relevant_tables"] = [
         {**TABLE, "columns": TABLE["columns"][:2]}
     ]
-    assert "evidence" not in SemanticRowsAgent().execute(state)
+    assert "semantic_instructions" not in SemanticRowsAgent().execute(state)
     assert schemas == []
 
 
-def test_matches_become_a_placeholder_and_evidence(
+def test_matches_become_a_placeholder_and_instructions(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _stub(monkeypatch, [FILTER], [2, 1, 2, 99])
     connector = FakeConnector([7, 8, 9])
-    result = SemanticRowsAgent().execute(_state(connector, evidence="rule"))
+    result = SemanticRowsAgent().execute(_state(connector))
     assert result["path_state"]["semantic_ids"] == {"__SEMANTIC_1__": "8, 7"}
-    assert result["evidence"].startswith("rule\n\n")
-    assert '"riset"."detail_id" IN (__SEMANTIC_1__)' in result["evidence"]
+    assert '"riset"."detail_id" IN (__SEMANTIC_1__)' in result["semantic_instructions"]
     assert connector.calls[0][1][1] == module.RECALL_K
     assert '"topik_vector" <=> %s::vector' in connector.calls[0][0]
 
@@ -127,7 +125,7 @@ def test_invented_column_never_reaches_sql(monkeypatch: pytest.MonkeyPatch) -> N
     connector = FakeConnector([1])
     result = SemanticRowsAgent().execute(_state(connector))
     assert connector.calls == []
-    assert "evidence" not in result
+    assert "semantic_instructions" not in result
 
 
 def test_no_match_yields_an_empty_id_list(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -141,13 +139,13 @@ def test_search_failure_falls_back_to_keywords(
 ) -> None:
     _stub(monkeypatch, [FILTER], [])
 
-    def fail(*_: Any) -> None:
+    def fail(*_: Any, **__: Any) -> None:
         raise RuntimeError("embedding endpoint down")
 
     monkeypatch.setattr(module, "embed_texts", fail)
     result = SemanticRowsAgent().execute(_state(FakeConnector([1])))
     assert result["path_state"]["semantic_ids"] == {}
-    assert 'filter "riset"."topik" with ILIKE' in result["evidence"]
+    assert 'filter "riset"."topik" with ILIKE' in result["semantic_instructions"]
 
 
 def test_all_reviewed_matching_at_the_limit_is_flagged(

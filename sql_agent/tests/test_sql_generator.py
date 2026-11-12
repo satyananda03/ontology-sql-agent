@@ -114,8 +114,11 @@ def test_filter_columns_are_left_alone_when_not_needed(sql: str) -> None:
 def test_semantic_matches_and_fallback_are_tagged(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def rows(ids: dict[str, str], evidence: str) -> Any:
-        return lambda state: {"path_state": {"semantic_ids": ids}, "evidence": evidence}
+    def rows(ids: dict[str, str], instructions: str) -> Any:
+        return lambda state: {
+            "path_state": {"semantic_ids": ids},
+            "semantic_instructions": instructions,
+        }
 
     monkeypatch.setattr(
         semantic_search, "_search_rows", rows({"__SEMANTIC_1__": "1"}, "m")
@@ -131,19 +134,3 @@ def test_semantic_matches_and_fallback_are_tagged(
     assert (
         semantic_search.semantic_search(State(user_query="q"))["semantic_context"] == ""
     )
-
-
-def test_semantic_search_never_sees_the_callers_evidence(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    seen: list[str] = []
-
-    def search(state: dict[str, Any]) -> dict[str, Any]:
-        seen.append(state["evidence"])
-        return {"path_state": {}}
-
-    monkeypatch.setattr(semantic_search, "_search_rows", search)
-    semantic_search.semantic_search(
-        State(user_query="q", ontology={"evidence": "rule"})
-    )
-    assert seen == [""]

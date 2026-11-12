@@ -5,6 +5,7 @@ import pytest
 from auto_ontology.retrieval.text_to_sql.agents import candidates_retrieval
 from auto_ontology.retrieval.text_to_sql.agents.candidates_retrieval import (
     CandidateRetrievalAgent,
+    _dedupe_best_score,
     _select_candidate_database,
 )
 from auto_ontology.retrieval.text_to_sql.state import AgentState
@@ -37,7 +38,6 @@ def _state(
     entities: list[str],
     *,
     target_db: str | None = None,
-    evidence: str | None = None,
 ) -> AgentState:
     path_state: dict[str, Any] = {"entities": entities}
     if target_db is not None:
@@ -48,8 +48,6 @@ def _state(
         "path_state": path_state,
         "semantic_retriever": object(),
     }
-    if evidence is not None:
-        state["evidence"] = evidence
     return cast(AgentState, state)
 
 
@@ -120,6 +118,7 @@ def test_unscoped_retrieval_filters_database_and_backfills_entities(
         label: str,
         _k: int,
         database_name: str | None = None,
+        rerank_pool: int | None = None,
     ) -> list[dict]:
         calls.append((entity, label, database_name))
         if database_name == "db-a":
@@ -237,6 +236,7 @@ def test_bridge_sourced_sql_attrs_skip_llm_filter_but_custom_still_filtered(
         label: str,
         _k: int,
         database_name: str | None = None,
+        rerank_pool: int | None = None,
     ) -> list[dict]:
         if label == LABEL_SQL_ATTRIBUTE:
             return [_hit("bridge-1", "db-a", 0.1, source="bridgeTable")]
@@ -285,6 +285,7 @@ def test_explicit_target_db_preserves_existing_search_behavior(
         label: str,
         _k: int,
         database_name: str | None = None,
+        rerank_pool: int | None = None,
     ) -> list[dict]:
         calls.append((entity, label, database_name))
         return [_hit(f"{label}-{entity}", "db-a", 0.2)]
@@ -307,42 +308,42 @@ def test_explicit_target_db_preserves_existing_search_behavior(
     assert len(result["path_state"]["retrieved_column_attributes"]) == 2
 
 
-def test_full_evidence_adds_column_attribute_vector_results(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize("rerank_pool", [None, 10])
+def test_every_search_gets_the_agents_rerank_pool(
+    monkeypatch: pytest.MonkeyPatch, rerank_pool: int | None
 ) -> None:
-    evidence = "Eligible rate equals eligible count divided by total enrollment."
-    calls: list[tuple[str, str, int, str | None]] = []
+    pools: list[int | None] = []
 
     def fake_search(
         _retriever: object,
-        query: str,
+        entity: str,
         label: str,
-        k: int,
+        _k: int,
         database_name: str | None = None,
+        rerank_pool: int | None = None,
     ) -> list[dict]:
-        calls.append((query, label, k, database_name))
-        if label == LABEL_COLUMN_ATTRIBUTE:
-            score = 0.1 if query == evidence else 0.2
-            return [_hit("eligible-rate", "db-a", score)]
+        pools.append(rerank_pool)
         return []
 
     monkeypatch.setattr(candidates_retrieval, "_search_by_label", fake_search)
-    monkeypatch.setattr(
-        candidates_retrieval,
-        "_llm_filter_both",
-        lambda _llm, _question, custom, sql: (custom, sql),
-    )
-    monkeypatch.setattr(
-        candidates_retrieval, "custom_analysis_exists", lambda *_: False
+    monkeypatch.setattr(candidates_retrieval, "custom_analysis_exists", lambda *_: True)
+
+    CandidateRetrievalAgent(rerank_pool=rerank_pool).execute(
+        _state(["revenue"], target_db="db-a")
     )
 
-    result = CandidateRetrievalAgent().execute(
-        _state(["eligible rate"], target_db="db-a", evidence=evidence)
-    )
+    assert pools == [rerank_pool] * 3  # custom analyses, SQL attributes, one entity
 
-    assert (evidence, LABEL_COLUMN_ATTRIBUTE, 3, "db-a") in calls
-    hits = result["path_state"]["retrieved_column_attributes"]
-    assert len(hits) == 1
-    assert hits[0]["id"] == "eligible-rate"
-    assert hits[0]["query_evidence"] == evidence
-    assert hits[0]["query_entities"] == ["eligible rate"]
+
+def test_a_perfect_zero_distance_hit_ranks_first_and_survives_dedupe() -> None:
+    # Cosine distance 0.0 is the best match, not a missing score.
+    hits = [
+        _hit("near", "db-a", 0.2),
+        _hit("exact", "db-a", 0.0),
+        _hit("exact", "db-a", 0.3),
+    ]
+
+    deduped = _dedupe_best_score(hits)
+
+    assert [h["id"] for h in deduped] == ["exact", "near"]
+    assert deduped[0]["score"] == 0.0

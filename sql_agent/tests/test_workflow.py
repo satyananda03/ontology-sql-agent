@@ -18,11 +18,10 @@ class FakeNodes:
     def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
         self.visits: list[str] = []
         self.tables: list[str] = ["t"]
-        self.syntax: list[dict[str, Any]] = [{"sql_syntax_status": "valid"}]
-        self.results: list[list[dict]] = [ROWS]
+        # Each item is rows on success, or an error update for a failed run.
+        self.results: list[list[dict] | dict[str, Any]] = [ROWS]
         for name in ("ontology_context", "semantic_search", "sql_generator"):
             monkeypatch.setattr(workflow, name, getattr(self, name))
-        monkeypatch.setattr(workflow, "sql_syntax_validator", self.sql_syntax_validator)
         monkeypatch.setattr(workflow, "sql_executor", self.sql_executor)
         monkeypatch.setattr(workflow, "value_probe", self.value_probe)
 
@@ -42,11 +41,10 @@ class FakeNodes:
             "raw_sql_query": "SELECT nama FROM t",
         }
 
-    def sql_syntax_validator(self, state: State) -> dict[str, Any]:
-        return self.syntax.pop(0) if len(self.syntax) > 1 else self.syntax[0]
-
     def sql_executor(self, state: State) -> dict[str, Any]:
         rows = self.results.pop(0) if len(self.results) > 1 else self.results[0]
+        if isinstance(rows, dict):
+            return {"sql_execution_status": "failure", **rows}
         return {
             "sql_execution_status": "success",
             "sql_execution_result": {"success": True, "data": rows},
@@ -85,10 +83,7 @@ def test_empty_result_is_probed_then_regenerated(
 
 def test_fixable_error_is_repaired(monkeypatch: pytest.MonkeyPatch) -> None:
     nodes = FakeNodes(monkeypatch)
-    nodes.syntax = [
-        {"sql_syntax_status": "invalid", "error": "bad", "error_code": "42703"},
-        {"sql_syntax_status": "valid"},
-    ]
+    nodes.results = [{"error": "bad", "error_code": "42703"}, ROWS]
     state = _run()
     assert nodes.visits == ["context", "generate", "generate"]
     assert state["retry_count"] == 1

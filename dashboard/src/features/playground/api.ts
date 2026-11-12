@@ -5,6 +5,6 @@ import { api } from "@/lib/api-client";
 import type { S } from "@/types";
 
 /** Ask the agent exactly as an MCP caller would. */
-export function querySqlAgent(question: string, evidence: string): Promise<S["SqlAgentResult"]> {
-  return api("/sql-agent/query", { method: "POST", json: { question, evidence } });
+export function querySqlAgent(question: string): Promise<S["SqlAgentResult"]> {
+  return api("/sql-agent/query", { method: "POST", json: { question } });
 }

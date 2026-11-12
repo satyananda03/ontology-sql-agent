@@ -27,7 +27,6 @@ def _ontology(tables: list[dict], **path_state: Any) -> dict[str, Any]:
     return {
         "connectors": [FakeConnector()],
         "glossary": [],
-        "evidence": "",
         "path_state": {"relevant_tables": tables, "target_db": "db", **path_state},
     }
 
@@ -46,19 +45,17 @@ def test_no_tables_is_information_not_found() -> None:
     assert update["error_code"] == INFO_NOT_FOUND
 
 
-def test_knowledge_carries_definitions_synonyms_glossary_and_rules() -> None:
+def test_knowledge_carries_definitions_synonyms_and_glossary() -> None:
     ontology = _ontology(
         [TABLE],
         sql_attributes_str=["Researcher: jenis_program = 'RISET'"],
         term_synonyms={"Program Participation": ["pendaftar", "peserta"]},
     )
     ontology["glossary"] = [{"name": "korda", "description": "koordinator daerah"}]
-    ontology["evidence"] = "hanya data 2026"
     knowledge = module.context_update(ontology)["knowledge_context"]
     assert "Researcher: jenis_program = 'RISET'" in knowledge
     assert "Program Participation: pendaftar, peserta" in knowledge
     assert "korda: koordinator daerah" in knowledge
-    assert "hanya data 2026" in knowledge
 
 
 def test_matched_custom_analyses_reach_the_generator_as_few_shot_examples() -> None:
@@ -97,11 +94,11 @@ def test_renavigation_asks_again_with_what_was_missing(
 ) -> None:
     asked: list[str] = []
 
-    def retrieve(question: str, state: State) -> dict[str, Any]:
+    def retrieve(question: str) -> dict[str, Any]:
         asked.append(question)
         return _ontology([TABLE])
 
-    monkeypatch.setattr(module, "_retrieve", retrieve)
+    monkeypatch.setattr(module.retrieval, "retrieve", retrieve)
     state = State(
         user_query="siapa researcher",
         selected_table=["dim_user"],
@@ -118,6 +115,6 @@ def test_renavigation_asks_again_with_what_was_missing(
 def test_renavigation_that_finds_nothing_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(module, "_retrieve", lambda question, state: _ontology([]))
+    monkeypatch.setattr(module.retrieval, "retrieve", lambda question: _ontology([]))
     update = module.schema_renavigator(State(user_query="q", error="x"))
     assert module.check_renavigation(State(user_query="q", **update)) == "failure"

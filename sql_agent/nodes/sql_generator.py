@@ -20,7 +20,7 @@ from auto_ontology.utils.prompt_loader import load_chat_prompt_template
 from sql_agent.nodes.repair import INFO_NOT_FOUND, can_renavigate
 from sql_agent.nodes.semantic_search import fill_semantic_ids
 from sql_agent.state import State
-from sql_agent.utils import strip_sql_fences
+from sql_agent.utils import llm_timeout_s, strip_sql_fences
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +62,9 @@ class SQLGeneratorOutput(BaseModel):
 @lru_cache(maxsize=1)
 def _llm() -> BaseChatModel:
     model = os.environ.get("SQL_AGENT_GENERATOR_MODEL") or DEFAULT_GENERATOR_MODEL
-    return get_llm_client(model=model, max_tokens=GENERATOR_MAX_TOKENS)
+    return get_llm_client(
+        model=model, max_tokens=GENERATOR_MAX_TOKENS, timeout=llm_timeout_s()
+    )
 
 
 def add_filter_columns(sql: str) -> str:
@@ -145,7 +147,6 @@ def sql_generator(state: State) -> dict[str, Any]:
         "raw_sql_query": raw_sql,
         "error": None,
         "error_code": None,
-        "sql_syntax_status": None,
         "sql_execution_status": None,
         "sql_execution_result": None,
     }

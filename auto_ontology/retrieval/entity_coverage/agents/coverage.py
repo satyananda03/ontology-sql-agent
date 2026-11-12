@@ -6,6 +6,7 @@ from typing import Any, Dict
 from auto_ontology.dal.attributes import fetch_attr_column_contexts
 from auto_ontology.dal.custom_analyses import fetch_custom_analyses_with_sql
 from auto_ontology.dal.sql_attributes import fetch_sql_attributes_with_sql
+from auto_ontology.retrieval.data_access.semantic_search import hit_distance
 from auto_ontology.retrieval.entity_coverage.state import DEFAULT_MAX_DISTANCE
 from auto_ontology.retrieval.text_to_sql.base import BaseAgent
 from auto_ontology.retrieval.text_to_sql.state import AgentState
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 def _within_distance(hit: dict[str, Any], max_distance: float) -> bool:
     try:
-        return float(hit.get("score") or float("inf")) <= max_distance
+        return hit_distance(hit) <= max_distance
     except (TypeError, ValueError):
         return False
 
@@ -138,10 +139,7 @@ def _enrich_custom_analyses(
 
 
 def _rank_candidates(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return sorted(
-        candidates,
-        key=lambda h: float(h.get("score") or float("inf")),
-    )
+    return sorted(candidates, key=hit_distance)
 
 
 def _to_response_candidate(hit: dict[str, Any]) -> dict[str, Any]:

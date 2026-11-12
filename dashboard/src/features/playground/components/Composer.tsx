@@ -6,19 +6,18 @@ import { useState } from "react";
 interface ComposerProps {
   pending: boolean;
   canClear: boolean;
-  onAsk: (question: string, evidence: string) => void;
+  onAsk: (question: string) => void;
   onClear: () => void;
 }
 
-/** The question box plus the tool's optional evidence. */
+/** The question box: the tool's only argument. */
 export function Composer({ pending, canClear, onAsk, onClear }: ComposerProps) {
   const [question, setQuestion] = useState("");
-  const [evidence, setEvidence] = useState("");
 
   function ask() {
     const q = question.trim();
     if (!q || pending) return;
-    onAsk(q, evidence);
+    onAsk(q);
     setQuestion("");
   }
 
@@ -44,16 +43,6 @@ export function Composer({ pending, canClear, onAsk, onClear }: ComposerProps) {
         aria-label="Pertanyaan"
         maxLength={4000}
       />
-      <details>
-        <summary className="muted">Opsi tool</summary>
-        <div className="stack" style={{ marginTop: 8 }}>
-          <label className="field">
-            evidence
-            <span className="hint">Konteks tambahan yang biasanya dikirim agent pemanggil.</span>
-            <textarea rows={2} value={evidence} onChange={(e) => setEvidence(e.target.value)} maxLength={8000} />
-          </label>
-        </div>
-      </details>
       <div className="row">
         <button className="primary" disabled={pending || !question.trim()}>
           Kirim

@@ -6,7 +6,6 @@ entity's raw hits, and stores typed results in path_state.
 
 Responsibilities:
 - Search the semantic VDB (ontology_retriever) for ColumnAttribute candidates.
-- Search ColumnAttributes with the complete evidence text when evidence is present.
 - Search the semantic VDB (semantic_retriever) for CustomAnalysis candidates.
 - Search the semantic VDB for one Term hit using path_state["subject"].
 - Filter each entity's hits by intent using the LLM (full question, not entity).
@@ -17,6 +16,7 @@ import logging
 
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import partial
 from pathlib import Path
 from typing import Any, Dict
 
@@ -31,7 +31,10 @@ from auto_ontology.semantic.constants import (
 )
 
 from auto_ontology.dal.custom_analyses import custom_analysis_exists
-from auto_ontology.retrieval.data_access.semantic_search import search_semantic_index
+from auto_ontology.retrieval.data_access.semantic_search import (
+    hit_distance,
+    search_semantic_index,
+)
 from auto_ontology.utils.llm_invoke import invoke_with_structured_output
 from auto_ontology.utils.prompt_loader import load_chat_prompt_template
 from auto_ontology.retrieval.text_to_sql.base import BaseAgent
@@ -59,8 +62,9 @@ def _search_by_label(
     label: str,
     k: int,
     database_name: str | None = None,
+    rerank_pool: int | None = None,
 ) -> list[dict]:
-    """Return up to *k* VDB hits for *label*."""
+    """Return up to *k* VDB hits for *label*; see ``search_semantic_index``."""
     try:
         return list(
             search_semantic_index(
@@ -69,6 +73,7 @@ def _search_by_label(
                 label_filter=[label],
                 per_label_k=k,
                 database_name=database_name,
+                rerank_pool=rerank_pool,
             )
         )
     except Exception:
@@ -84,7 +89,6 @@ def _dedupe_best_score(hits: list[dict]) -> list[dict]:
     """
     best: dict[str, dict] = {}
     entities_by_id: dict[str, set[str]] = {}
-    evidence_by_id: dict[str, str] = {}
     for hit in hits:
         hid = hit.get("id")
         if hid is None:
@@ -93,13 +97,8 @@ def _dedupe_best_score(hits: list[dict]) -> list[dict]:
         qe = hit.get("query_entity")
         if qe:
             entities_by_id.setdefault(key, set()).add(str(qe))
-        evidence_query = hit.get("query_evidence")
-        if evidence_query:
-            evidence_by_id[key] = str(evidence_query)
         prev = best.get(key)
-        if prev is None or float(hit.get("score") or float("inf")) < float(
-            prev.get("score") or float("inf")
-        ):
+        if prev is None or hit_distance(hit) < hit_distance(prev):
             best[key] = hit
     result: list[dict] = []
     for key, hit in best.items():
@@ -107,25 +106,14 @@ def _dedupe_best_score(hits: list[dict]) -> list[dict]:
         ents = entities_by_id.get(key)
         if ents:
             out["query_entities"] = sorted(ents)
-        if key in evidence_by_id:
-            out["query_evidence"] = evidence_by_id[key]
         result.append(out)
-    return sorted(
-        result,
-        key=lambda h: float(h.get("score") or float("inf")),
-    )
+    return sorted(result, key=hit_distance)
 
 
 def _database_name(hit: dict) -> str | None:
     """Return a normalized database name from a semantic hit."""
     database_name = str(hit.get("database_name") or "").strip()
     return database_name or None
-
-
-def _score(hit: dict) -> float:
-    """Return a sortable semantic distance, treating missing scores as worst."""
-    score = hit.get("score")
-    return float(score) if score is not None else float("inf")
 
 
 def _select_candidate_database(
@@ -151,14 +139,14 @@ def _select_candidate_database(
         if entity:
             stats[database_name]["entities"].add(entity)
         stats[database_name]["hit_count"] += 1
-        stats[database_name]["score_total"] += _score(hit)
+        stats[database_name]["score_total"] += hit_distance(hit)
 
     for hit in [*custom_hits, *sql_attribute_hits]:
         database_name = _database_name(hit)
         if database_name is None:
             continue
         stats[database_name]["hit_count"] += 1
-        stats[database_name]["score_total"] += _score(hit)
+        stats[database_name]["score_total"] += hit_distance(hit)
 
     if not stats:
         return None, {}
@@ -345,8 +333,6 @@ class CandidateRetrievalAgent(BaseAgent):
     """Retrieve ColumnAttribute, CustomAnalysis, SqlAttribute, and subject Term candidates.
 
     - ColumnAttributes: searched per entity from the semantic VDB.
-    - Evidence: the complete evidence text performs one additional
-      ColumnAttribute search, and those hits are merged with entity hits.
     - CustomAnalysis: searched once with the full question from the semantic VDB.
     - SqlAttribute: searched once with the full question from the semantic VDB.
     - Subject Term: searched once with ``path_state["subject"]`` (top-1 hit)
@@ -359,10 +345,14 @@ class CandidateRetrievalAgent(BaseAgent):
     - ``path_state["retrieved_custom_analyses"]``:   ``list[dict]``
     - ``path_state["retrieved_sql_attributes"]``:    ``list[dict]``
     - ``path_state["retrieved_subject_term"]``:      ``dict | None``
+
+    With *rerank_pool*, every search fetches that many vector hits and lets the
+    reranker choose which to keep.
     """
 
-    def __init__(self):
+    def __init__(self, *, rerank_pool: int | None = None):
         super().__init__("candidate_retrieval")
+        self._rerank_pool = rerank_pool
 
     def validate_input(self, state: AgentState) -> bool:
         question = get_question_for_processing(state)
@@ -389,12 +379,6 @@ class CandidateRetrievalAgent(BaseAgent):
         llm = state["llm"]
         semantic_retriever = state.get("semantic_retriever")
         target_db = path_state.get("target_db")
-        raw_evidence = state.get("evidence")
-        evidence = (
-            raw_evidence.strip()
-            if isinstance(raw_evidence, str) and raw_evidence.strip()
-            else ""
-        )
 
         all_col_attr_hits: list[dict] = []
         all_custom_hits: list[dict] = []
@@ -438,22 +422,6 @@ class CandidateRetrievalAgent(BaseAgent):
                         target_db,
                     ),
                 ),
-                *(
-                    [
-                        (
-                            "evidence_col_attr",
-                            (
-                                semantic_retriever,
-                                evidence,
-                                LABEL_COLUMN_ATTRIBUTE,
-                                3,
-                                target_db,
-                            ),
-                        )
-                    ]
-                    if evidence
-                    else []
-                ),
                 *[
                     (
                         f"col_attr:{entity}",
@@ -482,10 +450,10 @@ class CandidateRetrievalAgent(BaseAgent):
                     )
                 )
 
+            search = partial(_search_by_label, rerank_pool=self._rerank_pool)
             with ThreadPoolExecutor(max_workers=len(search_tasks) or 1) as pool:
                 futures = {
-                    pool.submit(_search_by_label, *args): key
-                    for key, args in search_tasks
+                    pool.submit(search, *args): key for key, args in search_tasks
                 }
                 for future in as_completed(futures):
                     key = futures[future]
@@ -496,11 +464,6 @@ class CandidateRetrievalAgent(BaseAgent):
                         all_sql_attr_hits = result
                     elif key == "subject_term":
                         subject_term_hits = result
-                    elif key == "evidence_col_attr":
-                        for hit in result:
-                            tagged = dict(hit)
-                            tagged["query_evidence"] = evidence
-                            all_col_attr_hits.append(tagged)
                     else:
                         # key is "col_attr:{entity}" — tag each hit for coverage.
                         entity = key.split(":", 1)[1]
@@ -581,7 +544,7 @@ class CandidateRetrievalAgent(BaseAgent):
                         ) as pool:
                             futures = {
                                 pool.submit(
-                                    _search_by_label,
+                                    search,
                                     semantic_retriever,
                                     entity,
                                     LABEL_COLUMN_ATTRIBUTE,

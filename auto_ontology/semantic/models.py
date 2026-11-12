@@ -26,7 +26,7 @@ class TermColumnRef(BaseModel):
         ...,
         description=(
             "User-friendly ColumnAttribute label with spaces between words "
-            "(e.g. Order Date, Total Amount)."
+            "(e.g. Tanggal Pesanan, Jumlah Total)."
         ),
     )
 
@@ -47,7 +47,7 @@ class RawTermProposal(BaseModel):
         ...,
         description=(
             "User-friendly business Term name with spaces between words "
-            "(e.g. Purchase Order)."
+            "(e.g. Pesanan Pembelian)."
         ),
     )
     description: str = Field(default="", description="Short business definition.")

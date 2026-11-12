@@ -39,31 +39,20 @@ def format_glossary_section(glossary: list[dict[str, str]] | None) -> str:
     return _SECTIONS["glossary"].format(definitions="\n".join(entries))
 
 
-def format_evidence_section(evidence: str | None) -> str:
-    """Render narrowly scoped evidence guidance for question sanitization."""
-    if not evidence:
-        return ""
-    return _SECTIONS["evidence"].format(evidence=evidence)
-
-
 def create_question_extraction_prompt(
     question: str,
     glossary: list[dict[str, str]] | None = None,
     *,
-    evidence: str | None = None,
     include_subject: bool = True,
 ) -> list[BaseMessage]:
     """Sanitize and extract entity noun phrases; optionally also name subject/acronyms.
 
-    Glossary is always injected so the model can resolve abbreviations. Evidence,
-    when provided, is restricted to refining the sanitized question before entity
-    extraction, including when ``include_subject`` is False.
+    Glossary is always injected so the model can resolve abbreviations.
     """
     return _PROMPT.format_messages(
         intro=_SECTIONS["intro_full" if include_subject else "intro_lite"],
         max_entities=_MAX_ENTITIES,
         subject_rules=_SECTIONS["subject_rules"] if include_subject else "",
         glossary_section=format_glossary_section(glossary),
-        evidence_section=format_evidence_section(evidence),
         question=question,
     )

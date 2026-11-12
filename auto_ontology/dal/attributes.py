@@ -338,6 +338,7 @@ def fetch_attr_column_contexts(
             s.catalog_schema.c.name.label("schema_name"),
             s.catalog_database.c.name.label("database_name"),
             s.term.c.name.label("term_name"),
+            s.term.c.id.label("term_id"),
         )
         .select_from(
             s.column_attribute.outerjoin(
@@ -368,12 +369,13 @@ def fetch_attr_column_contexts(
 
     # First row per attribute wins, and the ORDER BY above put the owning
     # column first. `setdefault` rather than a comprehension, which would keep
-    # the last.
+    # the last. ``term_ids`` is the exception: an attribute can belong to
+    # several Terms, one per row, and anchor selection needs all of them.
     result: dict[str, dict] = {}
     for row in rows:
         if not row["attr_id"]:
             continue
-        result.setdefault(
+        context = result.setdefault(
             row["attr_id"],
             {
                 "attr_name": row["attr_name"] or "",
@@ -385,9 +387,12 @@ def fetch_attr_column_contexts(
                 "schema_name": row["schema_name"] or "",
                 "database_name": row["database_name"] or "",
                 "term_name": row["term_name"] or "",
+                "term_ids": [],
                 "datatype": row["datatype"] or "",
             },
         )
+        if row["term_id"] and row["term_id"] not in context["term_ids"]:
+            context["term_ids"].append(row["term_id"])
     return result
 
 
