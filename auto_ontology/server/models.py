@@ -71,9 +71,6 @@ __all__ = [
     "TermListItem",
     "TermSummary",
     "TermTable",
-    "Group",
-    "GroupRole",
-    "GroupUser",
     "Zone",
     "ZoneChip",
     "ZoneItem",
@@ -133,7 +130,6 @@ class NodeUpdateResult(ApiModel):
     description: str | None = None
     sample_values: list[str] | None = None
     description_certified: bool | None = None
-    owner_id: str | None = None
 
 
 class GlobalSearchBreadcrumb(ApiModel):
@@ -206,72 +202,6 @@ class Zone(ApiModel):
 
 
 # ---------------------------------------------------------------------------
-# Users and groups
-# ---------------------------------------------------------------------------
-
-
-class GroupRole(ApiModel):
-    """One role on a group.
-
-    A group carries a single role, ``admin`` or ``viewer``. ``id`` and
-    ``name`` are that same value: there is no separate role catalog.
-    """
-
-    id: str
-    name: str
-
-
-class GroupUser(ApiModel):
-    """An account as a member of a group.
-
-    ``name`` and ``email`` are empty when the account has been deleted and
-    the membership remains. ``role`` is the account's own role, not the
-    group's.
-    """
-
-    id: str
-    name: str
-    email: str
-    role: str | None = None
-
-
-class Group(ApiModel):
-    """A group, its members, its role, and the permissions that role grants.
-
-    ``role`` is the stored value. ``roles`` is that same role as a one-element
-    list, and ``permissions`` is ``resource:action`` strings expanded from it.
-    Membership does not change an account's own role.
-    """
-
-    id: str
-    name: str
-    description: str
-    color: str
-    role: str
-    roles: list[GroupRole]
-    users: list[GroupUser]
-    permissions: list[str]
-    created: datetime
-
-
-class Owner(ApiModel):
-    """A user or a group that can be chosen as an owner.
-
-    ``permissions`` is the ``resource:action`` list the account's role, or the
-    group's role, grants. ``member_ids`` is empty for a user. For a group it
-    is the caller when they belong to that group, and empty otherwise.
-    ``color`` is only set for a group.
-    """
-
-    id: str
-    name: str
-    kind: str
-    color: str | None = None
-    permissions: list[str]
-    member_ids: list[str] = Field(default_factory=list)
-
-
-# ---------------------------------------------------------------------------
 # Catalog (databases / schemas / tables / columns)
 # ---------------------------------------------------------------------------
 
@@ -283,7 +213,6 @@ class SchemaSummary(ApiModel):
     schema_name: str | None = None
     description: str | None = None
     tables_count: int | None = None
-    owner_id: str | None = None
 
 
 class DatabaseSummary(ApiModel):
@@ -293,7 +222,6 @@ class DatabaseSummary(ApiModel):
     name: str | None = None
     description: str | None = None
     num_of_schemas: int | None = None
-    owner_id: str | None = None
     schemas: list[SchemaSummary] = Field(default_factory=list)
 
 
@@ -310,7 +238,6 @@ class TableSummary(ApiModel):
     columns_count: int | None = None
     sql_count: int | None = None
     terms_count: int | None = None
-    owner_id: str | None = None
     #: The catalog has no table detail read -- a table's page is built from the
     #: schema's list -- so its chips travel with the row.
     tags: list[TagChip] = Field(default_factory=list)
@@ -352,7 +279,7 @@ class TableColumns(ApiModel):
 class Tag(ApiModel):
     """A tag, as both the list and the create endpoint return it.
 
-    The four columns describing *when* are required, unlike most of this
+    The two columns describing *when* are required, unlike most of this
     module: each is ``NOT NULL`` and ``auto_ontology.dal.tags`` selects them on every
     path.
 
@@ -361,24 +288,12 @@ class Tag(ApiModel):
     serialises as ISO 8601 and the client parses directly. They are read from
     the database rather than the application clock, so a client comparing two
     tags is comparing one clock.
-
-    The two describing *who* are nullable, and each null says something
-    different. ``created_by`` is null for a tag made by a caller that reached
-    FastAPI without the gateway's identity header. ``modified_by`` is
-    additionally null for a tag nobody has renamed, which is the same fact
-    ``modified == created`` states.
-
-    Both are opaque Better Auth user ids. Resolving one to a name is the
-    gateway's job -- the accounts live in a schema this service does not own --
-    so this API deliberately answers with the id it stored.
     """
 
     id: str
     name: str
     created: datetime
     modified: datetime
-    created_by: str | None = None
-    modified_by: str | None = None
 
 
 class TagTargetType(StrEnum):
@@ -427,20 +342,8 @@ class TagItem(ApiModel):
     described the same way. Null only for a Term, which is a glossary entry
     rather than a catalog object and sits under nothing.
 
-    ``tagged_by`` and ``rule`` are where the label came from, for the page's
-    "Tagged By" column: the account that applied it by hand, or the rule that
-    matched. At most one is set — a label has one source — and both null is an
-    answer rather than a gap: it is what an attach carrying no identity records,
-    so the page reads it as "Auto Generated", the deployment having labelled
-    this itself. A row written before either column existed reads the same way,
-    since a label nobody claimed is a label nobody claimed.
-
-    ``tagged_by`` is an opaque Better Auth user id, resolved to a name by the
-    gateway for the reason :class:`Tag`'s authors are: the accounts live in a
-    schema this service does not own. An id that resolves to nothing reads as
-    "Auto Generated" as well — these are not foreign keys, so an account can be
-    deleted and leave the label behind, and the column names a person or a rule
-    or neither rather than spelling out which kind of nobody this is.
+    ``rule`` is the rule that applied the label, or null for one applied by
+    hand.
 
     The four id fields are the same relationships as ids, which is what a link
     to the object's own page is built from: a Table and a Column are addressed
@@ -453,7 +356,6 @@ class TagItem(ApiModel):
     type: TagTargetType
     path: str | None = None
     tagged: datetime
-    tagged_by: str | None = None
     rule: TagItemRule | None = None
     database_id: str | None = None
     schema_id: str | None = None
@@ -500,13 +402,6 @@ class Rule(ApiModel):
     See ``RuleTagRef`` in ``auto_ontology/server/rules/router.py``. The ids are checked
     against that table, so a rule cannot apply a tag that does not exist.
 
-    ``created_by`` is the id of the user who saved it, read from the trusted
-    gateway header rather than from the request body — see
-    ``auto_ontology/server/identity.py``. ``modified_by`` is the same for whoever
-    last renamed it, and null until somebody has — which is the same fact as
-    ``modified`` still equalling ``created``, and null again for a rename whose
-    request carried no identity to record.
-
     ``created`` and ``modified`` follow the convention :class:`Tag` sets: a
     timezone-aware ``datetime`` serialised as ISO 8601, from one clock.
     """
@@ -517,8 +412,6 @@ class Rule(ApiModel):
     text_match_option: str
     filters: RuleFilters
     tags: list[TagChip] = Field(default_factory=list)
-    created_by: str
-    modified_by: str | None = None
     created: datetime
     modified: datetime
 
@@ -543,7 +436,6 @@ class Term(TermSummary):
     name_certified: bool | None = None
     description_certified: bool | None = None
     certification: str | None = None
-    owner_id: str | None = None
     zones: list[ZoneChip] | None = None
 
 
@@ -567,12 +459,9 @@ class TermDetail(Term):
     tables: list[TermTable] = Field(default_factory=list)
     related_terms: list[TermSummary] = Field(default_factory=list)
     tags: list[TagChip] = Field(default_factory=list)
-    # Null until a person saves an edit. ``modified_by`` null with a timestamp
-    # is an edit that carried no identity, shown as Auto Generated.
+    # ``modified`` is null until a person saves an edit.
     created: datetime | None = None
     modified: datetime | None = None
-    created_by: str | None = None
-    modified_by: str | None = None
 
 
 class TermListItem(Term):
@@ -627,8 +516,6 @@ class ColumnAttribute(ApiModel):
     referenced_columns: list[ColumnRef] | None = None
     created: datetime | None = None
     modified: datetime | None = None
-    created_by: str | None = None
-    modified_by: str | None = None
 
 
 class SqlAttribute(ApiModel):
@@ -650,13 +537,10 @@ class SqlAttribute(ApiModel):
     term_id: str | None = None
     term_name: str | None = None
     database_name: str | None = None
-    owner_id: str | None = None
     zones: list[ZoneChip] | None = None
     tags: list[TagChip] | None = None
     created: datetime | None = None
     modified: datetime | None = None
-    created_by: str | None = None
-    modified_by: str | None = None
 
 
 class SqlExpressionValidationResult(ApiModel):

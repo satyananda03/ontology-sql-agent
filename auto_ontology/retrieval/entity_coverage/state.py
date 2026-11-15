@@ -20,7 +20,6 @@ class EntityCoveragePayload(TypedDict):
     path_state: NotRequired[dict]
     connectors: NotRequired[list[SQLDatabase]]
     acronyms: NotRequired[list[dict[str, str]]]
-    custom_prompts: NotRequired[str]
     target_db: NotRequired[str]
     max_distance: NotRequired[float]
     return_uncovered_entities: NotRequired[bool]

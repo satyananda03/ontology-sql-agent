@@ -11,9 +11,7 @@ Each module is the single source of truth for a domain:
   candidates      — Vector-hit enrichment at retrieval time
   exploration     — The data- and semantic-layer Exploration graphs
   search          — Fulltext global search across catalog and semantic rows
-  users           — Zone-scope helpers. Accounts live in Prisma's tables, not here.
-  groups          — User groups and their membership. Accounts stay in Prisma;
-                    a membership stores the Better Auth id with no foreign key.
+  users           — Zone-scope helpers (which catalog ids a set of zones reaches).
 
 ``schema`` holds the SQLAlchemy Core table metadata and ``session`` the pooled
 engine; everything else queries through them.

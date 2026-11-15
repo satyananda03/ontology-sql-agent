@@ -25,8 +25,7 @@ from auto_ontology.catalog.diff import (  # noqa: F401
 from auto_ontology.catalog.store.registry import entity_spec
 from auto_ontology.catalog.store.rows import upsert_row
 from auto_ontology.dal import schema as s
-from auto_ontology.dal.pii import untag_attributes_of_columns_being_deleted
-from auto_ontology.dal.session import store, write_transaction
+from auto_ontology.dal.session import store
 
 
 def db_exists(db_node):
@@ -79,71 +78,26 @@ def _spec_for(label: str):
     return entity_spec(aliases.get(str(label).lower(), label))
 
 
-def _column_ids_of_schema(schema_node_id: str) -> list[str]:
-    return [
-        row["id"]
-        for row in store().query_read(
-            select(s.catalog_column.c.id)
-            .select_from(
-                s.catalog_column.join(
-                    s.catalog_table,
-                    s.catalog_table.c.id == s.catalog_column.c.table_id,
-                )
-            )
-            .where(s.catalog_table.c.schema_id == schema_node_id)
-        )
-    ]
-
-
-def _column_ids_of_table(table_id: str) -> list[str]:
-    return [
-        row["id"]
-        for row in store().query_read(
-            select(s.catalog_column.c.id).where(s.catalog_column.c.table_id == table_id)
-        )
-    ]
-
-
 def delete_schema(schema_node_id):
-    """Delete a schema. Its tables and columns go with it, by cascade.
-
-    PII on attributes of those columns is realigned in the same transaction
-    as the delete. A cleanup that committed while the delete rolled back
-    would leave live columns without labels the next ingest will not put
-    back; failing the whole unit keeps both or neither.
-    """
-    with write_transaction():
-        untag_attributes_of_columns_being_deleted(_column_ids_of_schema(schema_node_id))
-        store().query_write(
-            s.catalog_schema.delete().where(s.catalog_schema.c.id == schema_node_id)
-        )
+    """Delete a schema. Its tables and columns go with it, by cascade."""
+    store().query_write(
+        s.catalog_schema.delete().where(s.catalog_schema.c.id == schema_node_id)
+    )
 
 
 def delete_table(table_id):
-    """Delete a table. Its columns cascade.
-
-    Same atomic unit as :func:`delete_schema`: untag, then delete, or neither.
-    """
-    with write_transaction():
-        untag_attributes_of_columns_being_deleted(_column_ids_of_table(table_id))
-        store().query_write(
-            s.catalog_table.delete().where(s.catalog_table.c.id == table_id)
-        )
+    """Delete a table. Its columns cascade."""
+    store().query_write(
+        s.catalog_table.delete().where(s.catalog_table.c.id == table_id)
+    )
 
 
 def delete_columns_batch(column_ids):
-    """Delete catalog columns, realigning PII on their attributes first.
-
-    Same atomic unit as :func:`delete_schema`: untag, then delete, or neither.
-    """
+    """Delete catalog columns."""
     ids = list(column_ids)
     if not ids:
         return
-    with write_transaction():
-        untag_attributes_of_columns_being_deleted(ids)
-        store().query_write(
-            s.catalog_column.delete().where(s.catalog_column.c.id.in_(ids))
-        )
+    store().query_write(s.catalog_column.delete().where(s.catalog_column.c.id.in_(ids)))
 
 
 def add_schemas_edge_batch(edges, created):

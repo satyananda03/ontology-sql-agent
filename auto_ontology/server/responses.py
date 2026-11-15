@@ -42,8 +42,6 @@ from auto_ontology.server.models import (
     TableColumns,
     TableExplorationDetails,
     TableSummary,
-    Group,
-    Owner,
     Tag,
     TagChip,
     TagItem,
@@ -80,9 +78,6 @@ __all__ = [
     "ExplorationEdgeListResponse",
     "ExplorationRelatedNodesResponse",
     "GlobalSearchCountResponse",
-    "GroupListResponse",
-    "GroupResponse",
-    "OwnerListResponse",
     "GlobalSearchListResponse",
     "HealthResponse",
     "IdResponse",
@@ -288,11 +283,6 @@ IdResponse = DataResponse[IdRef]
 # Zones
 ZoneResponse = DataResponse[Zone]
 ZoneListResponse = ListResponse[Zone]
-
-# Groups. Accounts are read from Better Auth; groups are stored here.
-GroupResponse = DataResponse[Group]
-GroupListResponse = ListResponse[Group]
-OwnerListResponse = ListResponse[Owner]
 
 # Tags
 TagResponse = DataResponse[Tag]

@@ -155,7 +155,6 @@ def update_column_attribute(
     name: str | None = None,
     description: str | None = None,
     certified: bool | None = None,
-    modified_by: str | None = None,
     touch: bool = False,
 ) -> dict[str, Any] | None:
     """Update an attribute's metadata and return the context an embed needs.
@@ -189,7 +188,6 @@ def update_column_attribute(
     }
     if touch:
         values["modified"] = func.now()
-        values["modified_by"] = modified_by
     updated = store().query_write(
         update(s.column_attribute)
         .where(s.column_attribute.c.id == attr_id, owned)

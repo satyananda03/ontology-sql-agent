@@ -1,14 +1,12 @@
 """API route handlers for datasources and connectors."""
 
-from fastapi import APIRouter, HTTPException, Path, Query, Request
+from fastapi import APIRouter, HTTPException, Path, Query
 from pydantic import BaseModel, Field
 
 from auto_ontology.server.custom_analyses import service as custom_analyses_dal
 from auto_ontology.server.datasources import service as dal
 from auto_ontology.server.pagination import LIMIT_QUERY, SKIP_QUERY
-from auto_ontology.dal.owners import edit_subject
 from auto_ontology.server.models import NodeUpdateResult
-from auto_ontology.server.owners import enforce_edit, owner_from_body
 from auto_ontology.server.responses import (
     CustomAnalysisPageResponse,
     CustomAnalysisResponse,
@@ -25,7 +23,6 @@ class NodeUpdate(BaseModel):
     description: str | None = None
     sample_values: list[str] | None = None
     description_certified: bool | None = None
-    owner_id: str | None = None
 
 
 class CustomAnalysisValidate(BaseModel):
@@ -277,7 +274,6 @@ def delete_custom_analysis(analysis_id: str) -> dict:
     response_model_exclude_unset=True,
 )
 def update_node(
-    request: Request,
     node_id: str = Path(
         description="Id of any catalog node — a Database, Schema, Table or Column."
     ),
@@ -285,11 +281,6 @@ def update_node(
 ) -> dict:
     """Update mutable properties of any catalog node."""
     props = body.model_dump(exclude_none=True)
-    subject = edit_subject(node_id)
-    if subject is not None:
-        enforce_edit(request, subject)
-        if "owner_id" in body.model_fields_set:
-            props["owner_id"] = owner_from_body(body.owner_id, subject.permission)
     try:
         result = dal.update_node_properties(node_id, props)
     except ValueError as exc:

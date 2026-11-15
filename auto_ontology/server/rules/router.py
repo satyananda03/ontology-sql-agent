@@ -23,14 +23,13 @@ The tag ids are checked here rather than left to the foreign key underneath
 that is gone is worth a 404 naming it rather than a constraint violation.
 """
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from auto_ontology.dal import rules as rules_dal
 from auto_ontology.dal import tags as tags_dal
 from auto_ontology.dal.search import search_tokens
 from auto_ontology.dal.session import write_transaction
-from auto_ontology.server.identity import resolve_internal_user
 from auto_ontology.server.pagination import LIMIT_QUERY, SKIP_QUERY
 from auto_ontology.server.responses import IdResponse, RulePageResponse, RuleResponse
 from auto_ontology.server.rules import service as rule_service
@@ -252,26 +251,6 @@ def _resolved_tags(tags: list[RuleTagRef]) -> list[str]:
     return resolved
 
 
-def _author(request: Request) -> str:
-    """The id of the user saving the rule, from the trusted gateway header.
-
-    A rule is attributed to whoever saved it, so an absent identity is a 401
-    rather than a rule owned by nobody. It is never absent on the deployed
-    path -- ``frontend/app/api/rules/route.ts`` forwards it for every
-    authenticated caller -- so reaching this means somebody called FastAPI
-    directly, which is not publicly reachable.
-
-    Resolved with ``required=False`` and refused here so the message names a
-    rule; ``resolve_internal_user``'s own 401 talks about conversations.
-    """
-    user_id = resolve_internal_user(request, required=False)
-    if user_id is None:
-        raise HTTPException(
-            status_code=401, detail="A rule must be attributed to a user"
-        )
-    return user_id
-
-
 def _no_such_rule(rule_id: str) -> HTTPException:
     """The 404 for a rule id nothing names.
 
@@ -297,13 +276,13 @@ def _name_conflict(exc: ValueError) -> HTTPException:
 
 
 @router.post("/rules", status_code=201, response_model=IdResponse)
-def create_rule(request: Request, body: RuleCreate) -> dict:
+def create_rule(body: RuleCreate) -> dict:
     """Save a rule, and answer with its id.
 
     The id alone: the dialog that posted the rule closes on success and the
     settings list re-reads, so a whole rule in the answer would be a copy
-    nothing renders. Everything else about a stored rule -- the timestamps, the
-    author, the tag names -- comes from :func:`list_rules`, read from the row
+    nothing renders. Everything else about a stored rule -- the timestamps and
+    the tag names -- comes from :func:`list_rules`, read from the row
     rather than from what was posted.
 
     The filters are stored as the caller sent them, ``exclude_none`` and not a
@@ -325,10 +304,8 @@ def create_rule(request: Request, body: RuleCreate) -> dict:
     400 for a body that could never be a rule: a blank name, a search term
     shorter than global search accepts, a match option it does not implement,
     or no tags at all. 404 for a tag id that is not a tag. 409 for a name
-    another rule already holds, as renaming answers. 401 when the request
-    carries no identity to attribute the rule to.
+    another rule already holds, as renaming answers.
     """
-    created_by = _author(request)
     name = _validated_name(body.name)
     search_term = _validated_search_term(body.search_term)
     text_match_option = _validated_match_option(body.text_match_option)
@@ -353,7 +330,6 @@ def create_rule(request: Request, body: RuleCreate) -> dict:
                 text_match_option=text_match_option,
                 filters=filters,
                 tags=tags,
-                created_by=created_by,
             )
         except ValueError as exc:
             raise _name_conflict(exc) from exc
@@ -396,7 +372,7 @@ def list_rules(
 
 
 @router.patch("/rules/{rule_id}", response_model=RuleResponse)
-def update_rule(request: Request, rule_id: str, body: RuleUpdate) -> dict:
+def update_rule(rule_id: str, body: RuleUpdate) -> dict:
     """Rename a rule.
 
     The name is all an edit changes -- see :class:`RuleUpdate` for why the
@@ -405,8 +381,7 @@ def update_rule(request: Request, rule_id: str, body: RuleUpdate) -> dict:
     every object it labelled under the old one.
 
     Answers with the whole rule rather than an echo of the name, the way
-    renaming a tag does: the edit also advances ``modified`` and records a
-    ``modified_by``, so the row the caller just edited is redrawn from this one
+    renaming a tag does: the edit also advances ``modified``, so the row the caller just edited is redrawn from this one
     response instead of from a re-read.
 
     400 for a blank name. 409 for a name another rule holds -- rule names are
@@ -415,17 +390,9 @@ def update_rule(request: Request, rule_id: str, body: RuleUpdate) -> dict:
     only changes case, which is how a rule created shouting gets fixed. 404 for
     an id that is not stored -- the settings page edits a row from a list it has
     already read, so a missing rule means that list is stale.
-
-    No 401, unlike the create: an edit is recorded against whoever made it when
-    the request says, and a request that names nobody still renames the rule
-    somebody else created. ``modified_by`` is nullable for exactly that.
     """
     try:
-        rule = rules_dal.update_rule(
-            rule_id=rule_id,
-            name=_validated_name(body.name),
-            modified_by=resolve_internal_user(request, required=False),
-        )
+        rule = rules_dal.update_rule(rule_id=rule_id, name=_validated_name(body.name))
     except ValueError as exc:
         raise _name_conflict(exc) from exc
     if rule is None:
@@ -450,9 +417,7 @@ def delete_rule(
     says otherwise. The labels it wrote cascade with it -- see
     ``rules_dal.delete_rule`` -- while labels people applied by hand stay,
     including on an object the rule had also matched, because those rows record
-    no rule to cascade from. Taking ``PII`` off a column this way also takes it
-    off that column's attributes, the same cascade as detaching the tag or a
-    replay that no longer matches. A rule goes on labelling the catalog as the
+    no rule to cascade from. A rule goes on labelling the catalog as the
     catalog grows, so by default its labels are not left behind for nothing on
     screen to explain and nothing to re-apply.
 

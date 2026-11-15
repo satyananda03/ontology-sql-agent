@@ -1,15 +1,10 @@
 """API route handlers for tags."""
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from auto_ontology.dal import tags as dal
-from auto_ontology.dal.owners import edit_subject
-from auto_ontology.dal.pii import untag_attributes_of_column
-from auto_ontology.dal.session import write_transaction
-from auto_ontology.server.identity import resolve_internal_user
 from auto_ontology.server.models import TagTargetType
-from auto_ontology.server.owners import enforce_edit
 from auto_ontology.server.pagination import LIMIT_QUERY, SKIP_QUERY
 from auto_ontology.server.responses import (
     IdResponse,
@@ -143,53 +138,23 @@ def _validated_name(raw: str) -> str:
     return name
 
 
-def _modifiable_tag(tag_id: str, action: str) -> None:
-    """404 for an unknown tag, 403 for a system-managed one."""
-    tag = dal.get_tag(tag_id)
-    if tag is None:
-        raise HTTPException(status_code=404, detail=f"Tag {tag_id!r} not found")
-    if dal.is_protected_tag(tag):
-        raise HTTPException(
-            status_code=403,
-            detail=f"The {tag['name']} tag is managed by the system and cannot "
-            f"be {action}",
-        )
-
-
 @router.post("/tags", status_code=201, response_model=TagResponse)
-def create_tag(request: Request, body: TagCreate) -> dict:
-    """Create a tag.
-
-    The author is read from the gateway's identity header rather than taken
-    from the body: the Next.js route in front of this one has already resolved
-    the session, so the header is the one account that can be credited, and a
-    body field would let a caller name somebody else.
-
-    ``required=False`` because the identity is audit rather than authorization
-    -- the route's permission gate is the gateway's -- so a direct call on the
-    private network still creates the tag, with no author recorded.
-    """
+def create_tag(body: TagCreate) -> dict:
+    """Create a tag. 409 for a name another tag holds."""
     try:
-        row = dal.create_tag(
-            name=_validated_name(body.name),
-            created_by=resolve_internal_user(request, required=False),
-        )
+        row = dal.create_tag(name=_validated_name(body.name))
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return {"data": row}
 
 
 @router.patch("/tags/{tag_id}", response_model=TagResponse)
-def update_tag(request: Request, tag_id: str, body: TagUpdate) -> dict:
+def update_tag(tag_id: str, body: TagUpdate) -> dict:
     """Rename a tag.
 
     Answers with the whole tag rather than an echo of the name, because the
-    rename has also advanced ``modified`` and recorded a ``modified_by`` — so
-    the settings page redraws the row it just edited from this one response
+    rename has also advanced ``modified`` — so the settings page redraws the row it just edited from this one response
     instead of re-reading the list to find out what they became.
-
-    The editor is read from the gateway's identity header, for the reason
-    ``create_tag`` reads the author from it.
 
     404 for an unknown id and 409 for a name another tag holds, as create and
     delete answer: the page renames from a list it has already read, so either
@@ -198,16 +163,9 @@ def update_tag(request: Request, tag_id: str, body: TagUpdate) -> dict:
     A rename to the tag's own name is not a 409 — see ``update_tag`` in the DAL
     — and neither is one that only changes case, which is the ordinary way to
     fix a tag that was created shouting.
-
-    403 for the system-managed ``PII`` tag, which PII detection finds by name.
     """
-    _modifiable_tag(tag_id, "renamed")
     try:
-        row = dal.update_tag(
-            tag_id=tag_id,
-            name=_validated_name(body.name),
-            modified_by=resolve_internal_user(request, required=False),
-        )
+        row = dal.update_tag(tag_id=tag_id, name=_validated_name(body.name))
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     if row is None:
@@ -223,10 +181,7 @@ def delete_tag(tag_id: str) -> dict:
     from a list it has already read, so a missing tag means its list is stale,
     and answering "done" would leave the row on screen with nothing to explain
     it.
-
-    403 for the system-managed ``PII`` tag: no caller may delete it.
     """
-    _modifiable_tag(tag_id, "deleted")
     if not dal.delete_tag(tag_id):
         raise HTTPException(status_code=404, detail=f"Tag {tag_id!r} not found")
     return {"data": {"id": tag_id}}
@@ -255,7 +210,7 @@ def _target_or_tag_missing(
 @router.post(
     "/tags/{tag_id}/targets", status_code=201, response_model=TagChipListResponse
 )
-def attach_tag(request: Request, tag_id: str, body: TagTarget) -> dict:
+def attach_tag(tag_id: str, body: TagTarget) -> dict:
     """Label one object with this tag.
 
     Both write routes live here rather than on ``/terms/{id}/tags`` and its two
@@ -268,13 +223,6 @@ def attach_tag(request: Request, tag_id: str, body: TagTarget) -> dict:
     edit. Labelling something that already carries the tag is a 201 with the
     same body: two clicks on one tag are one intention.
 
-    Who applied the label is read from the gateway's identity header, for the
-    reason ``create_tag`` reads an author from it, and shows in the "Tagged By"
-    column on the tag's page. ``required=False`` for the same reason too: it is
-    audit rather than authorization, so a direct call on the private network
-    still labels the object -- recorded as the deployment's own doing, which
-    that column names "Auto Generated". See ``attach_tag`` in the DAL.
-
     Re-labelling something keeps the source it already had, so this does not
     take a label away from the rule that applied it -- see ``attach_tag`` in the
     DAL.
@@ -284,16 +232,8 @@ def attach_tag(request: Request, tag_id: str, body: TagTarget) -> dict:
     attributes goes through the term that owns them — and a tag on it could
     never be seen or taken off again.
     """
-    subject = edit_subject(body.id)
-    if subject is not None:
-        enforce_edit(request, subject)
     try:
-        tags = dal.attach_tag(
-            tag_id=tag_id,
-            kind=body.type,
-            item_id=body.id,
-            tagged_by=resolve_internal_user(request, required=False),
-        )
+        tags = dal.attach_tag(tag_id=tag_id, kind=body.type, item_id=body.id)
     except ValueError as exc:
         # Only the DAL's eligibility rule reaches here. Its other ``ValueError``
         # is for an unknown target kind, which ``TagTargetType`` has already
@@ -308,40 +248,14 @@ def attach_tag(request: Request, tag_id: str, body: TagTarget) -> dict:
     "/tags/{tag_id}/targets/{target_type}/{item_id}",
     response_model=TagChipListResponse,
 )
-def detach_tag(
-    request: Request, tag_id: str, target_type: TagTargetType, item_id: str
-) -> dict:
+def detach_tag(tag_id: str, target_type: TagTargetType, item_id: str) -> dict:
     """Take this tag off one object.
-
-    Taking ``PII`` off a column also takes it off that column's
-    ColumnAttributes, and off any SqlAttribute whose SQL no longer reads a
-    tagged column. A SqlAttribute that still reads another PII column keeps
-    the label. The column detach and that cleanup share one transaction.
 
     404 when the object was not carrying it — including when either side no
     longer exists. The page removed a chip it had just rendered, so all three
     mean its view is stale, and answering "done" would leave the chip gone from
     the screen and still on the object.
     """
-    subject = edit_subject(item_id)
-    if subject is not None:
-        enforce_edit(request, subject)
-    cascade = False
-    if target_type is TagTargetType.COLUMN:
-        tag = dal.get_tag(tag_id)
-        cascade = tag is not None and dal.is_protected_tag(tag)
-
-    if cascade:
-        with write_transaction():
-            tags = dal.detach_tag(tag_id=tag_id, kind=target_type, item_id=item_id)
-            if tags is None:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Tag {tag_id!r} is not on {target_type.value} {item_id!r}",
-                )
-            untag_attributes_of_column(item_id, tag_id)
-        return _chips(tags)
-
     tags = dal.detach_tag(tag_id=tag_id, kind=target_type, item_id=item_id)
     if tags is None:
         raise HTTPException(

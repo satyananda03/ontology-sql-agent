@@ -33,9 +33,8 @@ what it *is*, and changing either would move which objects it labels while
 leaving the labels it has already written behind.
 
 :func:`delete_rule` leans on the cascades and then cleans up after them: the
-labels the rule applied are taken back, PII copied onto attributes of those
-columns is realigned the same way as a replay, and a tag those labels were the
-whole of goes with them. Read its docstring, because that reach is the reason a
+labels the rule applied are taken back, and a tag those labels were the whole
+of goes with them. Read its docstring, because that reach is the reason a
 rule is deletable at all, and because a caller can ask for the labels to be kept
 instead.
 """
@@ -61,8 +60,6 @@ _COLUMNS = (
     s.rule.c.filters,
     s.rule.c.created,
     s.rule.c.modified,
-    s.rule.c.created_by,
-    s.rule.c.modified_by,
 )
 
 
@@ -95,7 +92,6 @@ def create_rule(
     text_match_option: str,
     filters: dict[str, Any],
     tags: list[str],
-    created_by: str,
 ) -> str:
     """Store a rule and its tags, and return the new rule's id.
 
@@ -140,7 +136,6 @@ def create_rule(
                     search_term=search_term,
                     text_match_option=text_match_option,
                     filters=filters,
-                    created_by=created_by,
                 )
                 .returning(s.rule.c.id)
             )
@@ -260,9 +255,7 @@ def count_rules(*, search: str | None = None) -> int:
     return int(rows[0]["total"]) if rows else 0
 
 
-def update_rule(
-    *, rule_id: str, name: str, modified_by: str | None = None
-) -> dict[str, Any] | None:
+def update_rule(*, rule_id: str, name: str) -> dict[str, Any] | None:
     """Rename a rule and return it, tags included. ``None`` for an unknown id.
 
     The name is taken as a plain argument rather than a dict of updates, as
@@ -284,11 +277,6 @@ def update_rule(
     the last one somebody remembered to record, and ``created`` is left alone --
     so the two differing is exactly "this rule has been renamed".
 
-    ``modified_by`` has no such mechanism and so is written explicitly, from the
-    identity the gateway forwarded. Optional because a request may carry none,
-    and written on *every* rename including that one: leaving the previous
-    editor in place would credit this edit to whoever made the last one.
-
     What the rule applies is untouched. The labels it wrote name it by id, so a
     renamed rule goes on holding every one of them, and a tag's page shows the
     new name against objects labelled under the old -- which is the point of
@@ -301,7 +289,7 @@ def update_rule(
         rows = store().query_write(
             s.rule.update()
             .where(s.rule.c.id == rule_id)
-            .values(name=name, modified_by=modified_by)
+            .values(name=name)
             .returning(*_COLUMNS)
         )
     except IntegrityError as exc:
@@ -336,14 +324,9 @@ def _delete_tags_left_labelling_nothing(tag_ids: list[str]) -> None:
     condition is about the rows that are left, and asking the database keeps the
     answer and the delete in one statement.
     """
-    from auto_ontology.dal.tags import PII_TAG_NAME
-
     store().query_write(
         s.tag.delete().where(
             s.tag.c.id.in_(tag_ids),
-            # Ingestion finds the system tag by name; deleting an emptied copy
-            # would let the next detect create another id and fork the labels.
-            func.lower(func.trim(s.tag.c.name)) != PII_TAG_NAME.lower(),
             ~select(literal(1)).where(s.tag_target.c.tag_id == s.tag.c.id).exists(),
             ~select(literal(1)).where(s.rule__tag.c.tag_id == s.tag.c.id).exists(),
         )
@@ -366,11 +349,6 @@ def delete_rule(rule_id: str, *, keep_tags: bool = False) -> bool:
     still holding, and it goes on re-applying as the catalog grows until the
     rule is gone.
 
-    Propagated ``PII`` on attributes has no ``rule_id``, so the cascade would
-    leave those chips behind. Column ids the rule labelled are read first, the
-    rule is deleted, then the same attribute realign as a replay runs against
-    columns whose own label is already gone.
-
     **A tag the rule leaves labelling nothing goes too**, unless another rule
     applies it -- see :func:`_delete_tags_left_labelling_nothing`. Taking back
     the labels is what empties it, so cleaning up after that is finishing the
@@ -380,19 +358,9 @@ def delete_rule(rule_id: str, *, keep_tags: bool = False) -> bool:
     stays, because it still says something.
 
     *keep_tags* is for a caller who wants the classification without the rule:
-    the labels are handed to whoever wrote the rule -- ``rule.created_by``
-    becomes their ``tagged_by`` and the ``rule_id`` is cleared, so the cascade
-    finds nothing of its own to take. They read from then on as that person's
-    own labels, which is the truest thing left to say about them: a rule is
-    somebody deciding a search's results deserve a tag, and keeping the labels
-    is standing by that decision after the mechanism is gone. No tag is emptied
+    the ``rule_id`` is cleared, so the cascade finds nothing of its own to take
+    and the labels read from then on as hand-applied ones. No tag is emptied
     this way, so none is deleted either.
-
-    Attributed rather than left to nobody because "nobody" reads as "Auto
-    Generated", which would be the one wrong answer: a person chose these, and
-    the record of who is right there in the rule as it is deleted. It is read
-    from the row rather than taken from the caller -- a delete can be made by
-    an admin who did not write the rule, and the labels were never theirs.
 
     Not that this reattaches them: an identical rule created afterwards does not
     pick them up, because :func:`auto_ontology.dal.tags.attach_tags_by_rule` leaves an
@@ -409,16 +377,7 @@ def delete_rule(rule_id: str, *, keep_tags: bool = False) -> bool:
             store().query_write(
                 s.tag_target.update()
                 .where(s.tag_target.c.rule_id == rule_id)
-                .values(
-                    rule_id=None,
-                    # A subquery rather than a read of its own: the rule is
-                    # still there for another statement or two, and this way
-                    # the author cannot be read from a row that changed
-                    # underneath.
-                    tagged_by=select(s.rule.c.created_by)
-                    .where(s.rule.c.id == rule_id)
-                    .scalar_subquery(),
-                )
+                .values(rule_id=None)
             )
             return bool(
                 store().query_write(
@@ -428,33 +387,18 @@ def delete_rule(rule_id: str, *, keep_tags: bool = False) -> bool:
 
         # Read before the delete, which is the only moment the rule's tags can
         # be known: `rule__tag` cascades, so afterwards there is nothing left
-        # saying which tags this rule was applying. Column labels go the same
-        # way (`tag_target.rule_id`), so the columns to realign PII on have
-        # to be named now too.
+        # saying which tags this rule was applying.
         applied = [
             row["tag_id"]
             for row in store().query_read(
                 select(s.rule__tag.c.tag_id).where(s.rule__tag.c.rule_id == rule_id)
             )
         ]
-        labelled_columns = store().query_read(
-            select(s.tag_target.c.tag_id, s.tag_target.c.column_id).where(
-                s.tag_target.c.rule_id == rule_id,
-                s.tag_target.c.column_id.is_not(None),
-            )
-        )
         deleted = bool(
             store().query_write(
                 s.rule.delete().where(s.rule.c.id == rule_id).returning(s.rule.c.id)
             )
         )
-        if deleted:
-            # After the cascade, so SQL realign does not still see this rule's
-            # column labels. Imported lazily: :mod:`auto_ontology.dal.tags`
-            # must not load this module at import time.
-            from auto_ontology.dal.tags import _cascade_pii_off_columns
-
-            _cascade_pii_off_columns(labelled_columns)
-            if applied:
-                _delete_tags_left_labelling_nothing(applied)
+        if deleted and applied:
+            _delete_tags_left_labelling_nothing(applied)
         return deleted

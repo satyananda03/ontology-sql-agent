@@ -29,10 +29,10 @@ lets a caller redraw from one answer instead of re-reading, and it is also how
 each reports the case it cannot perform: ``None`` for an object or a tag that is
 not there, which the router owes a 404 rather than a silent success.
 
-A label also records **where it came from**: the account that applied it, or the
-rule that matched. :func:`attach_tags_by_rule` is the second of those, writing a
+A label also records **where it came from**: applied by hand, or by the rule
+that matched. :func:`attach_tags_by_rule` is the second of those, writing a
 whole rule's worth of labels in one statement per kind, and both reads carry the
-source back so a tag's page can say who tagged each object. Whichever source
+rule back so a tag's page can say which rule tagged each object. Whichever source
 wrote a label first keeps it — the duplicate insert is absorbed rather than
 overwriting — so a rule re-applying itself never claims a hand-applied label.
 """
@@ -69,17 +69,6 @@ from auto_ontology.dal.session import IN_QUERY_BATCH, store, write_transaction
 #: The rule ``uq_tag_name_lower`` indexes, as a comparison the DAL can run.
 _FOLDED_NAME = func.lower(func.trim(s.tag.c.name))
 
-#: The tag automatic PII detection attaches. Ingestion finds it by name, so it
-#: may be neither deleted nor renamed: either would silently fork PII labels
-#: across two tags. Mirrored by ``PII_TAG_NAME`` in ``frontend/constants/tags.ts``.
-PII_TAG_NAME = "PII"
-
-
-def is_protected_tag(tag: dict[str, Any]) -> bool:
-    """Whether *tag* is system-managed and must keep its name and existence."""
-    return str(tag["name"]).strip().lower() == PII_TAG_NAME.lower()
-
-
 #: Every column the API returns for a tag, in one place so the list and the
 #: create path cannot drift into returning different shapes.
 _COLUMNS = (
@@ -87,8 +76,6 @@ _COLUMNS = (
     s.tag.c.name,
     s.tag.c.created,
     s.tag.c.modified,
-    s.tag.c.created_by,
-    s.tag.c.modified_by,
 )
 
 #: ``type`` on a tagged item: which of the five things the row points at.
@@ -255,7 +242,7 @@ def get_tag_by_name(name: str) -> dict[str, Any] | None:
     return rows[0] if rows else None
 
 
-def get_or_create_tag(*, name: str, created_by: str | None = None) -> dict[str, Any]:
+def get_or_create_tag(*, name: str) -> dict[str, Any]:
     """Return the named tag, creating it safely when it does not exist.
 
     The unique index remains the concurrency guard. If another worker creates
@@ -268,7 +255,7 @@ def get_or_create_tag(*, name: str, created_by: str | None = None) -> dict[str, 
     if existing is not None:
         return existing
     try:
-        return create_tag(name=normalized_name, created_by=created_by)
+        return create_tag(name=normalized_name)
     except ValueError:
         existing = get_tag_by_name(normalized_name)
         if existing is None:
@@ -362,9 +349,8 @@ def _targets(
     *parents* names whichever of :data:`_PARENT_ID_FIELDS` this kind has;
     omitting it means none, which is a Term.
 
-    ``tagged_by`` and ``rule_id``/``rule_name`` are the source of the label, for
-    the "Tagged By" column: the account that applied it by hand, or the rule
-    that matched. The rule is joined outer here rather than resolved by the
+    ``rule_id``/``rule_name`` name the rule that applied the label, null for a
+    hand-applied one. The rule is joined outer here rather than resolved by the
     caller, so one read answers the whole column -- a name per row fetched
     separately would be a query per tagged object.
     """
@@ -375,7 +361,6 @@ def _targets(
             path,
             literal(kind, Text).label("type"),
             s.tag_target.c.tagged.label("tagged"),
-            s.tag_target.c.tagged_by.label("tagged_by"),
             s.tag_target.c.rule_id.label("rule_id"),
             s.rule.c.name.label("rule_name"),
             *_parent_ids(parents or {}),
@@ -547,10 +532,8 @@ def list_tag_targets(
     returns every object. :func:`count_tag_targets` is the size of the whole
     list, which is what tells a caller when to stop asking.
 
-    Each row carries the source of its label: ``tagged_by``, the account that
-    applied it by hand, and ``rule``, the rule that applied it instead. Exactly
-    one of the two is set on a row written since the columns existed; both are
-    null on an older one, which reads as a label of unknown origin.
+    Each row carries ``rule``, the rule that applied its label, or null for a
+    label applied by hand.
 
     An unknown *tag_id* yields ``[]`` rather than an error — the caller
     distinguishes a missing tag with :func:`get_tag`, which is the only read
@@ -630,30 +613,19 @@ def fetch_tags_map(kind: str, item_ids: list[str]) -> dict[str, list[dict[str, A
     return tags
 
 
-def create_tag(*, name: str, created_by: str | None = None) -> dict[str, Any]:
+def create_tag(*, name: str) -> dict[str, Any]:
     """Create a tag and return it.
 
     *name* is stored as given; the caller is expected to have trimmed it. Raises
     ``ValueError`` when the name is already taken, whether that is caught by the
     check or by the unique index underneath it.
-
-    *created_by* is the Better Auth user id the router read from the gateway's
-    header. It is optional because the header is not guaranteed -- FastAPI is
-    reachable directly on the private network -- and ``None`` records that
-    nobody was named rather than failing the create over an audit field. The
-    pages read that as "Auto Generated": with no account to name, the
-    deployment is what is left.
-
-    ``modified_by`` is deliberately *not* set alongside it. It answers "who last
-    edited this", and a tag that has only ever been created has not been edited
-    -- the same reason ``modified`` equalling ``created`` reads as "Never".
     """
     if _name_taken(name):
         raise ValueError(f"Tag with name {name!r} already exists")
 
     try:
         rows = store().query_write(
-            s.tag.insert().values(name=name, created_by=created_by).returning(*_COLUMNS)
+            s.tag.insert().values(name=name).returning(*_COLUMNS)
         )
     except IntegrityError as exc:
         # Only the name rule is translated. A different constraint failing means
@@ -666,9 +638,7 @@ def create_tag(*, name: str, created_by: str | None = None) -> dict[str, Any]:
     return rows[0]
 
 
-def update_tag(
-    *, tag_id: str, name: str, modified_by: str | None = None
-) -> dict[str, Any] | None:
+def update_tag(*, tag_id: str, name: str) -> dict[str, Any] | None:
     """Rename a tag and return it. ``None`` when no tag has that id.
 
     The name is a tag's only editable part, so this takes it as a plain
@@ -688,12 +658,6 @@ def update_tag(
     alone -- so the two differing is exactly "this tag has been renamed", which
     is what the settings page renders.
 
-    ``modified_by`` has no such mechanism and so is written explicitly, from the
-    identity the gateway forwarded. It is optional for the reason ``created_by``
-    is on :func:`create_tag`, and it is set on *every* rename including one that
-    names nobody: leaving the previous editor in place would credit this edit to
-    whoever made the last one.
-
     The rows it labels are untouched: membership is keyed by id, so a rename
     reaches every object carrying the tag without a single ``tag_target`` row
     being written.
@@ -705,7 +669,7 @@ def update_tag(
         rows = store().query_write(
             s.tag.update()
             .where(s.tag.c.id == tag_id)
-            .values(name=name, modified_by=modified_by)
+            .values(name=name)
             .returning(*_COLUMNS)
         )
     except IntegrityError as exc:
@@ -761,18 +725,11 @@ def _attribute_without_a_term(kind: str, item_id: str) -> bool:
     return bool(rows) and not rows[0]["has_term"]
 
 
-def attach_tag(
-    *, tag_id: str, kind: str, item_id: str, tagged_by: str | None = None
-) -> list[dict[str, Any]] | None:
+def attach_tag(*, tag_id: str, kind: str, item_id: str) -> list[dict[str, Any]] | None:
     """Label the *kind* object *item_id* with *tag_id*.
 
     Returns the object's tags afterwards, in the order a page renders them, so
     a caller redraws from this answer rather than reading membership back.
-
-    *tagged_by* is the account doing it, recorded for the "Tagged By" column on
-    the tag's page. Optional, and omitting it stores a null, which with a null
-    ``rule_id`` beside it is what that column reads as "Auto Generated": a
-    label no account and no rule is claiming came from the deployment itself.
 
     Labelling something twice is not an error: the unique constraint the second
     insert hits is absorbed, and the answer is the same list either way. That
@@ -802,11 +759,7 @@ def attach_tag(
     try:
         store().query_write(
             insert(s.tag_target)
-            .values(
-                tag_id=tag_id,
-                tagged_by=tagged_by,
-                **{column.name: item_id},
-            )
+            .values(tag_id=tag_id, **{column.name: item_id})
             .on_conflict_do_nothing()
         )
     except IntegrityError as exc:
@@ -839,10 +792,6 @@ def attach_tags_by_rule(
     re-applying a rule as the catalog grows costs nothing for what it labelled
     last time, and never takes a hand-applied label away from the person who
     applied it.
-
-    ``tagged_by`` is left null: a rule is not an account, and ``rule_id`` is
-    what says a rule did this. The two are read together, so a row is never
-    ambiguous about which it was.
 
     Attributes of no Term are not defended against, unlike :func:`attach_tag`:
     every search that could produce one joins through the Term link, so a rule
@@ -1042,14 +991,6 @@ def remove_labels_no_longer_matched(*, rule_id: str, targets: dict[str, Select])
     (...)`` is null, and a null inside the negation would leave the row
     undecided rather than deleted.
 
-    Taking the system ``PII`` tag off a column also takes it off that column's
-    attributes -- the same cascade as the tags API. Propagated attribute labels
-    have no ``rule_id``, so this statement would otherwise leave them behind.
-
-    One transaction for the delete and that cascade. Nested
-    :func:`write_transaction` calls in the untag reuse this one, so a failed
-    attribute cleanup rolls the column labels back and the next replay retries
-    instead of leaving attributes tagged after the column is not.
     """
     kept = [
         and_(_target_column(kind).is_not(None), _target_column(kind).in_(matched))
@@ -1058,39 +999,10 @@ def remove_labels_no_longer_matched(*, rule_id: str, targets: dict[str, Select])
     conditions: list[ColumnElement[bool]] = [s.tag_target.c.rule_id == rule_id]
     if kept:
         conditions.append(not_(or_(*kept)))
-    with write_transaction():
-        rows = store().query_write(
-            s.tag_target.delete()
-            .where(*conditions)
-            .returning(s.tag_target.c.tag_id, s.tag_target.c.column_id)
-        )
-        _cascade_pii_off_columns(rows)
-        return len(rows)
-
-
-def _cascade_pii_off_columns(deleted: list[dict[str, Any]]) -> None:
-    """Drop ``PII`` from attributes of columns a rule just unlabelled.
-
-    Call after those column labels are gone -- a replay DELETE, or
-    ``delete_rule``'s ``rule_id`` cascade. Propagated attribute labels have
-    no ``rule_id``, so neither statement would take them on its own.
-
-    Imported lazily: :mod:`auto_ontology.dal.pii` imports this module, so a
-    top-level import would cycle.
-    """
-    pii_tag = get_tag_by_name(PII_TAG_NAME)
-    if pii_tag is None:
-        return
-    pii_id = str(pii_tag["id"])
-    from auto_ontology.dal.pii import untag_attributes_of_column
-
-    seen: set[str] = set()
-    for row in deleted:
-        column_id = row["column_id"]
-        if row["tag_id"] != pii_id or not column_id or column_id in seen:
-            continue
-        seen.add(column_id)
-        untag_attributes_of_column(column_id, pii_id)
+    rows = store().query_write(
+        s.tag_target.delete().where(*conditions).returning(s.tag_target.c.id)
+    )
+    return len(rows)
 
 
 def detach_tag(*, tag_id: str, kind: str, item_id: str) -> list[dict[str, Any]] | None:

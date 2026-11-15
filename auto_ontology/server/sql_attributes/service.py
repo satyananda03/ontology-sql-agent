@@ -14,7 +14,6 @@ from auto_ontology.catalog.constants import Props
 
 from auto_ontology.connectors import get_connectors
 from auto_ontology.dal import sql_attributes as sql_attr_dal
-from auto_ontology.dal.pii import realign_sql_attribute_pii
 from auto_ontology.dal.sql_attributes import (
     SqlAttributeExpressionConflict,
     SqlAttributeNameConflict,
@@ -30,7 +29,6 @@ from auto_ontology.dal.sql_attributes import (
     link_to_term,
     list_sql_attributes,
 )
-from auto_ontology.dal.tags import PII_TAG_NAME, get_tag_by_name
 from auto_ontology.dal.terms import get_slim_term_by_id
 from auto_ontology.semantic.constants import LABEL_SQL_ATTRIBUTE
 from auto_ontology.server.sql_attributes.description_suggester import (
@@ -123,7 +121,6 @@ def _persist_attr_with_sql(
         "sql_id": query_obj.sql_node.get_id(),
         "sql": sql,
         "certified": props.get("certified", False),
-        "owner_id": props.get("owner_id"),
     }
 
 
@@ -213,17 +210,11 @@ def create_sql_attribute(
     term_id: str,
     connector: str | None = None,
     source: str = "manual",
-    owner_id: str | None = None,
-    created_by: str | None = None,
 ) -> dict[str, Any]:
     """Create a SqlAttribute, its Sql node, link to a Term, and embed.
 
     The connector is resolved server-side (see
     :func:`_resolve_database_name`) — callers never need to pass one.
-    ``owner_id`` is stored when given; ``None`` leaves the attribute
-    unassigned. The caller has already checked that the id may own it.
-    ``created_by`` is the user id from the gateway. Compilation leaves it
-    unset, which the panel shows as Auto Generated.
 
     Raises :class:`SqlAttributeNameConflict` when ``name`` is already used.
     Raises :class:`SqlAttributeSqlError` when the SQL can't be resolved.
@@ -261,10 +252,6 @@ def create_sql_attribute(
         "expression": expression,
         "source": source,
     }
-    if owner_id is not None:
-        props["owner_id"] = owner_id
-    if created_by is not None:
-        props["created_by"] = created_by
     attr_node = CatalogNode(
         name=name,
         label=LABEL_SQL_ATTRIBUTE,
@@ -299,9 +286,6 @@ def update_sql_attribute(
     connector: str | None = None,
     source: str = "manual",
     certified: bool | None = None,
-    owner_id: str | None = None,
-    set_owner: bool = False,
-    modified_by: str | None = None,
     touch: bool = False,
 ) -> dict[str, Any] | None:
     """Update a SqlAttribute.
@@ -367,7 +351,6 @@ def update_sql_attribute(
             description=next_description,
             expression=expression,
             source=source,
-            modified_by=modified_by,
             touch=touch,
         )
 
@@ -386,12 +369,6 @@ def update_sql_attribute(
 
         _persist_attr_with_sql(attr_node, expression, query_obj)
         link_to_term(attr_id, term_id)
-        if expression_changed:
-            pii_tag = get_tag_by_name(PII_TAG_NAME)
-            realign_sql_attribute_pii(
-                attr_id,
-                str(pii_tag["id"]) if pii_tag else None,
-            )
         _reembed_sql_attribute(attr_id, database_name)
 
         return {
@@ -405,7 +382,6 @@ def update_sql_attribute(
             "term_id": term_id,
             "sql": expression,
             "certified": existing.get("certified", False),
-            "owner_id": existing.get("owner_id"),
         }
 
     next_name = name.strip() if name is not None else existing.get("name", "")
@@ -419,13 +395,7 @@ def update_sql_attribute(
     name_changed = (existing.get("name") or "").strip() != next_name
     description_changed = (existing.get("description") or "") != next_description
     certification_changed = certified is not None
-    owner_changed = set_owner and existing.get("owner_id") != owner_id
-    if (
-        not name_changed
-        and not description_changed
-        and not certification_changed
-        and not owner_changed
-    ):
+    if not name_changed and not description_changed and not certification_changed:
         return existing
 
     if name_changed:
@@ -442,9 +412,6 @@ def update_sql_attribute(
         name=next_name if name_changed else None,
         description=next_description if description_changed else None,
         certified=certified,
-        owner_id=owner_id,
-        set_owner=set_owner,
-        modified_by=modified_by,
         touch=touch,
     )
     if name_changed or description_changed:

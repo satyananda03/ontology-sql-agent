@@ -22,7 +22,6 @@ class AgentPayload(TypedDict):
     path_state: NotRequired[dict]
     connectors: NotRequired[list[SQLDatabase]]
     acronyms: NotRequired[list[dict[str, str]]]
-    custom_prompts: NotRequired[str]
 
 
 class TextToSQLPayload(TypedDict):
@@ -52,7 +51,6 @@ class TextToSQLPayload(TypedDict):
     path_state: NotRequired[dict]
     connectors: NotRequired[list[SQLDatabase]]
     acronyms: NotRequired[list[dict[str, str]]]
-    custom_prompts: NotRequired[str]
     target_db: NotRequired[str]
     # Prediction override: True forces prediction, False excludes prediction while
     # still classifying as information/calculation, and None/absent classifies freely.
@@ -111,7 +109,7 @@ def get_standalone_question(state: AgentState) -> str:
     Question carrying the full intent, before sanitization.
 
     Uses the caller-provided ``path_state["processing_question"]`` (a follow-up
-    resolved against conversation history) when set, otherwise the exact submitted
+    the caller resolved into a standalone question) when set, otherwise the exact submitted
     ``initial_question``. Use this where a node needs the complete question but not
     the retrieval-oriented rewrite ``get_question_for_processing`` returns.
     """

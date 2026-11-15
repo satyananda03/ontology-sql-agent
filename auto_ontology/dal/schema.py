@@ -32,8 +32,6 @@ Four decisions shape everything downstream:
   ``pk_table__term`` never drifts back to the ambiguous form.
 """
 
-from enum import StrEnum
-
 from sqlalchemy import (
     ARRAY,
     BigInteger,
@@ -122,17 +120,16 @@ def _certified(name: str) -> Column:
     return Column(name, Boolean, nullable=False, server_default=text("false"))
 
 
-def _edited() -> tuple[Column, Column, Column, Column]:
+def _edited() -> tuple[Column, Column]:
     """When the row was inserted and when someone last edited it in the app.
 
     ``created`` is the database clock on insert. The migration adds the column
     without backfilling, so a row that already existed stays null rather than
     claiming it was created the day the column appeared.
 
-    ``modified`` and ``modified_by`` stay null until a person saves an edit.
-    Compilation rewrites descriptions on its own and does not count: the panel's
-    Last Modified is that save. ``modified_by`` is a Better Auth user id, null
-    when the request carried no identity, which the page reads as Auto Generated.
+    ``modified`` stays null until a person saves an edit. Compilation rewrites
+    descriptions on its own and does not count: the panel's Last Modified is
+    that save.
     """
     return (
         Column(
@@ -142,28 +139,7 @@ def _edited() -> tuple[Column, Column, Column, Column]:
             server_default=func.now(),
         ),
         Column("modified", DateTime(timezone=True), nullable=True),
-        Column("created_by", Text, nullable=True),
-        Column("modified_by", Text, nullable=True),
     )
-
-
-def _owner_id() -> Column:
-    """The account or group that owns the row, or null when nobody does.
-
-    Stored on a database, a schema, a table, a term, and a sql attribute. The
-    catalog page edits it on a table, and the glossary page edits it on a
-    term. A column shows that table's owner and a column attribute shows its
-    term's owner; neither stores one of its own. A sql attribute keeps the
-    column, and its page shows the term's owner. The edit check for a column,
-    a column attribute, and a sql attribute does not read an owner on that
-    row. A database and a schema keep the column, and the page does not edit
-    it there. One column holds either id. An account id is
-    ``frontend."user".id`` and a group id is ``user_group.id``; neither can
-    be a foreign key, because the account table is outside this schema and
-    one reference cannot name both. An empty write clears it. A deleted
-    account or group leaves the id behind, which reads as unassigned.
-    """
-    return Column("owner_id", Text, nullable=True)
 
 
 # ---------------------------------------------------------------------------
@@ -187,7 +163,6 @@ catalog_database = Table(
     Column("description", Text, nullable=True),
     _certified("description_certified"),
     _imported_id(),
-    _owner_id(),
     Column("created", DateTime(timezone=True), server_default=func.now()),
     Column("pulled", DateTime(timezone=True), nullable=True),
 )
@@ -206,7 +181,6 @@ catalog_schema = Table(
     Column("description", Text, nullable=True),
     _certified("description_certified"),
     _imported_id(),
-    _owner_id(),
     UniqueConstraint("database_id", "name", name="uq_catalog_schema_database_name"),
 )
 
@@ -229,7 +203,6 @@ catalog_table = Table(
     # column the PATCH still returns 200 and the checkbox still ticks; the flag
     # is simply dropped on the way in and reads back false forever.
     _certified("description_certified"),
-    _owner_id(),
     # Primary key column names. A list on the node today, so a text[] here
     # rather than a join table -- nothing ever queries "which tables have this
     # pk column", and a join table would make every read a second query.
@@ -282,10 +255,6 @@ catalog_column = Table(
     # A genuine integer, despite the parser handing the write path a string --
     # something coerces on the way in.
     Column("ordinal_position", Integer, nullable=True),
-    # Set only after automatic PII classification completes. Tag edits are
-    # deliberately independent: removing an automatically assigned PII tag is
-    # a user override and must not make the next ingest add it back.
-    Column("pii_processed", Boolean, nullable=False, server_default=text("false")),
     _imported_id(),
     UniqueConstraint("table_id", "name", name="uq_catalog_column_table_name"),
 )
@@ -457,7 +426,6 @@ term = Table(
     Column("synonyms", ARRAY(Text), nullable=True),
     _certified("name_certified"),
     _certified("description_certified"),
-    _owner_id(),
     *_edited(),
     _imported_id(),
     UniqueConstraint("name", "source", name="uq_term_name_source"),
@@ -495,13 +463,6 @@ column_attribute = Table(
     Column("table_id", Text, nullable=False),
     Column("certified", Boolean, nullable=False, server_default=text("false")),
     Column("description_suggestion", Text, nullable=True),
-    # Set once PII propagation from the attribute's columns has handled it.
-    # Like `catalog_column.pii_processed`, tag edits are independent of it:
-    # removing an automatically assigned PII tag is a user override and must not
-    # make the next pass add it back. Taking PII off the owning column (or an
-    # expression rewrite that leaves every tagged column) clears this so a
-    # later tag can still propagate.
-    Column("pii_processed", Boolean, nullable=False, server_default=text("false")),
     *_edited(),
     _imported_id(),
     # The 5-part merge key, exactly as merge_column_attribute matches on.
@@ -599,15 +560,7 @@ sql_attribute = Table(
     Column("expression", Text, nullable=True),
     Column("source", Text, nullable=True),
     Column("certified", Boolean, nullable=False, server_default=text("false")),
-    _owner_id(),
     Column("description_suggestion", Text, nullable=True),
-    # Set once PII propagation from the attribute's columns has handled it.
-    # Like `catalog_column.pii_processed`, tag edits are independent of it:
-    # removing an automatically assigned PII tag is a user override and must not
-    # make the next pass add it back. An expression rewrite that no longer
-    # reads a tagged column is the exception: the tag is taken off and this
-    # flag cleared so a later tag on one of the new columns can still propagate.
-    Column("pii_processed", Boolean, nullable=False, server_default=text("false")),
     *_edited(),
     _imported_id(),
     CheckConstraint(
@@ -812,29 +765,6 @@ tag = Table(
         server_default=func.now(),
         onupdate=func.now(),
     ),
-    # Who created the tag and who last edited it, as Better Auth user ids --
-    # the `id` of a row in `frontend."user"`, which Prisma owns.
-    #
-    # Deliberately not foreign keys. That table is in another schema Alembic
-    # does not manage, so there is nothing here to reference; and a tag must
-    # outlive the account that made it, which a FK with any `ondelete` would
-    # either forbid or quietly rewrite.
-    #
-    # Nullable because the gateway's identity header is not guaranteed: FastAPI
-    # is reachable directly on the private network, so a caller that skips the
-    # gateway creates a tag with nobody to record. The settings page reads that
-    # as "Auto Generated" -- with no account to name, the deployment is what is
-    # left -- rather than inventing an author.
-    #
-    # `modified_by` is additionally null for a tag nothing has edited yet, which
-    # is the same fact `modified == created` states -- the page renders those
-    # two together as an edit that never happened.
-    #
-    # Either may also hold an id no account answers to, since these are not
-    # foreign keys and an account can be deleted; the page reads that the same
-    # way it reads a null, having nobody to name either way.
-    Column("created_by", Text, nullable=True),
-    Column("modified_by", Text, nullable=True),
     # The tag name rule as a constraint rather than a convention. Unlike
     # `zone.name` -- whose rule is scoped to the databases a zone's items live
     # in, which no index can express -- a tag name is unique across the whole
@@ -903,21 +833,8 @@ tag_target = Table(
         nullable=False,
         server_default=func.now(),
     ),
-    # Who applied it, for the "Tagged By" column beside it. A Better Auth user
-    # id from the gateway's identity header, and not a foreign key: the accounts
-    # live in the `frontend` schema Prisma owns, which this database has no
-    # table for -- the same arrangement as `tag.created_by`.
-    #
-    # Null for a label a rule applied, where `rule_id` names the source
-    # instead; for one the deployment applied itself, which is what an attach
-    # carrying no identity records; and for a row written before this column
-    # existed. The page reads the last two the same way, as "Auto Generated" --
-    # with no account and no rule claiming a label, the deployment is what is
-    # left, and an older row is a label nobody ever claimed either.
-    Column("tagged_by", Text, nullable=True),
     # The rule that applied it, when a rule did rather than a person. Null for a
-    # hand-applied label, and the two are exclusive: `tagged_by` is the account
-    # that clicked, `rule_id` the rule that matched.
+    # hand-applied label.
     #
     # `ON DELETE CASCADE`, so deleting a rule takes back what it labelled. A
     # rule-applied tag is the rule still holding, not a fact of its own -- it is
@@ -925,10 +842,9 @@ tag_target = Table(
     # thing that could explain it.
     #
     # A caller who wants the labels to outlive the rule anyway says so, and
-    # `rules.delete_rule` clears this column before deleting -- writing the
-    # rule's author into `tagged_by` as it goes, so the label reads as that
-    # person's rather than as nobody's -- and the cascade then has nothing of
-    # the rule's to take. That is a decision at the call site rather than a
+    # `rules.delete_rule` clears this column before deleting, turning them into
+    # hand-applied labels, and the cascade then has nothing of the rule's to
+    # take. That is a decision at the call site rather than a
     # weaker constraint here: while a rule exists, a label naming it is the
     # rule's.
     #
@@ -1027,21 +943,6 @@ rule = Table(
         server_default=func.now(),
         onupdate=func.now(),
     ),
-    # NOT NULL, unlike `tag.created_by`, and not a foreign key for the same
-    # reasons that column is not: the accounts live in a schema Alembic does not
-    # manage, and a rule must outlive the account that saved it.
-    #
-    # Required because the route refuses a create it cannot attribute -- a rule
-    # goes on labelling the catalog long after it was saved, so "nobody" is not
-    # an author it may record.
-    Column("created_by", Text, nullable=False),
-    # Who last renamed the rule, as `tag.modified_by` records for a tag.
-    #
-    # Nullable, unlike `created_by`, and for a reason `created_by` cannot have:
-    # a rule that nobody has edited has no editor, which is the same fact as
-    # `modified == created`. It is set on every rename, including one carrying
-    # no identity -- leaving the previous editor would credit this edit to them.
-    Column("modified_by", Text, nullable=True),
     # Case- and whitespace-insensitive uniqueness on the name, spelled exactly
     # as `uq_tag_name_lower` is and for the reasons given there: an expression
     # index states the rule the DAL checks, and closes the window between that
@@ -1110,87 +1011,22 @@ semantic_compilation_history = Table(
 
 
 # ---------------------------------------------------------------------------
-# User groups
 # ---------------------------------------------------------------------------
-#
-# A group is a named set of accounts. Illumex loads the same idea from
-# Frontegg (id, name, description, color, roles, users, and the permissions
-# those roles expand to). There is no Frontegg here, so the group is a row
-# this schema owns.
-#
-# The role is one of the two an account already has, ``admin`` or ``viewer``.
-# A group does not carry a list of identity-provider roles, and membership
-# does not change the account's own role: that stays on ``frontend."user"``.
-# The API expands this single role into ``roles`` and ``permissions`` when it
-# answers, which is the shape a caller that learned groups elsewhere expects.
-#
-# ``user_id`` on the membership table is a Better Auth id — the ``id`` of a
-# row in ``frontend."user"``, which Prisma owns. Deliberately not a foreign
-# key, for the same reason ``tag.created_by`` is not one: that table is in a
-# schema Alembic does not manage, so there is nothing here to reference. A
-# deleted account can therefore leave a membership behind. Reads still return
-# that id, with no name, so the membership stays visible instead of vanishing.
 
-
-class GroupRole(StrEnum):
-    """The two roles an account and a group share. A group does not invent a third."""
-
-    ADMIN = "admin"
-    VIEWER = "viewer"
-
-
-#: The only roles a group can carry. The same two Better Auth stores on an account.
-GROUP_ROLE_ADMIN = GroupRole.ADMIN
-GROUP_ROLE_VIEWER = GroupRole.VIEWER
-
-user_group = Table(
-    "user_group",
     METADATA,
     _id(),
-    # Unique case-insensitively on the trimmed name, across the deployment.
-    # Unlike ``zone.name`` — whose rule is per database, which no index can
-    # express — a group name is global, so the expression index states it
-    # exactly and closes the window between the DAL's check and its insert.
-    #
-    # Spelled as ``text()`` in Postgres's own deparsed form, and declared on
-    # the table rather than beside the other indexes, for the same two reasons
-    # as ``uq_tag_name_lower``.
-    Column("name", Text, nullable=False),
-    Column("description", Text, nullable=True),
-    Column("color", Text, nullable=False),
-    Column("role", Text, nullable=False),
-    CheckConstraint(
-        f"role IN ('{GROUP_ROLE_ADMIN}', '{GROUP_ROLE_VIEWER}')",
-        name="role_value",
-    ),
     Column(
-        "created",
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
     ),
-    Index(
-        "uq_user_group_name_lower",
-        text("lower(TRIM(BOTH FROM name))"),
-        unique=True,
     ),
 )
 
-# Who belongs to a group. The composite primary key leads with ``group_id``,
-# which answers "the members of this group". The reverse — "the groups of this
-# account" — is ``ix_user_group__member_user_id`` below.
-user_group__member = Table(
-    "user_group__member",
     METADATA,
     Column(
-        "group_id",
-        Text,
-        ForeignKey(user_group.c.id, ondelete="CASCADE"),
-        primary_key=True,
     ),
-    Column("user_id", Text, primary_key=True),
 )
-
 
 # ---------------------------------------------------------------------------
 # Indexes for the read paths
@@ -1227,10 +1063,6 @@ Index("ix_zone_target_zone_id", zone_target.c.zone_id)
 Index("ix_zone_target_database_id", zone_target.c.database_id)
 Index("ix_zone_target_schema_id", zone_target.c.schema_id)
 Index("ix_zone_target_table_id", zone_target.c.table_id)
-
-# "The groups of this account". The primary key of ``user_group__member`` leads
-# with ``group_id`` and so cannot serve it.
-Index("ix_user_group__member_user_id", user_group__member.c.user_id)
 
 # "The tags on this object", which every detail page asks for its own kind. The
 # unique constraints on tag_target lead with `tag_id` and so cannot serve it.
@@ -1415,11 +1247,6 @@ __all__ = [
     "table__term",
     "term",
     "text_attribute",
-    "user_group",
-    "user_group__member",
-    "GroupRole",
-    "GROUP_ROLE_ADMIN",
-    "GROUP_ROLE_VIEWER",
     "zone",
     "zone_target",
 ]

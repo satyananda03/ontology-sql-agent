@@ -135,11 +135,8 @@ def _attribute_select():
             s.sql_attribute.c.source,
             _SQL_TEXT.label("sql"),
             s.sql_attribute.c.certified,
-            s.sql_attribute.c.owner_id,
             s.sql_attribute.c.created,
             s.sql_attribute.c.modified,
-            s.sql_attribute.c.created_by,
-            s.sql_attribute.c.modified_by,
             s.term.c.id.label("term_id"),
             s.term.c.name.label("term_name"),
         )
@@ -473,9 +470,6 @@ def update_sql_attribute(
     expression: str | None = None,
     source: str | None = None,
     certified: bool | None = None,
-    owner_id: str | None = None,
-    set_owner: bool = False,
-    modified_by: str | None = None,
     touch: bool = False,
 ) -> None:
     """Set properties on an existing attribute; omitted fields are untouched."""
@@ -485,10 +479,9 @@ def update_sql_attribute(
         "expression": func.coalesce(expression, s.sql_attribute.c.expression),
     }
     # The rest is filled in below; ``touch`` is applied with them so one
-    # UPDATE both changes the field and records who saved it.
+    # UPDATE both changes the field and records when it was saved.
     if touch:
         values["modified"] = func.now()
-        values["modified_by"] = modified_by
     store().query_write(
         update(s.sql_attribute)
         .where(s.sql_attribute.c.id == attr_id)
@@ -500,9 +493,6 @@ def update_sql_attribute(
             # column is nullable with no default.
             source=func.coalesce(literal(source, String), s.sql_attribute.c.source),
             certified=func.coalesce(certified, s.sql_attribute.c.certified),
-            owner_id=(
-                literal(owner_id, String) if set_owner else s.sql_attribute.c.owner_id
-            ),
         )
     )
 

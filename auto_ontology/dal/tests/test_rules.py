@@ -25,11 +25,8 @@ The fourth is how little a rename is allowed to be, and that a name names one
 rule. Uniqueness is folded for case and surrounding space, as a tag's is, so a
 rename is checked against a name in another case and a rule's *own* name is
 checked not to collide with itself. Everything else is held still -- the search,
-the filters, the tags, the author -- and the tests pin the two columns an edit
-does write:
-``modified``, which ``onupdate`` advances, and ``modified_by``, which is written
-on every rename including one that names nobody, so a rename cannot be credited
-to whoever made the last one. What a rename does to the *labels* the rule
+the filters, the tags -- and the tests pin the column an edit does write:
+``modified``, which ``onupdate`` advances. What a rename does to the *labels* the rule
 applied is covered in ``test_tags.py``, where the tagged objects are.
 
 The fifth is what a delete takes with it, which is a good deal more than the
@@ -38,8 +35,7 @@ covered in ``test_tags.py``, where the tagged objects are. A tag those labels
 were the whole of goes too, so the tests here draw the line around that. It is
 not taken when something else still labels it, when another rule still applies
 it -- deleting it would leave that rule tagless -- or when the caller asked to
-keep the labels, which empties nothing in the first place. The system ``PII``
-tag is never taken, even emptied: ingest looks it up by name.
+keep the labels, which empties nothing in the first place.
 
 Needs a migrated database and skips without one.
 """
@@ -63,12 +59,10 @@ from auto_ontology.dal.rules import (  # noqa: E402
 )
 from auto_ontology.dal.session import store  # noqa: E402
 from auto_ontology.dal.tags import (  # noqa: E402
-    PII_TAG_NAME,
     TARGET_TERM,
     attach_tag,
     attach_tags_by_rule,
     create_tag,
-    get_or_create_tag,
 )
 
 FILTERS = {"description": False, "synonyms": True, "objects": None}
@@ -107,7 +101,6 @@ def _saved(prefix: str, *, name: str | None = None, tags: list[str]) -> str:
         text_match_option="contains",
         filters=FILTERS,
         tags=tags,
-        created_by="user-1",
     )
 
 
@@ -137,7 +130,6 @@ def test_a_saved_rule_reads_back_with_what_it_was_given(prefix) -> None:
     assert rule["search_term"] == "customer"
     assert rule["text_match_option"] == "contains"
     assert rule["filters"] == FILTERS
-    assert rule["created_by"] == "user-1"
     assert rule["tags"] == [{"id": tag["id"], "name": tag["name"]}]
 
 
@@ -309,40 +301,18 @@ def test_a_rename_changes_the_name_and_nothing_else(prefix) -> None:
     assert renamed["text_match_option"] == before["text_match_option"]
     assert renamed["filters"] == before["filters"]
     assert renamed["created"] == before["created"]
-    assert renamed["created_by"] == before["created_by"]
     assert renamed["tags"] == before["tags"]
 
 
-def test_a_rename_records_who_made_it_and_that_it_happened(prefix) -> None:
+def test_a_rename_records_that_it_happened(prefix) -> None:
     """``modified`` past ``created`` is the fact that this rule was renamed."""
     tag = create_tag(name=f"{prefix}-pii")
     rule_id = _saved(prefix, tags=[tag["id"]])
 
-    renamed = update_rule(
-        rule_id=rule_id, name=f"{prefix}-renamed", modified_by="user-2"
-    )
+    renamed = update_rule(rule_id=rule_id, name=f"{prefix}-renamed")
 
     assert renamed is not None
     assert renamed["modified"] > renamed["created"]
-    assert renamed["modified_by"] == "user-2"
-
-
-def test_a_rename_naming_nobody_does_not_credit_the_last_editor(prefix) -> None:
-    """Written on every rename: the previous editor did not make this one."""
-    tag = create_tag(name=f"{prefix}-pii")
-    rule_id = _saved(prefix, tags=[tag["id"]])
-    update_rule(rule_id=rule_id, name=f"{prefix}-once", modified_by="user-2")
-
-    renamed = update_rule(rule_id=rule_id, name=f"{prefix}-twice")
-
-    assert renamed is not None
-    assert renamed["modified_by"] is None
-
-
-def test_a_fresh_rule_has_no_editor(prefix) -> None:
-    tag = create_tag(name=f"{prefix}-pii")
-
-    assert _read(_saved(prefix, tags=[tag["id"]]))["modified_by"] is None
 
 
 def test_renaming_an_id_that_is_not_a_rule_is_nothing(prefix) -> None:
@@ -436,15 +406,6 @@ def test_deleting_a_rule_takes_a_tag_it_leaves_labelling_nothing(prefix) -> None
     assert store().query_read(s.tag.select().where(s.tag.c.id == tag["id"])) == []
 
 
-def test_deleting_a_rule_leaves_the_system_pii_tag(prefix) -> None:
-    """Ingestion finds it by name; a new id would fork later labels."""
-    pii = get_or_create_tag(name=PII_TAG_NAME)
-
-    delete_rule(_saved(prefix, tags=[pii["id"]]))
-
-    assert store().query_read(s.tag.select().where(s.tag.c.id == pii["id"]))
-
-
 def test_deleting_a_rule_takes_the_tag_it_had_labelled_with(prefix) -> None:
     """The cascade empties the tag, and the tag then follows the labels."""
     tag = create_tag(name=f"{prefix}-pii")
@@ -463,7 +424,7 @@ def test_deleting_a_rule_leaves_a_tag_that_still_labels_something(prefix) -> Non
     """The vocabulary is only the rule's to take back as far as it reached."""
     tag = create_tag(name=f"{prefix}-pii")
     term = _term(prefix)
-    attach_tag(tag_id=tag["id"], kind=TARGET_TERM, item_id=term, tagged_by="user-1")
+    attach_tag(tag_id=tag["id"], kind=TARGET_TERM, item_id=term)
 
     delete_rule(_saved(prefix, tags=[tag["id"]]))
 

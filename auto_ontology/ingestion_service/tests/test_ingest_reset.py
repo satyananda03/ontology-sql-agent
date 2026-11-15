@@ -52,7 +52,6 @@ def resets(monkeypatch: pytest.MonkeyPatch) -> list[_RecordingVdb]:
 
     monkeypatch.setattr(mod, "get_embed_params", lambda: {})
     monkeypatch.setattr(mod, "ingest_catalog", lambda c: ([1], [1]))
-    monkeypatch.setattr(mod, "is_pii_detection_enabled", lambda: False)
     monkeypatch.setattr(mod, "CatalogEmbeddingRowsOp", lambda **kw: lambda pair: pair)
 
     created: list[_RecordingVdb] = []

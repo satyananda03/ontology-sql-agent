@@ -1,10 +1,9 @@
 """API route handlers for semantic zones."""
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from auto_ontology.dal import zones as dal
-from auto_ontology.server.users import postgres_dal
 from auto_ontology.server.responses import IdResponse, ZoneListResponse, ZoneResponse
 
 router = APIRouter()
@@ -15,7 +14,6 @@ class ZoneCreate(BaseModel):
     description: str | None = None
     color: str
     items: list[str]
-    created_by: str  # user_id of the requesting user (must be admin)
 
 
 class ZoneUpdate(BaseModel):
@@ -29,26 +27,15 @@ class ZoneStatusUpdate(BaseModel):
     enabled: bool
 
 
-def _require_admin(user_id: str) -> None:
-    """Raise 403 when *user_id* is not an admin per PostgreSQL."""
-    if not postgres_dal.is_admin(user_id):
-        raise HTTPException(
-            status_code=403, detail="Only admins can perform this action"
-        )
-
-
 @router.get("/zones", response_model=ZoneListResponse)
-def list_zones(uid: str = Query(..., description="Requesting user id")) -> dict:
-    """Return every zone to the requesting user."""
+def list_zones() -> dict:
+    """Return every zone."""
     rows = dal.list_zones()
     return {"data": rows, "count": len(rows)}
 
 
 @router.get("/zones/{zone_id}", response_model=ZoneResponse)
-def get_zone(
-    zone_id: str,
-    uid: str = Query(..., description="Requesting user id"),
-) -> dict:
+def get_zone(zone_id: str) -> dict:
     """Return one zone with its catalog data items."""
     row = dal.get_zone_by_id(zone_id)
     if row is None:
@@ -58,8 +45,7 @@ def get_zone(
 
 @router.post("/zones", status_code=201, response_model=ZoneResponse)
 def create_zone(body: ZoneCreate) -> dict:
-    """Create a zone and attach catalog items.  Requires admin role."""
-    _require_admin(body.created_by)
+    """Create a zone and attach catalog items."""
     normalized_name = body.name.strip()
     if normalized_name == "":
         raise HTTPException(status_code=400, detail="Zone name is required")
@@ -117,18 +103,13 @@ def delete_zone(zone_id: str) -> dict:
 
 
 @router.patch("/zones/{zone_id}/status", response_model=ZoneResponse)
-def set_zone_status(
-    zone_id: str,
-    body: ZoneStatusUpdate,
-    admin_uid: str = Query(..., description="Admin user id performing the request"),
-) -> dict:
-    """Enable or disable a zone.  Requires admin role.
+def set_zone_status(zone_id: str, body: ZoneStatusUpdate) -> dict:
+    """Enable or disable a zone.
 
     Disabling clears the zone's ``enabled`` flag
     (re-enabling reverses it), which immediately revokes the catalog access
     the zone granted without deleting it.
     """
-    _require_admin(admin_uid)
     row = dal.set_zone_enabled(zone_id, body.enabled)
     if row is None:
         raise HTTPException(status_code=404, detail=f"Zone {zone_id!r} not found")
