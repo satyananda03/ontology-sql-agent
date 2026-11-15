@@ -69,10 +69,10 @@ def is_semantic_compilation_running() -> bool:
     This is the *only* part of semantic compilation status that genuinely
     requires the live ingestion process — "running" is in-memory state on its
     scheduler. ``last_success_at``/``last_failure_at`` are plain Postgres reads
-    (see ``auto_ontology/ingestion_service/history.py``) that the API server does
-    directly instead of relaying through here, precisely so a temporarily
-    unreachable ingestion service doesn't also wipe out history that has
-    nothing to do with it.
+    (see ``auto_ontology/dal/semantic_compilation_status.py``) that the API
+    server does directly instead of relaying through here, precisely so a
+    temporarily unreachable ingestion service doesn't also hide a status that
+    has nothing to do with it.
 
     Best-effort: if the ingestion service can't be reached, this reports
     ``False`` rather than raising, so a transient outage makes the settings

@@ -134,6 +134,10 @@
     "synonym_matches_tokens": "(synonym: str, tokens: list[str]) -> bool",
     "synonym_word_tokens": "(search_term: str) -> list[str]"
   },
+  "semantic_compilation_status": {
+    "last_outcomes": "() -> dict[str, str | None]",
+    "record_outcome": "(outcome: str) -> None"
+  },
   "session": {
     "StoreConn": "class(object)",
     "dispose_engine": "() -> None",

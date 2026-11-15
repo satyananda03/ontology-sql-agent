@@ -9,10 +9,7 @@ import logging
 from fastapi import APIRouter
 
 from auto_ontology.dal.terms import semantic_layer_calculated
-from auto_ontology.ingestion_service.history import (
-    get_last_failure_if_most_recent,
-    get_last_successful_run,
-)
+from auto_ontology.dal.semantic_compilation_status import last_outcomes
 from auto_ontology.server.ingestion.proxy import (
     is_semantic_compilation_running,
     trigger_semantic_compile,
@@ -55,14 +52,13 @@ def semantic_status() -> dict[str, bool | str | None]:
 
     ``running`` needs the live ingestion process, so it goes through the HTTP
     proxy and degrades to ``False`` if that's unreachable. ``last_success_at``
-    and ``last_failure_at`` are read straight from the ``semantic_compilation_history``
-    table instead — a temporarily unreachable ingestion service has no bearing
-    on Postgres, so history stays visible even while it's down (see
+    and ``last_failure_at`` are read straight from the ``semantic_compilation_status``
+    row instead — a temporarily unreachable ingestion service has no bearing
+    on Postgres, so they stay visible even while it's down (see
     ``auto_ontology/server/ingestion/proxy.py``).
     """
     return {
         "calculated": semantic_layer_calculated(),
         "running": is_semantic_compilation_running(),
-        "last_success_at": get_last_successful_run(),
-        "last_failure_at": get_last_failure_if_most_recent(),
+        **last_outcomes(),
     }

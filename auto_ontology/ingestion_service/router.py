@@ -4,10 +4,7 @@ from typing import Any
 
 from fastapi import APIRouter, Body, Request
 from fastapi.responses import JSONResponse
-from auto_ontology.ingestion_service.history import (
-    get_last_failure_if_most_recent,
-    get_last_successful_run,
-)
+from auto_ontology.dal.semantic_compilation_status import last_outcomes
 from auto_ontology.ingestion_service.ingest import (
     trigger_delete_ingest,
     trigger_ingest,
@@ -137,15 +134,13 @@ async def semantic_status(request: Request) -> dict[str, bool | str | None]:
     one finished successfully, and when it last failed (if that's more recent
     than the last success).
 
-    Backed by the ``semantic_compilation_history`` table (see ``history.py``),
-    which this service owns — the Auto Ontology API server relays this response rather
-    than reading that table itself.
+    The last two come from the ``semantic_compilation_status`` row this
+    service's scheduler writes.
     """
     scheduler = request.app.state.semantic_scheduler
     return {
         "running": scheduler.running,
-        "last_success_at": get_last_successful_run(),
-        "last_failure_at": get_last_failure_if_most_recent(),
+        **last_outcomes(),
     }
 
 

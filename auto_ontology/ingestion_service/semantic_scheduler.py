@@ -20,13 +20,11 @@ import logging
 import time
 
 from auto_ontology.ingestion_service.connections import resolve_database_names
-from auto_ontology.ingestion_service.history import (
+from auto_ontology.dal.semantic_compilation_status import (
     RUN_FAILED,
     RUN_SUCCEEDED,
-    record_run_finish,
-    record_run_start,
+    record_outcome,
 )
-from auto_ontology.ingestion_service.pii import run_pii_propagation_in_thread
 from auto_ontology.ingestion_service.rules import replay_rules_in_thread
 from auto_ontology.ingestion_service.scheduler import OnDemandScheduler
 from auto_ontology.semantic.cancellation import clear_cancel, request_cancel
@@ -109,13 +107,11 @@ class SemanticScheduler(OnDemandScheduler):
         started = time.monotonic()
         succeeded = failed = 0
         total_tables = 0
-        run_id = record_run_start()
         # Starts optimistic; only ever downgraded, never upgraded back — a
-        # stop after a real failure must still be recorded as failed,
-        # not left NULL, so a genuine bug isn't masked by the fact that the run
-        # was also stopped. An explicit stop downgrades to None instead,
-        # which record_run_finish treats as a no-op — see history.py on why an
-        # aborted run leaves the row NULL rather than storing an outcome.
+        # stop after a real failure must still be recorded as failed, so a
+        # genuine bug isn't masked by the fact that the run was also stopped.
+        # An explicit stop downgrades to None instead: a stopped pass reached
+        # no verdict, so it records nothing.
         outcome: str | None = RUN_SUCCEEDED
         try:
             for index, database_name in enumerate(databases):
@@ -170,15 +166,10 @@ class SemanticScheduler(OnDemandScheduler):
                     outcome = None
                 return
 
-            # Before the rules, so a rule matching on the PII tag sees the
-            # attributes compilation just created already labelled.
-            await run_pii_propagation_in_thread(self.name)
             await self._reapply_rules()
         finally:
-            # A no-op when outcome is None (stop) — see
-            # record_run_finish's docstring on why that leaves the row NULL
-            # rather than recording an "aborted" outcome.
-            record_run_finish(run_id, outcome)
+            if outcome is not None:
+                record_outcome(outcome)
             # As in the data scheduler: per-database failures are caught so the
             # rest still compile, so the closing line has to carry the tally to
             # mean anything.
