@@ -1,12 +1,21 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Match a topic against row text by meaning, using the warehouse's vector columns.
+"""Match a topic against row text by meaning, using the warehouse's search columns.
 
 Ported from ``classic_sql_agent``. A keyword filter misses a topic worded differently
 in the data, so this pre-fetches the matching row ids and hands them to SQL generation
 through a placeholder: ids never pass through the LLM, and the generation prompt stays
 the original one because the instruction travels separately, as ``semantic_instructions``.
+
+Per topic::
+
+    plan (LLM) → embed → candidates → rerank → verify (LLM) → ids for the generator
+
+Candidates are hybrid when the table has a ``<source>_bm25`` column: the vector arm
+(``vector_search``) catches paraphrases, the BM25 arm (``bm25_search``) catches exact
+terms and acronyms (SKCK, PKB) that embeddings miss. Both run in parallel and are
+merged by Reciprocal Rank Fusion; without the column, the vector arm alone is used.
 
 The classic node kept at most 20 ids, which silently undercounted larger topics. This
 one verifies more candidates and reports when even those may not be all of them.
@@ -25,9 +34,10 @@ from auto_ontology.retrieval.text_to_sql.state import (
     AgentState,
     get_standalone_question,
 )
-from auto_ontology.utils.sql_identifiers import quoted_identifier
 from sql_agent.core.config import settings
 from sql_agent.core.logging import get_logger
+from sql_agent.modules.semantic.bm25_search import bm25_column, keyword_rows
+from sql_agent.modules.semantic.vector_search import nearest_rows
 from sql_agent.schemas import RelevantCandidates, SemanticFilter, SemanticPlan
 from sql_agent.services.embedding_service import get_embeddings
 from sql_agent.services.llm_service import (
@@ -45,15 +55,17 @@ _NODE_NAME = "semantic_rows"
 # Recorded when more rows may match than were reviewed; the service reports it.
 SEMANTIC_TRUNCATED_NOTE = "semantic_search_truncated"
 _VECTOR_SUFFIX = "_vector"
+# Candidates per arm, and the most the fused list hands the reranker.
 RECALL_K = 100
 VERIFY_K = 50
-SNIPPET_CHARS = 200
-SEARCH_TIMEOUT_S = 20.0
+RRF_K = 60  # the usual Reciprocal Rank Fusion constant
+EMBED_TIMEOUT_S = 20.0
 RERANK_TIMEOUT_S = 30.0
 # Ceiling on one planner or verifier reply; they run to a few hundred tokens.
 SEMANTIC_MAX_TOKENS = 5000
-# Topics are searched in parallel, bounded by the connector pool (max_size=4).
-SEARCH_WORKERS = 4
+# Topics are searched in parallel. Each takes two pooled connections (one per
+# arm), and the connector pool holds four.
+SEARCH_WORKERS = 2
 
 
 @lru_cache(maxsize=2)
@@ -94,26 +106,55 @@ def searchable_columns(tables: list[dict[str, Any]]) -> dict[tuple[str, str], di
     return found
 
 
-def _nearest_rows(
-    connector: Any, spec: dict, column: str, vector: list[float]
-) -> list[dict]:
-    table = spec["table"]
-    pk = quoted_identifier(spec["pk"], "postgres")
-    source = quoted_identifier(spec["source"], "postgres")
-    target = quoted_identifier(column, "postgres")
-    relation = connector.qualify(table.get("schema_name"), table["name"])
-    frame = connector.execute(
-        f"SELECT {pk} AS id, left({source}::text, {SNIPPET_CHARS}) AS snippet "
-        f"FROM {relation} WHERE {target} IS NOT NULL "
-        f"ORDER BY {target} <=> %s::vector LIMIT %s",
-        [str(vector), RECALL_K],
-        timeout_s=SEARCH_TIMEOUT_S,
+def rrf(*arms: list[dict]) -> list[dict]:
+    """Rows of every arm, best first by Reciprocal Rank Fusion on ``id``.
+
+    A row ranked well by both arms rises above one ranked first by only one; ties
+    keep the order of the first arm.
+    """
+    scores: dict[Any, float] = {}
+    rows: dict[Any, dict] = {}
+    for arm in arms:
+        for rank, row in enumerate(arm, 1):
+            scores[row["id"]] = scores.get(row["id"], 0.0) + 1 / (RRF_K + rank)
+            rows.setdefault(row["id"], row)
+    return [rows[i] for i in sorted(scores, key=scores.__getitem__, reverse=True)]
+
+
+def _bm25_rows(connector: Any, spec: dict, query: str) -> list[dict]:
+    """The BM25 arm, or no rows when the table has none or it fails.
+
+    Keywords only add recall to the vector arm, so a missing pg_search index must
+    not take the topic's search down with it.
+    """
+    try:
+        column = bm25_column(connector, spec)
+        return keyword_rows(connector, spec, column, query, RECALL_K) if column else []
+    except Exception:  # noqa: BLE001 — the vector arm still answers
+        logger.warning("BM25 search failed; using vector only", exc_info=True)
+        return []
+
+
+async def _candidates(
+    connector: Any, spec: dict, found: SemanticFilter, vector: list[float]
+) -> tuple[list[dict], bool]:
+    """Fused candidates for one topic, and whether either arm hit ``RECALL_K``."""
+    vector_rows, bm25_rows = await asyncio.gather(
+        asyncio.to_thread(
+            nearest_rows, connector, spec, found.column, vector, RECALL_K
+        ),
+        asyncio.to_thread(_bm25_rows, connector, spec, found.query),
     )
-    return frame.to_dict("records") if len(frame) else []
+    logger.info(
+        f"[RETRIEVAL] {found.table}.{spec['source']}: "
+        f"{len(vector_rows)} vector + {len(bm25_rows)} bm25 candidate(s)"
+    )
+    full = RECALL_K in (len(vector_rows), len(bm25_rows))
+    return rrf(vector_rows, bm25_rows)[:RECALL_K], full
 
 
 async def _best_candidates(query: str, rows: list[dict]) -> list[dict]:
-    """Rerank when a reranker is configured, otherwise keep the vector order."""
+    """Rerank when a reranker is configured, otherwise keep the fused order."""
     if len(rows) <= 1:
         return rows
     try:
@@ -126,7 +167,7 @@ async def _best_candidates(query: str, rows: list[dict]) -> list[dict]:
         ranked.sort(key=lambda hit: hit["relevance_score"], reverse=True)
         return [rows[hit["index"]] for hit in ranked][:VERIFY_K]
     except Exception:  # noqa: BLE001 — ranking is an optimization, not a requirement
-        logger.warning("Rerank failed; keeping vector order", exc_info=True)
+        logger.warning("Rerank failed; keeping fused order", exc_info=True)
         return rows[:VERIFY_K]
 
 
@@ -194,20 +235,18 @@ async def _search(
     connector = resolve_connector_from_tables(tables, state.get("connectors") or [])
     # Interactive limits (one retry): the defaults are sized for batch work.
     vectors = await get_embeddings(
-        timeout=SEARCH_TIMEOUT_S, max_retries=2
+        timeout=EMBED_TIMEOUT_S, max_retries=2
     ).aembed_documents([f.query.strip() for f in filters])
     slots = asyncio.Semaphore(SEARCH_WORKERS)
 
     async def search_one(
         found: SemanticFilter, vector: list[float]
-    ) -> tuple[list[dict], list[dict], list[Any]]:
+    ) -> tuple[bool, list[dict], list[Any]]:
         spec = specs[(found.table, found.column)]
         async with slots:
-            rows = await asyncio.to_thread(
-                _nearest_rows, connector, spec, found.column, vector
-            )
+            rows, full = await _candidates(connector, spec, found, vector)
             candidates = await _best_candidates(found.query, rows)
-            return rows, candidates, await _verified_ids(found.query, candidates)
+            return full, candidates, await _verified_ids(found.query, candidates)
 
     # Topics are independent: search, rerank and verify them in parallel.
     results = await asyncio.gather(
@@ -216,11 +255,11 @@ async def _search(
 
     matches: list[tuple[SemanticFilter, dict, list[Any]]] = []
     ids_by_placeholder: dict[str, str] = {}
-    for number, (found, (rows, candidates, ids)) in enumerate(
+    for number, (found, (full, candidates, ids)) in enumerate(
         zip(filters, results, strict=True), 1
     ):
         spec = specs[(found.table, found.column)]
-        if candidates and len(ids) == len(candidates) and len(rows) == RECALL_K:
+        if candidates and len(ids) == len(candidates) and full:
             # Every reviewed candidate matched and more were left unreviewed.
             record_thought(path_state, _NODE_NAME, SEMANTIC_TRUNCATED_NOTE)
         matches.append((found, spec, ids))

@@ -7,9 +7,11 @@ from typing import Any
 import pandas as pd
 import pytest
 
+from sql_agent.modules.semantic import bm25_search
 from sql_agent.modules.semantic import rows as module
 from sql_agent.modules.semantic.rows import (
     SEMANTIC_TRUNCATED_NOTE,
+    rrf,
     searchable_columns,
     sql_literal,
 )
@@ -31,13 +33,22 @@ TABLE = {
 }
 
 
+def _frame(ids: list[Any]) -> pd.DataFrame:
+    return pd.DataFrame(
+        [{"id": i, "snippet": f"text {i}"} for i in ids], columns=["id", "snippet"]
+    )
+
+
 class FakeConnector:
+    """Answers by query kind, since the two arms run in parallel in any order.
+
+    ``bm25_ids=None`` means the table has no ``topik_bm25`` column.
+    """
+
     database_name = "db"
 
-    def __init__(self, ids: list[Any]) -> None:
-        self.frame = pd.DataFrame(
-            [{"id": i, "snippet": f"text {i}"} for i in ids], columns=["id", "snippet"]
-        )
+    def __init__(self, ids: list[Any], bm25_ids: list[Any] | None = None) -> None:
+        self.vector, self.bm25 = _frame(ids), bm25_ids
         self.calls: list[tuple] = []
 
     def qualify(self, schema: str, table: str) -> str:
@@ -45,7 +56,19 @@ class FakeConnector:
 
     def execute(self, sql: str, parameters: list, timeout_s: float) -> pd.DataFrame:
         self.calls.append((sql, parameters))
-        return self.frame
+        if "information_schema" in sql:
+            return pd.DataFrame([{"x": 1}] if self.bm25 is not None else [])
+        if "|||" in sql:
+            return _frame(self.bm25 or [])
+        return self.vector
+
+    def call(self, marker: str) -> tuple:
+        return next(c for c in self.calls if marker in c[0])
+
+
+@pytest.fixture(autouse=True)
+def no_known_bm25_columns(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(bm25_search, "_columns", {})
 
 
 def _run(state: dict[str, Any]) -> dict[str, Any]:
@@ -123,8 +146,10 @@ def test_matches_become_a_placeholder_and_instructions(
     result = _run(_state(connector))
     assert result["path_state"]["semantic_ids"] == {"__SEMANTIC_1__": "8, 7"}
     assert '"riset"."detail_id" IN (__SEMANTIC_1__)' in result["semantic_instructions"]
-    assert connector.calls[0][1][1] == module.RECALL_K
-    assert '"topik_vector" <=> %s::vector' in connector.calls[0][0]
+    vector_sql, parameters = connector.call("<=>")
+    assert '"topik_vector" <=> %s::vector' in vector_sql
+    assert parameters[1] == module.RECALL_K
+    assert not any("|||" in sql for sql, _ in connector.calls)
 
 
 def test_invented_column_never_reaches_sql(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -174,6 +199,39 @@ def test_partial_match_is_not_flagged(monkeypatch: pytest.MonkeyPatch) -> None:
     state = _state(FakeConnector([1, 2, 3]))
     _run(state)
     assert not state["path_state"].get("thoughts_log")
+
+
+def test_rrf_ranks_rows_found_by_both_arms_first() -> None:
+    vector = [{"id": 1}, {"id": 2}, {"id": 3}]
+    bm25 = [{"id": 3}, {"id": 4}]
+    # 2 and 4 are both second in their arm: the tie keeps the vector order.
+    assert [row["id"] for row in rrf(vector, bm25)] == [3, 1, 2, 4]
+
+
+def test_a_table_with_a_bm25_column_is_searched_hybrid(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _stub(monkeypatch, [FILTER], [1, 2])
+    connector = FakeConnector([7, 8], bm25_ids=[9, 8])
+    result = _run(_state(connector))
+    # 8 is in both arms, so it ranks first and is candidate 1.
+    assert result["path_state"]["semantic_ids"] == {"__SEMANTIC_1__": "8, 7"}
+    bm25_sql, parameters = connector.call("|||")
+    assert '"topik_bm25" ||| %s::text' in bm25_sql
+    assert parameters == ["pariwisata", module.RECALL_K]
+
+
+def test_a_failed_bm25_arm_keeps_the_vector_candidates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _stub(monkeypatch, [FILTER], [1])
+
+    def fail(*_: Any, **__: Any) -> None:
+        raise RuntimeError("no bm25 index")
+
+    monkeypatch.setattr(module, "keyword_rows", fail)
+    result = _run(_state(FakeConnector([7], bm25_ids=[9])))
+    assert result["path_state"]["semantic_ids"] == {"__SEMANTIC_1__": "7"}
 
 
 @pytest.mark.parametrize(
