@@ -319,6 +319,18 @@ def get_slim_term_by_id(term_id: str) -> dict[str, str] | None:
     return dict(rows[0]) if rows else None
 
 
+def clean_synonyms(term_name: str, synonyms: list[str]) -> list[str]:
+    """Trim, drop the Term's own name, and remove case-insensitive duplicates."""
+    seen = {term_name.strip().casefold()}
+    kept: list[str] = []
+    for synonym in synonyms:
+        text = " ".join(str(synonym).split())
+        if text and text.casefold() not in seen:
+            seen.add(text.casefold())
+            kept.append(text)
+    return kept
+
+
 def update_term(
     term_id: str,
     *,
@@ -326,12 +338,16 @@ def update_term(
     description: str | None = None,
     name_certified: bool | None = None,
     description_certified: bool | None = None,
+    synonyms: list[str] | None = None,
     touch: bool = False,
 ) -> dict[str, Any] | None:
     """Update a Term, returning old and new values, or ``None`` when missing.
 
     ``old_name`` is in the return because the caller needs it: renaming a Term
     invalidates its embeddings, which are keyed on the old text.
+
+    *synonyms* replaces the whole list (``None`` leaves it alone). A person
+    curates it; compilation never writes it.
 
     A rename also rewrites ``term_name`` on every ColumnAttribute of the Term.
     That is a denormalised copy, and keeping it in step here is not optional —
@@ -363,6 +379,8 @@ def update_term(
                 description_certified, s.term.c.description_certified
             ),
         }
+        if synonyms is not None:
+            values["synonyms"] = clean_synonyms(name or old_name or "", synonyms)
         # Only an edit from the app. Compilation calls this without ``touch``
         # and must not look like someone saved the term.
         if touch:
@@ -377,6 +395,7 @@ def update_term(
                 s.term.c.description,
                 s.term.c.name_certified,
                 s.term.c.description_certified,
+                s.term.c.synonyms,
             )
         )
         if not rows:
@@ -406,9 +425,11 @@ def upsert_table_term(
     name: str,
     description: str,
     table_id: str,
-    synonyms: list[str] | None = None,
 ) -> tuple[str, str] | None:
     """Upsert a compilation Term owned by one table.
+
+    Synonyms are left alone: a person curates them (``update_term``), and a
+    recompile of the same table must not wipe that work.
 
     The proposed name is kept unless another table already owns it. Collisions
     are qualified with the table's full catalog identity, keeping the global
@@ -473,7 +494,7 @@ def upsert_table_term(
                 store().query_write(
                     update(s.term)
                     .where(s.term.c.id == term_id)
-                    .values(description=description, synonyms=synonyms or [])
+                    .values(description=description)
                 )
                 return term_id, candidate_name
             if existing:
@@ -485,7 +506,6 @@ def upsert_table_term(
                     name=candidate_name,
                     source=SEMANTIC_SOURCE,
                     description=description,
-                    synonyms=synonyms or [],
                 )
                 .on_conflict_do_nothing(constraint="uq_term_name_source")
                 .returning(s.term.c.id)

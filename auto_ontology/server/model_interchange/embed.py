@@ -109,6 +109,7 @@ def build_term_semantic_rows(
     live_id: str,
     name: str,
     description: str,
+    synonyms: list[str] | None = None,
     schema_names: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Build semantic-layer embed rows for a Term."""
@@ -117,6 +118,7 @@ def build_term_semantic_rows(
         {
             "name": name,
             "description": description,
+            "synonyms": synonyms or [],
             "id": live_id,
             "schema_names": schema_names or [],
         },
@@ -137,11 +139,16 @@ def build_column_attribute_semantic_rows(
     is_unique: bool,
     sample_values: list[Any] | None,
     schema_name: str | None = None,
+    term_synonyms: list[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Build semantic-layer embed rows for a ColumnAttribute."""
+    """Build semantic-layer embed rows for a ColumnAttribute.
+
+    *term_synonyms* are the owning Term's: its attributes' text carries them.
+    """
     return _build_rows(
         database_name,
-        {},
+        # No Term name, so only the attribute row is built.
+        {"synonyms": term_synonyms or []},
         [
             {
                 "name": name,

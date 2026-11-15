@@ -88,6 +88,8 @@ class ModelTerm(BaseModel):
     id: str
     name: str = ""
     description: str = ""
+    # Curated by a person, so an export is their only backup across a reset.
+    synonyms: list[str] = Field(default_factory=list)
     represents: list[str] = Field(default_factory=list)
     columns_attributes: list[ModelColumnAttribute] = Field(default_factory=list)
 

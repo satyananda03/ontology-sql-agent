@@ -11,7 +11,6 @@ from auto_ontology.utils.llm_invoke import (
     invoke_with_structured_output,
 )
 from auto_ontology.utils.prompt_loader import load_chat_prompt_template, load_prompt
-from pydantic import BaseModel, ConfigDict, Field
 
 from auto_ontology.semantic.models import (
     ColumnAttributeSpec,
@@ -37,21 +36,6 @@ _LABEL_RE = re.compile(r"^[A-Z][A-Za-z0-9]*(?:[ -][A-Za-z][A-Za-z0-9]*)*$")
 _PROMPTS_FILE = Path(__file__).with_name("prompts.yaml")
 _PROMPT = load_chat_prompt_template(_PROMPTS_FILE, "term_extractor")
 _DOMAIN_BLOCK = load_prompt("term_extractor", _PROMPTS_FILE)["sections"]["domain_block"]
-
-
-class _SynonymExtractionModel(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    synonyms: list[str] = Field(
-        default_factory=list,
-        description=(
-            "Abbreviations, acronyms, or alternate names explicitly written in the "
-            "description. Empty list if none are stated."
-        ),
-    )
-
-
-_SYNONYM_PROMPT = load_chat_prompt_template(_PROMPTS_FILE, "term_synonyms")
 
 
 def _normalize_label(name: str, *, fallback: str) -> str:
@@ -177,20 +161,6 @@ def _sanitize_result(
     return table_result
 
 
-def _extract_synonyms(description: str) -> list[str]:
-    """Dedicated LLM call to extract alternate names from a table description."""
-    if not description:
-        return []
-    result = invoke_with_structured_output(
-        get_llm_client(temperature=0.0, max_tokens=1024),
-        _SYNONYM_PROMPT.format_messages(description=description),
-        _SynonymExtractionModel,
-    )
-    if result is None:
-        return []
-    return [s.strip() for s in result.synonyms if s.strip()]
-
-
 def extract_term(
     table: dict[str, Any],
     ctx: dict[str, Any],
@@ -225,11 +195,4 @@ def extract_term(
     if result is None:
         return _fallback_result(table, specs)
 
-    table_result = _sanitize_result(result, table=table, specs=specs)
-
-    synonyms = _extract_synonyms(description)
-    if synonyms:
-        for term in table_result.terms:
-            term.synonyms = synonyms
-
-    return table_result
+    return _sanitize_result(result, table=table, specs=specs)

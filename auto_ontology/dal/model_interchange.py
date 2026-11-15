@@ -27,6 +27,7 @@ from auto_ontology.dal.custom_analyses import (
 )
 from auto_ontology.dal.session import store, write_transaction
 from auto_ontology.dal.sql_attributes import detach_existing_sql_edges, link_to_term
+from auto_ontology.dal.terms import clean_synonyms
 from auto_ontology.semantic.constants import (
     SEMANTIC_SOURCE,
     SQL_ATTR_SOURCE_BRIDGE,
@@ -271,7 +272,7 @@ def _export_terms(database_ids: list[str]) -> list[dict[str, Any]]:
         .distinct()
     )
     terms = store().query_read(
-        select(s.term.c.id, s.term.c.name, s.term.c.description)
+        select(s.term.c.id, s.term.c.name, s.term.c.description, s.term.c.synonyms)
         .where(s.term.c.id.in_(in_scope), s.term.c.source == SEMANTIC_SOURCE)
         .order_by(s.term.c.name)
     )
@@ -323,6 +324,7 @@ def _export_terms(database_ids: list[str]) -> list[dict[str, Any]]:
             "id": row["id"],
             "name": row["name"],
             "description": row["description"] or "",
+            "synonyms": row["synonyms"] or [],
             "represents": represents.get(row["id"], []),
             "columns_attributes": attributes.get(row["id"], []),
         }
@@ -500,6 +502,7 @@ def assemble_export_document(
             id=str(row["id"]),
             name=row.get("name") or "",
             description=row.get("description") or "",
+            synonyms=row.get("synonyms") or [],
             represents=_scoped_ids(row.get("represents") or [], table_ids),
             columns_attributes=[
                 ModelColumnAttribute(
@@ -1332,6 +1335,7 @@ def _import_terms(
                 {
                     "name": term.name,
                     "description": term.description,
+                    "synonyms": clean_synonyms(term.name, term.synonyms),
                     "source": SEMANTIC_SOURCE,
                 },
             )
@@ -1391,6 +1395,7 @@ def _import_terms(
                     live_id=live_term_id,
                     name=term.name,
                     description=term.description,
+                    synonyms=clean_synonyms(term.name, term.synonyms),
                 ),
             )
 
@@ -1475,6 +1480,9 @@ def _import_column_attributes(
                     is_unique=col_ctx.is_unique,
                     sample_values=col_ctx.sample_values,
                     schema_name=col_ctx.schema_name,
+                    # The document's, like the Term row itself: an existing
+                    # Term is left as it is, a created one gets exactly these.
+                    term_synonyms=clean_synonyms(term.name, term.synonyms),
                 ),
             )
 

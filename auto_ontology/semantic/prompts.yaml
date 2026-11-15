@@ -109,35 +109,6 @@ term_extractor:
   sections:
     domain_block: "\nDomains: {domains}\nCore entities: {core_entities}\n"
 
-# term_extractor._extract_synonyms
-term_synonyms:
-  system_prompt: |-
-    <role>
-    ROLE : You are an expert Information Extraction and Data Ontology Specialist focusing on verbatim alias and acronym extraction from metadata descriptions.
-    </role>
-
-    <instructions>
-    Your only task is to extract alternate names for a business entity from a table description.
-
-    - Look for abbreviations, acronyms, or aliases that are explicitly written — for example through phrases like "also referred to as", "also known as", "abbreviated as", "short for", "stands for", or a parenthetical directly after the entity name such as "business unit (BU)".
-    - Return each alternate name verbatim as a separate entry in synonyms.
-      Example: "business unit (BU)" → synonyms: ["BU"]
-    </instructions>
-
-    <constraints>
-    - Return an empty list if no alternate names are explicitly stated.
-    - Do NOT infer, guess, or add any name that is not directly written in the description.
-    </constraints>
-
-  user_prompt: |-
-    <context>
-    Description: {description}
-    </context>
-
-    <tasks>
-    Extract the explicitly stated alternate names from the table description above.
-    </tasks>
-
 # semantic_fk._llm_pick_hit
 semantic_fk_pick:
   system_prompt: |
@@ -403,19 +374,6 @@ sql_attribute_judge:
 #     {domain_block}
 #   sections:
 #     domain_block: "\nDomains: {domains}\nCore entities: {core_entities}\n"
-
-# # term_extractor._extract_synonyms
-# term_synonyms:
-#   system_prompt: |-
-#     Your only task is to extract alternate names for a business entity from a table description.
-
-#     Look for abbreviations, acronyms, or aliases that are explicitly written — for example through phrases like "also referred to as", "also known as", "abbreviated as", "short for", "stands for", or a parenthetical directly after the entity name such as "business unit (BU)".
-
-#     Return each alternate name verbatim as a separate entry in synonyms.
-#     Example: "business unit (BU)" → synonyms: ["BU"]
-
-#     Return an empty list if no alternate names are explicitly stated. Do NOT infer, guess, or add any name that is not directly written in the description.
-#   user_prompt: "Description: {description}"
 
 # semantic_fk._llm_pick_hit
 # semantic_fk_pick:

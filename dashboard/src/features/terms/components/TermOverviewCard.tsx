@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Link } from "react-router-dom";
-import { CertifyToggle, TextEditor } from "@/components/ui";
+import { CertifyToggle, SynonymEditor, TextEditor } from "@/components/ui";
 import type { S } from "@/types";
 
 interface TermOverviewCardProps {
@@ -41,18 +41,13 @@ export function TermOverviewCard({ term, busy, onPatch }: TermOverviewCardProps)
         certified={!!term.description_certified}
         onSave={(description, description_certified) => onPatch({ description, description_certified })}
       />
-      {!!term.synonyms?.length && (
-        <div>
-          <h3>Sinonim</h3>
-          <div className="row">
-            {term.synonyms.map((s) => (
-              <span key={s} className="badge neutral">
-                {s}
-              </span>
-            ))}
-          </div>
+      <div className="stack tight">
+        <h3>Sinonim</h3>
+        <div className="muted small">
+          Nama lain yang dipakai pengguna untuk term ini. Agent memakainya saat mencari tabel dan kolom.
         </div>
-      )}
+        <SynonymEditor value={term.synonyms ?? []} busy={busy} onChange={(synonyms) => onPatch({ synonyms })} />
+      </div>
       {!!term.tables?.length && (
         <div>
           <h3>Tabel</h3>

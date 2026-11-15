@@ -9,7 +9,6 @@ from sql_agent.schemas.llm import (
     SemanticFilter,
     SemanticPlan,
     SQLGeneratorOutput,
-    SynonymProposal,
 )
 from sql_agent.schemas.query import QueryResult, SqlAgentQuery, SqlAgentResult, Status
 from sql_agent.schemas.state import State
@@ -26,5 +25,4 @@ __all__ = [
     "SqlAgentResult",
     "State",
     "Status",
-    "SynonymProposal",
 ]

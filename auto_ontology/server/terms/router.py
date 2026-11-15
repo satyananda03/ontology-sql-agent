@@ -1,9 +1,10 @@
 """API route handlers for semantic Terms."""
 
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Path, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 from auto_ontology.dal import sql_attributes as sql_attr_dal
 from auto_ontology.dal import terms as terms_dal
@@ -22,11 +23,18 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+Synonym = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
+]
+
+
 class TermUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1)
     description: str | None = None
     name_certified: bool | None = None
     description_certified: bool | None = None
+    # The whole list, as a person curated it; omitted leaves it alone.
+    synonyms: list[Synonym] | None = Field(default=None, max_length=50)
 
 
 class ColumnAttributeUpdate(BaseModel):
@@ -206,24 +214,28 @@ def update_term(term_id: str, body: TermUpdate) -> dict:
         description=patch.get("description"),
         name_certified=patch.get("name_certified"),
         description_certified=patch.get("description_certified"),
+        synonyms=patch.get("synonyms"),
         touch=True,
     )
     if row is None:
         raise HTTPException(status_code=404, detail="Term not found")
 
-    # Certification flags carry no embedding content; only name/description
-    # changes need suggestion invalidation and a VDB refresh.
-    content_changed = "name" in patch or "description" in patch
+    # Certification flags carry no embedding content; only name, description
+    # and synonym changes need a VDB refresh.
+    synonyms_changed = patch.get("synonyms") is not None
+    content_changed = "name" in patch or "description" in patch or synonyms_changed
     name_changed = (
-        content_changed and (row.get("old_name") or "").strip() != row["name"].strip()
+        "name" in patch and (row.get("old_name") or "").strip() != row["name"].strip()
     )
     if name_changed:
         sql_attr_dal.clear_sql_attribute_description_suggestions_for_term(term_id)
 
     if content_changed:
         try:
+            # Every ColumnAttribute's embedded text carries the Term's name and
+            # synonyms, so a change to either stales all of them.
             term_service.refresh_term_embeddings(
-                term_id, refresh_dependent_attrs=name_changed
+                term_id, refresh_dependent_attrs=name_changed or synonyms_changed
             )
         except Exception:
             logger.warning(
@@ -237,6 +249,7 @@ def update_term(term_id: str, body: TermUpdate) -> dict:
             "description": row.get("description"),
             "name_certified": row.get("name_certified", False),
             "description_certified": row.get("description_certified", False),
+            "synonyms": row.get("synonyms") or [],
             "certification": terms_dal.get_term_certification(term_id),
         }
     }

@@ -88,34 +88,3 @@ semantic_verifier:
 
     Candidates:
     {candidates}
-
-# modules/knowledge/synonyms.py (propose)
-synonym_proposal:
-  system_prompt: |-
-    <role>
-    You are an expert in data ontology and business terminology who identifies the words people use for a specific business concept when asking about data.
-    </role>
-
-    <instructions>
-    - Return up to 5 synonyms in Indonesian for the given business concept.
-    - Format each synonym as a word or short phrase that a user might actually type.
-    - Include common abbreviations.
-    </instructions>
-
-    <constraints>
-    - NEVER repeat the Term's own name.
-    - Do not list words for a broader or different concept.
-    - When unsure about a synonym, leave it out.
-    </constraints>
-
-  user_prompt: |-
-    <context>
-    Term: {name}
-    Description: {description}
-    Table: {table}
-    Columns: {columns}
-    </context>
-
-    <tasks>
-    Generate a list of synonyms for the business concept described above.
-    </tasks>

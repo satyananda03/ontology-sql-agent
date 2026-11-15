@@ -25,8 +25,10 @@ from auto_ontology.semantic.constants import (
 from auto_ontology.server.model_interchange import service
 from auto_ontology.server.model_interchange.embed import (
     ImportEmbedBuffer,
+    build_column_attribute_semantic_rows,
     build_column_data_row,
     build_table_data_row,
+    build_term_semantic_rows,
     flush_import_embeddings,
 )
 from auto_ontology.server.model_interchange.schemas import (
@@ -638,6 +640,35 @@ def test_build_catalog_embed_rows_match_tabular_shape() -> None:
     assert "column_name: id" in column_row["text"]
     assert table_row["metadata"]["label"] == "Table"
     assert "columns:" in table_row["text"]
+
+
+def test_imported_embeddings_carry_the_terms_synonyms() -> None:
+    """Vector search reads these texts, so an import must not drop the aliases."""
+    (term_row,) = build_term_semantic_rows(
+        database_name="retail",
+        live_id="term-live",
+        name="Order",
+        description="An order",
+        synonyms=["pesanan"],
+    )
+    (attr_row,) = build_column_attribute_semantic_rows(
+        database_name="retail",
+        live_id="attr-live",
+        name="order id",
+        description="",
+        term_name="Order",
+        source_column="id",
+        table_id="tbl-live",
+        table_name="orders",
+        is_unique=True,
+        sample_values=None,
+        term_synonyms=["pesanan"],
+    )
+
+    assert term_row["text"].startswith("Term: Order. Also known as: pesanan.")
+    assert attr_row["text"].startswith(
+        "ColumnAttribute: order id of Term Order (pesanan)."
+    )
 
 
 @patch("auto_ontology.dal.model_interchange.get_schemas")

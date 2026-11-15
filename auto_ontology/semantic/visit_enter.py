@@ -920,7 +920,6 @@ def _commit_terms(
             proposed_name,
             term.description,
             table_id,
-            synonyms=term.synonyms,
         )
         if persisted is None:
             continue

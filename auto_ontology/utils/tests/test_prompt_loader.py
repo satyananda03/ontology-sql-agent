@@ -35,7 +35,6 @@ EXPECTED: dict[str, dict[str, tuple[set[str], dict[str, set[str]]]]] = {
             {"table_name", "description", "spec_lines", "domain_block"},
             {"domain_block": {"domains", "core_entities"}},
         ),
-        "term_synonyms": ({"description"}, {}),
         "semantic_fk_pick": (
             {
                 "column_name",
@@ -119,7 +118,6 @@ EXPECTED: dict[str, dict[str, tuple[set[str], dict[str, set[str]]]]] = {
         ),
         "semantic_planner": ({"question", "columns"}, {}),
         "semantic_verifier": ({"topic", "candidates"}, {}),
-        "synonym_proposal": ({"name", "description", "table", "columns"}, {}),
     },
 }
 

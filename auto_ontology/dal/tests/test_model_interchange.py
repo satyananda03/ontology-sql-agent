@@ -398,6 +398,30 @@ def test_importing_an_export_into_an_empty_store_recreates_it(world) -> None:
         _cleanup(f"{world.prefix}-copy")
 
 
+def test_synonyms_survive_the_round_trip(world) -> None:
+    """An export is the only backup of hand-written synonyms across a reset."""
+    store().query_write(
+        s.term.update().where(s.term.c.id == world.term).values(synonyms=["pesanan"])
+    )
+    document = _document(world)
+    assert document.semantic_layer.terms[0].synonyms == ["pesanan"]
+
+    target = f"{world.prefix}-copy"
+    document = _reid(document, target)
+    document.data_layer.databases[0].schemas[0].database_name = target
+    try:
+        mi.apply_import_model(document, replace=False)
+
+        copied = store().query_read(
+            select(s.term.c.synonyms).where(
+                s.term.c.imported_id == document.semantic_layer.terms[0].id
+            )
+        )
+        assert copied == [{"synonyms": ["pesanan"]}]
+    finally:
+        _cleanup(target)
+
+
 def test_the_round_trip_is_idempotent(world) -> None:
     """Idempotence.
 

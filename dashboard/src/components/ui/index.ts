@@ -5,6 +5,7 @@ export { Badge, CertBadge, type BadgeTone } from "./Badge";
 export { CertifyChoice, CertifyToggle, useCertifyChoice } from "./Certify";
 export { Empty, ErrorBanner, Loading, Spinner } from "./Feedback";
 export { SearchForm } from "./SearchForm";
+export { SynonymEditor } from "./SynonymEditor";
 export { TextDialog } from "./TextDialog";
 export { TextEditor } from "./TextEditor";
 export { toast, Toaster } from "./Toaster";

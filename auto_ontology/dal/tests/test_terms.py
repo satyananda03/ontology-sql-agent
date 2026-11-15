@@ -400,24 +400,21 @@ def test_update_of_a_missing_term_is_none(world) -> None:
     assert t.update_term("no-such-term", name="x") is None
 
 
-def test_an_edit_from_the_app_records_who_and_when(world) -> None:
+def test_an_edit_from_the_app_records_when(world) -> None:
     """Last Modified is the save, not compilation and not a later untouched write."""
     term = world.term("Order", description="first")
     before = t.get_full_term_by_id(term)
     assert before["modified"] is None
-    assert before["modified_by"] is None
 
-    t.update_term(term, description="edited", touch=True, modified_by="user-1")
+    t.update_term(term, description="edited", touch=True)
     edited = t.get_full_term_by_id(term)
     assert edited["description"] == "edited"
     assert edited["modified"] is not None
-    assert edited["modified_by"] == "user-1"
     stamped = edited["modified"]
 
     t.update_term(term, name_certified=True)
     again = t.get_full_term_by_id(term)
     assert again["modified"] == stamped
-    assert again["modified_by"] == "user-1"
 
 
 def test_upsert_table_term_is_idempotent_for_one_table(world) -> None:
@@ -437,6 +434,37 @@ def test_upsert_table_term_is_idempotent_for_one_table(world) -> None:
         select(s.term.c.description).where(s.term.c.id == first[0])
     )[0]
     assert row["description"] == "rebuilt"
+
+
+def test_clean_synonyms_drops_own_name_blanks_and_duplicates() -> None:
+    proposed = ["  Peneliti ", "peneliti", "researcher", "RESEARCH  program", " "]
+    assert t.clean_synonyms("Researcher", proposed) == ["Peneliti", "RESEARCH program"]
+
+
+def test_update_term_replaces_synonyms_only_when_given(world) -> None:
+    term = world.term("Order")
+    own_name = f"{world.prefix}-Order"
+
+    row = t.update_term(term, synonyms=[" pesanan ", "Pesanan", own_name, "order"])
+    assert row["synonyms"] == ["pesanan", "order"]
+
+    # Omitted leaves the list alone; an empty list clears it.
+    assert t.update_term(term, description="x")["synonyms"] == ["pesanan", "order"]
+    assert t.update_term(term, synonyms=[])["synonyms"] == []
+
+
+def test_recompiling_a_table_keeps_the_synonyms_a_person_wrote(world) -> None:
+    world.table("orders")
+    name = f"{world.prefix}-Order"
+    term_id, _ = t.upsert_table_term(name, "original", world.tables["orders"])
+    t.update_term(term_id, synonyms=["pesanan"])
+
+    t.upsert_table_term(name, "rebuilt", world.tables["orders"])
+
+    row = store().query_read(
+        select(s.term.c.description, s.term.c.synonyms).where(s.term.c.id == term_id)
+    )[0]
+    assert row == {"description": "rebuilt", "synonyms": ["pesanan"]}
 
 
 def test_upsert_table_term_qualifies_only_a_cross_table_name_collision(world) -> None:

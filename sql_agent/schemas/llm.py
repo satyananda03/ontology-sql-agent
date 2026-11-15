@@ -50,8 +50,3 @@ class RelevantCandidates(BaseModel):
     numbers: list[int] = Field(
         description="Numbers of the candidates that genuinely match. Empty if none."
     )
-
-
-# ─── synonym_proposal ───
-class SynonymProposal(BaseModel):
-    synonyms: list[str] = Field(default_factory=list)

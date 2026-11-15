@@ -524,7 +524,7 @@ def test_process_table_writes_term_and_attributes(
 
     process_table(table, ctx, domain_summary=None)
 
-    mock_upsert_term.assert_called_once_with("Order", "Order entity", "t1", synonyms=[])
+    mock_upsert_term.assert_called_once_with("Order", "Order entity", "t1")
     assert (
         mock_merge_col_attr.call_args.kwargs["term_name"] == "Order (db.public.orders)"
     )

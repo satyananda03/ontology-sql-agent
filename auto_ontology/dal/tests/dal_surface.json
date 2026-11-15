@@ -204,6 +204,7 @@
   },
   "terms": {
     "build_term_table_maps": "(pairs: list[dict[str, typing.Any]]) -> tuple[dict[str, set[str]], dict[str, set[str]]]",
+    "clean_synonyms": "(term_name: str, synonyms: list[str]) -> list[str]",
     "count_column_attributes_by_term_id": "(term_id: str, zone_ids: list[str] | None = None) -> int",
     "count_terms": "(zone_ids: list[str] | None = None, search: str | None = None, data_ids_by_zone: dict[str, set[str]] | None = None) -> int",
     "fetch_all_terms": "(zone_ids: list[str] | None = None, search: str | None = None, data_ids_by_zone: dict[str, set[str]] | None = None, *, skip: int = 0, limit: int | None = None) -> list[dict[str, typing.Any]]",
@@ -230,8 +231,8 @@
     "get_term_record_for_table": "(table_id: str) -> dict[str, str] | None",
     "semantic_layer_calculated": "() -> bool",
     "term_is_in_scope": "(term_id: str, zone_ids: list[str] | None = None, data_ids_by_zone: dict[str, set[str]] | None = None) -> bool",
-    "update_term": "(term_id: str, *, name: str | None = None, description: str | None = None, name_certified: bool | None = None, description_certified: bool | None = None, touch: bool = False) -> dict[str, typing.Any] | None",
-    "upsert_table_term": "(name: str, description: str, table_id: str, synonyms: list[str] | None = None) -> tuple[str, str] | None"
+    "update_term": "(term_id: str, *, name: str | None = None, description: str | None = None, name_certified: bool | None = None, description_certified: bool | None = None, synonyms: list[str] | None = None, touch: bool = False) -> dict[str, typing.Any] | None",
+    "upsert_table_term": "(name: str, description: str, table_id: str) -> tuple[str, str] | None"
   },
   "users": {
     "get_accessible_catalog_ids_for_zones": "(zone_ids: list[str]) -> dict[str, set[str]]",

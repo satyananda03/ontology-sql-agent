@@ -25,7 +25,7 @@ def _stubbed(monkeypatch: MonkeyPatch) -> None:
         description="Order status",
     )
     term = SimpleNamespace(
-        name="Order", description="An order", synonyms=[], attributes=[]
+        name="Order", description="An order", attributes=[]
     )
     assignment = SimpleNamespace(source_column="status")
 

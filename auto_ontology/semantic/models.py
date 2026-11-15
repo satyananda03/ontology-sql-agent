@@ -78,7 +78,6 @@ class TermProposal(BaseModel):
 
     name: str
     description: str = ""
-    synonyms: list[str] = Field(default_factory=list)
     attributes: list[TermAttributeAssignment] = Field(default_factory=list)
 
 
