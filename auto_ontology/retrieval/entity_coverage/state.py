@@ -19,7 +19,7 @@ class EntityCoveragePayload(TypedDict):
     semantic_retriever: NotRequired[Retriever]
     path_state: NotRequired[dict]
     connectors: NotRequired[list[SQLDatabase]]
-    acronyms: NotRequired[list[dict[str, str]]]
+    glossary: NotRequired[list[dict[str, str]]]
     target_db: NotRequired[str]
     max_distance: NotRequired[float]
     return_uncovered_entities: NotRequired[bool]

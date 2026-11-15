@@ -5,24 +5,24 @@ import { queryOptions } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type { S } from "@/types";
 
-type AcronymBody = { name: string; description: string };
+type GlossaryEntryBody = { name: string; description: string };
 
-export function listAcronyms(): Promise<S["Acronym"][]> {
-  return api("/acronyms");
+export function listGlossary(): Promise<S["GlossaryEntry"][]> {
+  return api("/glossary");
 }
 
-export function createAcronym(body: AcronymBody): Promise<S["Acronym"]> {
-  return api("/acronyms", { method: "POST", json: body });
+export function createGlossaryEntry(body: GlossaryEntryBody): Promise<S["GlossaryEntry"]> {
+  return api("/glossary", { method: "POST", json: body });
 }
 
-export function updateAcronym(id: string, body: AcronymBody): Promise<S["Acronym"]> {
-  return api(`/acronyms/${id}`, { method: "PATCH", json: body });
+export function updateGlossaryEntry(id: string, body: GlossaryEntryBody): Promise<S["GlossaryEntry"]> {
+  return api(`/glossary/${id}`, { method: "PATCH", json: body });
 }
 
-export function deleteAcronym(id: string): Promise<null> {
-  return api(`/acronyms/${id}`, { method: "DELETE" });
+export function deleteGlossaryEntry(id: string): Promise<null> {
+  return api(`/glossary/${id}`, { method: "DELETE" });
 }
 
 export const glossaryQueries = {
-  acronyms: () => queryOptions({ queryKey: ["glossary", "acronyms"], queryFn: listAcronyms }),
+  entries: () => queryOptions({ queryKey: ["glossary", "entries"], queryFn: listGlossary }),
 };

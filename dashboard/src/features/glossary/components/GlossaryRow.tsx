@@ -5,25 +5,25 @@ import { useState } from "react";
 import { ErrorBanner } from "@/components/ui";
 import { useAction } from "@/hooks/useAction";
 import type { S } from "@/types";
-import { deleteAcronym, updateAcronym } from "../api";
+import { deleteGlossaryEntry, updateGlossaryEntry } from "../api";
 
 /** One glossary entry, editable in place. */
-export function AcronymRow({ acronym, onChange }: { acronym: S["Acronym"]; onChange: () => void }) {
+export function GlossaryRow({ entry, onChange }: { entry: S["GlossaryEntry"]; onChange: () => void }) {
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(acronym.name);
-  const [description, setDescription] = useState(acronym.description);
+  const [name, setName] = useState(entry.name);
+  const [description, setDescription] = useState(entry.description);
   const action = useAction();
 
   async function save() {
-    const saved = await action.run(() => updateAcronym(acronym.id, { name, description }), "Tersimpan");
+    const saved = await action.run(() => updateGlossaryEntry(entry.id, { name, description }), "Tersimpan");
     if (!saved) return;
     setEditing(false);
     onChange();
   }
 
   async function remove() {
-    if (!window.confirm(`Hapus “${acronym.name}” dari glossary?`)) return;
-    const done = await action.run(() => deleteAcronym(acronym.id), "Dihapus");
+    if (!window.confirm(`Hapus “${entry.name}” dari glossary?`)) return;
+    const done = await action.run(() => deleteGlossaryEntry(entry.id), "Dihapus");
     if (done !== undefined) onChange();
   }
 
@@ -52,10 +52,10 @@ export function AcronymRow({ acronym, onChange }: { acronym: S["Acronym"]; onCha
   return (
     <tr>
       <td>
-        <strong>{acronym.name}</strong>
+        <strong>{entry.name}</strong>
       </td>
       <td>
-        {acronym.description || <span className="muted">—</span>}
+        {entry.description || <span className="muted">—</span>}
         <ErrorBanner message={action.error} />
       </td>
       <td>

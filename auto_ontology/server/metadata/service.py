@@ -18,7 +18,7 @@ from auto_ontology.retrieval.entity_coverage.state import (
     DEFAULT_MAX_DISTANCE,
     EntityCoveragePayload,
 )
-from auto_ontology.dal.settings import fetch_acronyms
+from auto_ontology.dal.settings import fetch_glossary
 from auto_ontology.connectors.registry import get_connectors
 from auto_ontology.utils.retriever import (
     get_data_objects_retriever,
@@ -49,7 +49,7 @@ def _build_coverage_payload(
         "data_retriever": get_data_objects_retriever(),
         "semantic_retriever": get_semantic_objects_retriever(),
         "connectors": connectors,
-        "acronyms": fetch_acronyms(),
+        "glossary": fetch_glossary(),
         "max_distance": max_distance,
     }
 

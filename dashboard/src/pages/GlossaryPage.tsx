@@ -5,12 +5,12 @@ import { useState } from "react";
 import { PageHeader } from "@/components/layout";
 import { Empty, ErrorBanner, Loading } from "@/components/ui";
 import { glossaryQueries } from "@/features/glossary/api";
-import { AcronymForm } from "@/features/glossary/components/AcronymForm";
-import { AcronymRow } from "@/features/glossary/components/AcronymRow";
+import { GlossaryForm } from "@/features/glossary/components/GlossaryForm";
+import { GlossaryRow } from "@/features/glossary/components/GlossaryRow";
 import { useFetch } from "@/hooks/useFetch";
 
 export default function GlossaryPage() {
-  const list = useFetch(glossaryQueries.acronyms());
+  const list = useFetch(glossaryQueries.entries());
   const [filter, setFilter] = useState("");
 
   const needle = filter.toLowerCase();
@@ -22,7 +22,7 @@ export default function GlossaryPage() {
         Singkatan dan istilah internal. Agent membacanya di setiap pertanyaan untuk memahami bahasa bisnis, misalnya
         “GMV” atau “nasabah aktif”.
       </PageHeader>
-      <AcronymForm onCreated={list.reload} />
+      <GlossaryForm onCreated={list.reload} />
       <ErrorBanner message={list.error} />
       {list.loading && !list.data && <Loading />}
       {list.data?.length === 0 && <Empty>Glossary masih kosong.</Empty>}
@@ -47,7 +47,7 @@ export default function GlossaryPage() {
               </thead>
               <tbody>
                 {shown.map((a) => (
-                  <AcronymRow key={a.id} acronym={a} onChange={list.reload} />
+                  <GlossaryRow key={a.id} entry={a} onChange={list.reload} />
                 ))}
               </tbody>
             </table>

@@ -51,7 +51,7 @@ def _build_state(
 
     glossary = [{"name": "PR", "description": "pelaku kreatif"}]
     monkeypatch.setattr(connectors_module, "get_connectors", lambda: connectors)
-    monkeypatch.setattr(settings_dal, "fetch_acronyms", lambda: glossary)
+    monkeypatch.setattr(settings_dal, "fetch_glossary", lambda: glossary)
     monkeypatch.setattr(utils, "get_data_objects_retriever", lambda: "data")
     monkeypatch.setattr(utils, "get_semantic_objects_retriever", lambda: "semantic")
     monkeypatch.setattr(retrieval, "_llm", lambda: "llm")

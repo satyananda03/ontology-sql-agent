@@ -147,12 +147,12 @@
     "write_transaction": "() -> collections.abc.Iterator[None]"
   },
   "settings": {
-    "create_acronym": "(name: str, description: str) -> dict[str, typing.Any]",
-    "delete_acronym": "(acronym_id: str) -> bool",
-    "fetch_acronyms": "() -> list[dict[str, str]]",
-    "list_acronyms": "() -> list[dict[str, typing.Any]]",
+    "create_glossary_entry": "(name: str, description: str) -> dict[str, typing.Any]",
+    "delete_glossary_entry": "(entry_id: str) -> bool",
+    "fetch_glossary": "() -> list[dict[str, str]]",
+    "list_glossary": "() -> list[dict[str, typing.Any]]",
     "read_configuration": "(key: str) -> str | None",
-    "update_acronym": "(acronym_id: str, *, name: str | None, description: str | None) -> dict[str, typing.Any] | None",
+    "update_glossary_entry": "(entry_id: str, *, name: str | None, description: str | None) -> dict[str, typing.Any] | None",
     "write_configuration": "(key: str, value: str) -> None"
   },
   "sql_attributes": {

@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Glossary acronyms and instance settings, for the review UI.
+"""Glossary entries and instance settings, for the review UI.
 
-Storage is the ``acronym`` and ``configuration`` tables, through
+Storage is the ``glossary`` and ``configuration`` tables, through
 :mod:`auto_ontology.dal.settings`.
 
 Settings are read back through the same functions the services use
@@ -39,7 +39,7 @@ Timeout = Annotated[
 ]
 
 
-class Acronym(BaseModel):
+class GlossaryEntry(BaseModel):
     """One glossary entry the SQL agent reads on every question."""
 
     id: UUID
@@ -49,12 +49,12 @@ class Acronym(BaseModel):
     updated_at: datetime
 
 
-class AcronymCreate(BaseModel):
+class GlossaryEntryCreate(BaseModel):
     name: Name
     description: Description = ""
 
 
-class AcronymUpdate(BaseModel):
+class GlossaryEntryUpdate(BaseModel):
     """Fields to change; an omitted field keeps its value."""
 
     name: Name | None = None
@@ -85,40 +85,40 @@ _KEYS = {
 }
 
 
-@router.get("/acronyms", response_model=list[Acronym])
-def list_acronyms() -> list[dict[str, Any]]:
-    """Return every glossary acronym, ordered by name."""
-    return settings_dal.list_acronyms()
+@router.get("/glossary", response_model=list[GlossaryEntry])
+def list_glossary() -> list[dict[str, Any]]:
+    """Return every glossary entry, ordered by name."""
+    return settings_dal.list_glossary()
 
 
-@router.post("/acronyms", response_model=Acronym, status_code=201)
-def create_acronym(body: AcronymCreate) -> dict[str, Any]:
-    """Add one acronym; 409 when the name is taken."""
+@router.post("/glossary", response_model=GlossaryEntry, status_code=201)
+def create_glossary_entry(body: GlossaryEntryCreate) -> dict[str, Any]:
+    """Add one glossary entry; 409 when the name is taken."""
     try:
-        return settings_dal.create_acronym(body.name, body.description)
+        return settings_dal.create_glossary_entry(body.name, body.description)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.patch("/acronyms/{acronym_id}", response_model=Acronym)
-def update_acronym(acronym_id: UUID, body: AcronymUpdate) -> dict[str, Any]:
-    """Rename or redescribe one acronym; 404 when absent, 409 on a taken name."""
+@router.patch("/glossary/{entry_id}", response_model=GlossaryEntry)
+def update_glossary_entry(entry_id: UUID, body: GlossaryEntryUpdate) -> dict[str, Any]:
+    """Rename or redescribe one glossary entry; 404 when absent, 409 on a taken name."""
     try:
-        row = settings_dal.update_acronym(
-            str(acronym_id), name=body.name, description=body.description
+        row = settings_dal.update_glossary_entry(
+            str(entry_id), name=body.name, description=body.description
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     if row is None:
-        raise HTTPException(status_code=404, detail="Acronym not found.")
+        raise HTTPException(status_code=404, detail="Glossary entry not found.")
     return row
 
 
-@router.delete("/acronyms/{acronym_id}", status_code=204)
-def delete_acronym(acronym_id: UUID) -> Response:
-    """Remove one acronym; 404 when absent."""
-    if not settings_dal.delete_acronym(str(acronym_id)):
-        raise HTTPException(status_code=404, detail="Acronym not found.")
+@router.delete("/glossary/{entry_id}", status_code=204)
+def delete_glossary_entry(entry_id: UUID) -> Response:
+    """Remove one glossary entry; 404 when absent."""
+    if not settings_dal.delete_glossary_entry(str(entry_id)):
+        raise HTTPException(status_code=404, detail="Glossary entry not found.")
     return Response(status_code=204)
 
 

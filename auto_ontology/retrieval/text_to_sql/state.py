@@ -21,7 +21,7 @@ class AgentPayload(TypedDict):
     retriever: Retriever
     path_state: NotRequired[dict]
     connectors: NotRequired[list[SQLDatabase]]
-    acronyms: NotRequired[list[dict[str, str]]]
+    glossary: NotRequired[list[dict[str, str]]]
 
 
 class TextToSQLPayload(TypedDict):
@@ -50,7 +50,7 @@ class TextToSQLPayload(TypedDict):
     semantic_retriever: NotRequired[Retriever]
     path_state: NotRequired[dict]
     connectors: NotRequired[list[SQLDatabase]]
-    acronyms: NotRequired[list[dict[str, str]]]
+    glossary: NotRequired[list[dict[str, str]]]
     target_db: NotRequired[str]
     # Prediction override: True forces prediction, False excludes prediction while
     # still classifying as information/calculation, and None/absent classifies freely.
@@ -91,7 +91,7 @@ class AgentState(TypedDict):
     data_retriever: Retriever
     semantic_retriever: Retriever
     domain_rules: list[dict[str, str]]
-    # User-curated Glossary definitions (the ``acronyms`` table), kept apart from
+    # User-curated Glossary definitions (the ``glossary`` table), kept apart from
     # domain_rules so prompts can inject them without the custom-analysis SQL.
     # After ``question_extraction``, this is narrowed to the entries the LLM used.
     glossary: NotRequired[list[dict[str, str]]]

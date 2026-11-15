@@ -80,7 +80,7 @@ def build_state(question: str) -> dict[str, Any]:
     # Imported here: these open connection pools at import time, which must not
     # happen just because the server registered the route.
     from auto_ontology.connectors import get_connectors
-    from auto_ontology.dal.settings import fetch_acronyms
+    from auto_ontology.dal.settings import fetch_glossary
     from auto_ontology.utils import (
         get_data_objects_retriever,
         get_semantic_objects_retriever,
@@ -94,7 +94,7 @@ def build_state(question: str) -> dict[str, Any]:
         "processing_question": question,
         "target_db": connectors[0].database_name,
     }
-    glossary = fetch_acronyms()
+    glossary = fetch_glossary()
     return {
         "llm": _llm(),
         "initial_question": question,

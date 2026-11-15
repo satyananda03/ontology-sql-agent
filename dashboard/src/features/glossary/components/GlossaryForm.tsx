@@ -4,16 +4,16 @@
 import { useState, type FormEvent } from "react";
 import { ErrorBanner } from "@/components/ui";
 import { useAction } from "@/hooks/useAction";
-import { createAcronym } from "../api";
+import { createGlossaryEntry } from "../api";
 
-export function AcronymForm({ onCreated }: { onCreated: () => void }) {
+export function GlossaryForm({ onCreated }: { onCreated: () => void }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const action = useAction();
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    const created = await action.run(() => createAcronym({ name, description }), "Ditambahkan");
+    const created = await action.run(() => createGlossaryEntry({ name, description }), "Ditambahkan");
     if (!created) return;
     setName("");
     setDescription("");

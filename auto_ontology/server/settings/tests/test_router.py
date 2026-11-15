@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Acronym and settings routes.
+"""Glossary and settings routes.
 
 Validation tests need no database. The round trips skip unless ``POSTGRES_*``
-points at a database migrated to head, where ``acronym`` and ``configuration``
+points at a database migrated to head, where ``glossary`` and ``configuration``
 exist.
 """
 
@@ -37,7 +37,7 @@ def settings_tables() -> Iterator[None]:
         conn = psycopg.connect(get_postgres_connection_string(), connect_timeout=3)
         rows = {
             table: conn.execute(f"SELECT * FROM {table}").fetchall()
-            for table in ("acronym", "configuration")
+            for table in ("glossary", "configuration")
         }
     except psycopg.Error as exc:
         pytest.skip(f"settings tables unavailable (alembic upgrade head): {exc}")
@@ -67,29 +67,29 @@ def test_settings_refuse_values_the_readers_would_ignore(
 
 
 @pytest.mark.parametrize("body", [{"name": ""}, {"name": "   "}])
-def test_an_acronym_needs_a_name(client: TestClient, body: dict) -> None:
-    assert client.post("/api/acronyms", json=body).status_code == 422
+def test_a_glossary_entry_needs_a_name(client: TestClient, body: dict) -> None:
+    assert client.post("/api/glossary", json=body).status_code == 422
 
 
-def test_acronym_round_trip(client: TestClient, settings_tables: None) -> None:
+def test_glossary_round_trip(client: TestClient, settings_tables: None) -> None:
     name = f"T{uuid4().hex[:8]}"
     created = client.post(
-        "/api/acronyms", json={"name": f"  {name} ", "description": "x"}
+        "/api/glossary", json={"name": f"  {name} ", "description": "x"}
     )
     assert created.status_code == 201
-    acronym = created.json()
-    assert acronym["name"] == name
+    entry = created.json()
+    assert entry["name"] == name
 
-    assert client.post("/api/acronyms", json={"name": name}).status_code == 409
+    assert client.post("/api/glossary", json={"name": name}).status_code == 409
 
-    updated = client.patch(f"/api/acronyms/{acronym['id']}", json={"description": "y"})
+    updated = client.patch(f"/api/glossary/{entry['id']}", json={"description": "y"})
     assert updated.json()["name"] == name
     assert updated.json()["description"] == "y"
-    assert name in [a["name"] for a in client.get("/api/acronyms").json()]
+    assert name in [a["name"] for a in client.get("/api/glossary").json()]
 
-    assert client.delete(f"/api/acronyms/{acronym['id']}").status_code == 204
-    assert client.delete(f"/api/acronyms/{acronym['id']}").status_code == 404
-    missing = client.patch(f"/api/acronyms/{uuid4()}", json={"description": "z"})
+    assert client.delete(f"/api/glossary/{entry['id']}").status_code == 204
+    assert client.delete(f"/api/glossary/{entry['id']}").status_code == 404
+    missing = client.patch(f"/api/glossary/{uuid4()}", json={"description": "z"})
     assert missing.status_code == 404
 
 

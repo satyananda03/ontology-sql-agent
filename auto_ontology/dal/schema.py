@@ -994,8 +994,8 @@ semantic_compilation_status = Table(
 # The Glossary page: a word the business uses -- an acronym, a local term --
 # and what it means. Every SQL agent question carries the whole list, so the
 # agent reads "PR" the way this deployment means it.
-acronym = Table(
-    "acronym",
+glossary = Table(
+    "glossary",
     METADATA,
     _id(),
     Column("name", Text, nullable=False, unique=True),
@@ -1219,7 +1219,7 @@ join_path_edge = Table(
 
 __all__ = [
     "METADATA",
-    "acronym",
+    "glossary",
     "configuration",
     "TRIGRAM_SEARCH_TABLES",
     "column__join",

@@ -44,8 +44,8 @@ def _build_state(payload: EntityCoveragePayload) -> AgentState:
             "No 'semantic_retriever' in payload — candidate searches will be skipped."
         )
 
-    acronyms = payload.get("acronyms", [])
-    domain_rules = fetch_custom_analyses() + list(acronyms or [])
+    glossary = payload.get("glossary", [])
+    domain_rules = fetch_custom_analyses() + list(glossary or [])
 
     initial_path_state = dict(payload.get("path_state") or {})
     max_distance = payload.get("max_distance", DEFAULT_MAX_DISTANCE)
@@ -72,7 +72,7 @@ def _build_state(payload: EntityCoveragePayload) -> AgentState:
         "semantic_retriever": semantic_retriever,
         "decision": "",
         "domain_rules": domain_rules,
-        "glossary": list(acronyms or []),
+        "glossary": list(glossary or []),
     }
     return state  # type: ignore[return-value]
 
