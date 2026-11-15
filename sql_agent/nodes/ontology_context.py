@@ -5,13 +5,14 @@
 
 Navigator lama mengirim katalog seluruh tabel ke LLM. Di sini agent retrieval
 auto_ontology yang memilih (``modules/retrieval/pipeline.py``), lalu hasilnya
-dipetakan ke state (``modules/retrieval/context.py``).
+dipetakan ke state (``modules/retrieval/context.py``). Pertanyaan yang sama
+dalam ``cache.TTL_S`` memakai hasil retrieval sebelumnya (``modules/retrieval/cache.py``).
 """
 
 from typing import Any, Literal
 
 from sql_agent.core.logging import get_logger
-from sql_agent.modules.retrieval import pipeline
+from sql_agent.modules.retrieval import cache, pipeline
 from sql_agent.modules.retrieval.context import context_update, renavigation_question
 from sql_agent.schemas import State
 
@@ -20,7 +21,12 @@ logger = get_logger(__name__)
 
 def ontology_context(state: State) -> dict[str, Any]:
     logger.info("Ontology Context - retrieving relevant tables")
-    update = context_update(pipeline.retrieve(state.user_query))
+    ontology = cache.get(state.user_query)
+    if ontology is None:
+        ontology = pipeline.retrieve(state.user_query)
+    update = context_update(ontology)
+    if update["selected_table"]:
+        cache.put(state.user_query, ontology)
     logger.info(f"Selected tables: {update['selected_table']}")
     return update
 
@@ -37,6 +43,8 @@ def schema_renavigator(state: State) -> dict[str, Any]:
     update = context_update(pipeline.retrieve(question))
     update["renavigation_count"] = count
     if update["selected_table"]:
+        # Next time the same question goes straight to the tables that answered it.
+        cache.put(state.user_query, update["ontology"])
         update.update(retry_feedback=None, last_error=None)
     return update
 

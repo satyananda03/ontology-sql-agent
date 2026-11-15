@@ -118,3 +118,52 @@ def test_renavigation_that_finds_nothing_fails(
     monkeypatch.setattr(module.pipeline, "retrieve", lambda question: _ontology([]))
     update = module.schema_renavigator(State(user_query="q", error="x"))
     assert module.check_renavigation(State(user_query="q", **update)) == "failure"
+
+
+def test_a_repeated_question_reuses_the_retrieval(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    asked: list[str] = []
+
+    def retrieve(question: str) -> dict[str, Any]:
+        asked.append(question)
+        return _ontology([TABLE])
+
+    monkeypatch.setattr(module.pipeline, "retrieve", retrieve)
+    first = module.ontology_context(State(user_query="Siapa  researcher"))
+    # A later step writes into path_state; the cached copy must not see it.
+    first["ontology"]["path_state"]["semantic_ids"] = {"__SEMANTIC_1__": "1"}
+    second = module.ontology_context(State(user_query="siapa researcher"))
+    assert asked == ["Siapa  researcher"]
+    assert second["selected_table"] == ["fact_partisipasi_program"]
+    assert "semantic_ids" not in second["ontology"]["path_state"]
+
+
+def test_a_question_without_tables_is_not_cached(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    asked: list[str] = []
+
+    def retrieve(question: str) -> dict[str, Any]:
+        asked.append(question)
+        return _ontology([])
+
+    monkeypatch.setattr(module.pipeline, "retrieve", retrieve)
+    module.ontology_context(State(user_query="q"))
+    module.ontology_context(State(user_query="q"))
+    assert len(asked) == 2
+
+
+def test_renavigated_tables_answer_the_original_question_next_time(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    asked: list[str] = []
+
+    def retrieve(question: str) -> dict[str, Any]:
+        asked.append(question)
+        return _ontology([TABLE])
+
+    monkeypatch.setattr(module.pipeline, "retrieve", retrieve)
+    module.schema_renavigator(State(user_query="q", selected_table=["x"], error="e"))
+    module.ontology_context(State(user_query="q"))
+    assert len(asked) == 1
