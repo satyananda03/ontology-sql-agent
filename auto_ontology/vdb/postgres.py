@@ -11,6 +11,8 @@ import logging
 import os
 import threading
 import time
+import uuid
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Iterable, Optional
 
 import psycopg
@@ -18,6 +20,8 @@ from psycopg import sql
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_postgres import Column, PGEngine, PGVectorStore
+
+from auto_ontology.vdb import bm25_index, vector_index
 
 logger = logging.getLogger(__name__)
 
@@ -263,7 +267,12 @@ class PostgresVDB:
                     Column(_LABEL_METADATA_COLUMN, "VARCHAR(100)", nullable=True),
                 ],
             )
-            self._create_vector_index()
+            vector_index.ensure_hnsw_index(
+                self.connection_string,
+                self.schema_name,
+                self.collection_name,
+                self.vector_size,
+            )
 
         self._store = PGVectorStore.create_sync(
             engine=engine,
@@ -274,66 +283,12 @@ class PostgresVDB:
         )
         return self._store
 
-    def _create_vector_index(self) -> None:
-        """Convert the embedding column to ``halfvec`` and index it with HNSW.
-
-        Without an index every similarity search is a sequential scan over the
-        whole collection -- measured at 175ms against 0.36ms indexed on 51,200
-        rows, and it degrades linearly from there.
-
-        **The column has to become ``halfvec`` for the index to be reachable**,
-        which is not obvious and is worth the ALTER. pgvector caps HNSW at 2000
-        dimensions for ``vector`` and the embedding model emits 2048, so the
-        only index that can be built over a ``vector(2048)`` column is one over
-        a cast expression -- and an expression index is matched *syntactically*,
-        so it serves ``embedding::halfvec(2048) <=> $1`` and not the plain
-        ``embedding <=> $1`` that ``PGVectorStore`` generates. Postgres then
-        silently plans a sequential scan and nothing reports it. Typing the
-        column ``halfvec`` instead lets a plain index serve the query the store
-        actually writes: the *parameter* is cast (``embedding <=> ($1)::halfvec``),
-        which costs nothing, rather than the indexed column.
-
-        The tradeoff is that stored vectors are float16 rather than float32.
-        Cosine ranking over 2048 dimensions tolerates that -- it is the same
-        approximation the index itself would apply -- but it is a real precision
-        change, not just an index.
-
-        Best-effort: a failure here costs latency, not correctness, so it is
-        logged and the store still works.
-        """
-        qualified = sql.Identifier(self.schema_name, self.collection_name)
-        index_name = sql.Identifier(f"ix_hnsw_{self.collection_name}_embedding")
-        try:
-            with psycopg.connect(self.connection_string) as conn:
-                with conn.cursor() as cur:
-                    cur.execute(
-                        sql.SQL(
-                            "ALTER TABLE {table} "
-                            "ALTER COLUMN embedding TYPE halfvec({dim})"
-                        ).format(
-                            table=qualified,
-                            dim=sql.Literal(self.vector_size),
-                        )
-                    )
-                    cur.execute(
-                        sql.SQL(
-                            "CREATE INDEX IF NOT EXISTS {name} ON {table} "
-                            "USING hnsw (embedding halfvec_cosine_ops)"
-                        ).format(name=index_name, table=qualified)
-                    )
-                conn.commit()
-        except Exception:
-            logger.warning(
-                "PostgresVDB: could not build the HNSW index on %s.%s; "
-                "similarity search will fall back to a sequential scan",
-                self.schema_name,
-                self.collection_name,
-                exc_info=True,
-            )
-
     def create_index(self, **kwargs: Any) -> str:
-        """Ensure the pgvector extension and underlying table exist."""
+        """Ensure the table, its HNSW index and its BM25 index exist."""
         self._get_store()
+        bm25_index.ensure_bm25_index(
+            self.connection_string, self.schema_name, self.collection_name
+        )
         return self.collection_name
 
     # ------------------------------------------------------------------
@@ -379,14 +334,11 @@ class PostgresVDB:
 
         inserted = 0
         for start in range(0, len(documents), batch_size):
-            chunk_docs = documents[start : start + batch_size]
-            chunk_embs = embeddings[start : start + batch_size]
-            store.add_embeddings(
-                texts=[d.page_content for d in chunk_docs],
-                embeddings=chunk_embs,
-                metadatas=[d.metadata for d in chunk_docs],
+            inserted += self._write_batch(
+                store,
+                documents[start : start + batch_size],
+                embeddings[start : start + batch_size],
             )
-            inserted += len(chunk_docs)
 
         logger.info(
             "PostgresVDB.write_to_index: inserted %d rows into %s (skipped %d)",
@@ -395,6 +347,39 @@ class PostgresVDB:
             skipped,
         )
         return inserted
+
+    def _write_batch(
+        self,
+        store: PGVectorStore,
+        documents: list[Document],
+        embeddings: list[list[float]],
+    ) -> int:
+        """Write one batch to the vector and BM25 indexes; returns rows written.
+
+        The vector insert and the BM25 preprocessing run in parallel. The BM25
+        write waits for the insert: it fills a column of the rows it created.
+        """
+        ids = [str(uuid.uuid4()) for _ in documents]
+        texts = [d.page_content for d in documents]
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            vectors = pool.submit(
+                vector_index.write_vectors,
+                store,
+                ids,
+                texts,
+                embeddings,
+                [d.metadata for d in documents],
+            )
+            cleaned = pool.submit(bm25_index.preprocess_many, texts)
+            written = vectors.result()
+        bm25_index.write_bm25(
+            self.connection_string,
+            self.schema_name,
+            self.collection_name,
+            ids,
+            cleaned.result(),
+        )
+        return written
 
     def delete_by_database(self, database_name: str) -> list[str]:
         """Delete all rows whose ``database_name`` column matches ``database_name``.

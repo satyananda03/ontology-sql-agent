@@ -25,12 +25,12 @@ export function OperationsPanel() {
   const busy = action.busy || ingesting || compiling;
 
   async function runIngest() {
-    const status = await action.run(triggerIngest, "Ingest dimulai");
+    const status = await action.run(triggerIngest, "Sinkronisasi skema dimulai");
     if (status) ingest.setData(status);
   }
 
   async function runCompile() {
-    await action.run(triggerCompilation, "Kompilasi dimulai");
+    await action.run(triggerCompilation, "Pembuatan term & atribut dimulai");
     compile.reload();
   }
 
@@ -44,31 +44,29 @@ export function OperationsPanel() {
   return (
     <section className="card stack">
       <h2>Operasi</h2>
-      <p className="muted">Tidak ada yang berjalan otomatis. Satu operasi berjalan pada satu waktu.</p>
       <ErrorBanner message={ingest.error ?? compile.error ?? action.error} />
       <Operation
-        title="Ingest ulang"
+        title="Sinkronkan Schema"
         running={ingesting}
         action={
           <button className="primary" onClick={runIngest} disabled={busy}>
-            Ingest ulang
+            Sinkronkan Schema
           </button>
         }
       >
         Sinkronkan struktur database sumber (tabel, kolom, key) ke katalog. Jalankan setelah ada tabel atau kolom
-        baru. Baris baru tidak perlu: agent membaca data langsung dari sumber.
+        baru.
       </Operation>
       <Operation
-        title="Kompilasi"
+        title="Lengkapi term & atribut"
         running={compiling}
         action={
           <button className="primary" onClick={runCompile} disabled={busy}>
-            Jalankan kompilasi
+            Lengkapi term & atribut
           </button>
         }
       >
-        Buat term dan atribut untuk tabel yang belum punya, biasanya setelah ingest ulang. Tabel yang sudah
-        dikompilasi tidak disentuh.
+        Buat term dan atribut untuk tabel yang belum punya, setelah selesai sinkronisasi skema.
         {c && (
           <dl className="row facts" style={{ marginTop: 8 }}>
             <div>
@@ -83,10 +81,10 @@ export function OperationsPanel() {
         )}
       </Operation>
       <Operation
-        title="Regenerate ontologi"
+        title="Regenerate Ontology"
         action={
           <button className="danger" onClick={runRegenerate} disabled={busy}>
-            Regenerate ontologi
+            Regenerate Ontology
           </button>
         }
       >

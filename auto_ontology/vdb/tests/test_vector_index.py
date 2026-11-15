@@ -11,7 +11,7 @@ Two ways to get this wrong, and both look fine until you read a plan:
   expression index on ``(embedding::halfvec(2048))``. Postgres matches an
   expression index syntactically, and ``PGVectorStore`` emits the plain
   ``embedding <=> $1`` -- which never matches it. Hence the column itself is
-  ``halfvec``; see ``PostgresVDB._create_vector_index``.
+  ``halfvec``; see ``vector_index.ensure_hnsw_index``.
 * **Assuming the parameter's type has to match.** It does not: pgvector casts
   the *parameter* (``embedding <=> ($1)::halfvec``), which is free, and the
   index is still used.
@@ -66,7 +66,7 @@ def collection():
 
 
 def _index_the_collection(name: str) -> None:
-    """What ``PostgresVDB._create_vector_index`` does, against *name*."""
+    """What ``vector_index.ensure_hnsw_index`` does, against *name*."""
     with psycopg.connect(get_postgres_connection_string()) as conn:
         with conn.cursor() as cur:
             cur.execute(

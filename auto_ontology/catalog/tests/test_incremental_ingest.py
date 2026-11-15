@@ -59,6 +59,8 @@ def source_db():
     admin = psycopg.connect(_pg_dsn("postgres"), autocommit=True, connect_timeout=5)
     try:
         admin.execute(f'CREATE DATABASE "{name}"')
+    except psycopg.errors.InsufficientPrivilege:
+        pytest.skip("POSTGRES_USER lacks CREATEDB (ALTER ROLE ... CREATEDB)")
     finally:
         admin.close()
 

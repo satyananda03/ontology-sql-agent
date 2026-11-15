@@ -126,7 +126,7 @@ export function KnowledgeGraphViewer({ databaseId }: { databaseId: string }) {
         </StatusOverlay>
       )}
       {!loading && !error && rawGraph?.nodes.length === 0 && (
-        <StatusOverlay>Belum ada term atau tabel. Jalankan Ingest ulang di Pengaturan → Operasi.</StatusOverlay>
+        <StatusOverlay>Belum ada term atau tabel. Jalankan Sinkronkan skema di Pengaturan → Operasi.</StatusOverlay>
       )}
       {error && <ErrorOverlay message={error} onRetry={reload} />}
     </div>

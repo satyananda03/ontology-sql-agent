@@ -18,7 +18,7 @@ export default function KnowledgeGraphPage() {
       <ErrorBanner message={database.error} />
       {database.loading && !database.data && <Loading />}
       {database.data === null && (
-        <Empty>Database sumber belum di-ingest. Jalankan Ingest ulang di Pengaturan → Operasi.</Empty>
+        <Empty>Database sumber belum di-ingest. Jalankan Sinkronkan skema di Pengaturan → Operasi.</Empty>
       )}
       {database.data && (
         <div className="h-[calc(100vh-190px)] min-h-[480px] overflow-hidden rounded-3xl">
