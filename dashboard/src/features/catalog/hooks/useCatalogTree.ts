@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useFetch } from "@/hooks/useFetch";
 import { replaceById } from "@/lib/utils";
 import type { S } from "@/types";
-import { getSourceCatalog, getTableColumns, listTables } from "../api";
+import { catalogQueries, getTableColumns, listTables } from "../api";
 
 type Table = S["TableSummary"];
 
@@ -15,7 +15,7 @@ type Table = S["TableSummary"];
  * search hit), the tree opens its schema.
  */
 export function useCatalogTree(tableId: string | null) {
-  const source = useFetch(getSourceCatalog);
+  const source = useFetch(catalogQueries.sourceCatalog());
   const [tables, setTables] = useState<Record<string, Table[]>>({});
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string>();

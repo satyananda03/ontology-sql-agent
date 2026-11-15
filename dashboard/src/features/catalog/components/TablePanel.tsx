@@ -7,7 +7,7 @@ import { useAction } from "@/hooks/useAction";
 import { useFetch } from "@/hooks/useFetch";
 import { replaceById } from "@/lib/utils";
 import type { S } from "@/types";
-import { getTableColumns, updateNode } from "../api";
+import { catalogQueries, updateNode } from "../api";
 
 type Table = S["TableSummary"];
 
@@ -18,7 +18,7 @@ interface TablePanelProps {
 
 /** Review one table's description and the descriptions of its columns. */
 export function TablePanel({ table, onChange }: TablePanelProps) {
-  const columns = useFetch(() => getTableColumns(table.id), [table.id]);
+  const columns = useFetch(catalogQueries.tableColumns(table.id));
   const action = useAction();
   const [editing, setEditing] = useState<S["ColumnSummary"]>();
 

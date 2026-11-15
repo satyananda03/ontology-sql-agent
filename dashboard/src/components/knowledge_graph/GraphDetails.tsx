@@ -4,7 +4,7 @@
 // Drill-down sections of the properties panel for a selected edge; edgeDetails picks which one.
 
 import type { ReactNode } from "react";
-import { getTermPath } from "@/features/knowledge_graph/api";
+import { knowledgeGraphQueries } from "@/features/knowledge_graph/api";
 import type { RawEdge } from "@/features/knowledge_graph/types";
 import { useFetch } from "@/hooks/useFetch";
 import { truncate } from "@/lib/utils";
@@ -13,7 +13,7 @@ const SQL_PREVIEW_LENGTH = 160;
 
 /** The real chain behind a term-to-term edge: term, table, column, attribute, term. */
 export function TermPathDetails({ edge }: { edge: RawEdge }) {
-  const path = useFetch(() => getTermPath(edge.source, edge.target), [edge.source, edge.target]);
+  const path = useFetch(knowledgeGraphQueries.termPath(edge.source, edge.target));
   const hops = path.data?.hops ?? [];
   return (
     <Section title="Rantai relasi" state={path}>

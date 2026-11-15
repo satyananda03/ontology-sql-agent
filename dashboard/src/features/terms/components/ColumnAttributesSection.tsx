@@ -7,7 +7,7 @@ import { useAction } from "@/hooks/useAction";
 import { useFetch } from "@/hooks/useFetch";
 import { replaceById } from "@/lib/utils";
 import type { S } from "@/types";
-import { listColumnAttributes, updateColumnAttribute } from "../api";
+import { termQueries, updateColumnAttribute } from "../api";
 
 interface ColumnAttributesSectionProps {
   termId: string;
@@ -15,7 +15,7 @@ interface ColumnAttributesSectionProps {
 }
 
 export function ColumnAttributesSection({ termId, onCertification }: ColumnAttributesSectionProps) {
-  const list = useFetch(() => listColumnAttributes(termId), [termId]);
+  const list = useFetch(termQueries.columnAttributes(termId));
   const action = useAction();
   const [editing, setEditing] = useState<S["ColumnAttribute"]>();
 

@@ -5,16 +5,19 @@ import type { ReactNode } from "react";
 import { Badge, ErrorBanner } from "@/components/ui";
 import { useAction } from "@/hooks/useAction";
 import { formatDateTime } from "@/lib/utils";
-import { getCompilationStatus, getIngestStatus, regenerateOntology, triggerCompilation, triggerIngest } from "../api";
-import { usePolledFetch } from "../hooks/usePolledFetch";
+import { regenerateOntology, settingsQueries, triggerCompilation, triggerIngest } from "../api";
+import { useFetch } from "@/hooks/useFetch";
+
+// Job status while the page is open, so a running job shows when it finishes.
+const POLL_MS = 10_000;
 
 const REGENERATE_WARNING =
   "Regenerate ontologi?\n\nSeluruh ontologi dihapus lalu dikompilasi ulang dari nol: term, atribut, hasil review, dan few-shot examples. Few-shot examples TIDAK dibuat ulang. Deskripsi katalog tetap.\n\nExport model dulu bila perlu cadangan.";
 
 /** The three jobs that keep the catalog and ontology current. Nothing runs on its own. */
 export function OperationsPanel() {
-  const ingest = usePolledFetch(getIngestStatus);
-  const compile = usePolledFetch(getCompilationStatus);
+  const ingest = useFetch({ ...settingsQueries.ingestStatus(), refetchInterval: POLL_MS });
+  const compile = useFetch({ ...settingsQueries.compilationStatus(), refetchInterval: POLL_MS });
   const action = useAction();
   const ingesting = !!ingest.data?.running;
   const compiling = !!compile.data?.running;

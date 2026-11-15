@@ -3,7 +3,7 @@
 
 import { useEffect } from "react";
 import { useFetch } from "@/hooks/useFetch";
-import { loadGraph } from "./graphKinds";
+import { graphQuery } from "./graphKinds";
 import { useKnowledgeGraphStore } from "./store";
 
 /**
@@ -13,7 +13,7 @@ import { useKnowledgeGraphStore } from "./store";
  * viewer, the properties panel, the legend and the search all read it there.
  */
 export function useKnowledgeGraph(databaseId: string) {
-  const graph = useFetch(() => loadGraph(databaseId), [databaseId]);
+  const graph = useFetch(graphQuery(databaseId));
 
   useEffect(() => {
     if (graph.data) useKnowledgeGraphStore.getState().setRawGraph(graph.data);

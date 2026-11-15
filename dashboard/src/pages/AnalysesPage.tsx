@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/layout";
 import { Empty, ErrorBanner, Loading, SearchForm } from "@/components/ui";
-import { listAnalyses } from "@/features/analyses/api";
+import { analysisQueries } from "@/features/analyses/api";
 import { AnalysisCard } from "@/features/analyses/components/AnalysisCard";
 import { AnalysisForm } from "@/features/analyses/components/AnalysisForm";
 import { useFetch } from "@/hooks/useFetch";
@@ -15,7 +15,7 @@ export default function AnalysesPage() {
   const query = params.get("q") ?? "";
   const focus = params.get("id");
   const [adding, setAdding] = useState(false);
-  const list = useFetch(() => listAnalyses(query), [query]);
+  const list = useFetch(analysisQueries.list(query));
 
   return (
     <>

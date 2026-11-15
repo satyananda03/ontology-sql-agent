@@ -4,13 +4,13 @@
 import { useState } from "react";
 import { PageHeader } from "@/components/layout";
 import { Empty, ErrorBanner, Loading } from "@/components/ui";
-import { listAcronyms } from "@/features/glossary/api";
+import { glossaryQueries } from "@/features/glossary/api";
 import { AcronymForm } from "@/features/glossary/components/AcronymForm";
 import { AcronymRow } from "@/features/glossary/components/AcronymRow";
 import { useFetch } from "@/hooks/useFetch";
 
 export default function GlossaryPage() {
-  const list = useFetch(listAcronyms);
+  const list = useFetch(glossaryQueries.acronyms());
   const [filter, setFilter] = useState("");
 
   const needle = filter.toLowerCase();

@@ -6,7 +6,7 @@ import { ErrorBanner, Loading } from "@/components/ui";
 import { useAction } from "@/hooks/useAction";
 import { useFetch } from "@/hooks/useFetch";
 import type { S } from "@/types";
-import { getSettings, updateSettings } from "../api";
+import { settingsQueries, updateSettings } from "../api";
 
 const FLAGS: [key: keyof S["Settings"], label: string, hint: string][] = [
   [
@@ -14,11 +14,10 @@ const FLAGS: [key: keyof S["Settings"], label: string, hint: string][] = [
     "Probe nilai unik kolom",
     "Menjalankan SELECT DISTINCT per kolom teks saat kompilasi untuk mengumpulkan contoh nilai. Matikan pada database besar atau berbayar per query.",
   ],
-  ["pii_detection_enabled", "Deteksi PII saat ingest", "Menandai kolom yang berisi data pribadi."],
 ];
 
 export function GeneralSettings() {
-  const settings = useFetch(getSettings);
+  const settings = useFetch(settingsQueries.general());
   const action = useAction();
   const [timeout, setTimeoutValue] = useState("");
   const savedTimeout = String(settings.data?.sql_query_timeout_seconds ?? "");

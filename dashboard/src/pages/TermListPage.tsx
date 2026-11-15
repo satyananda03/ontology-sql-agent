@@ -4,7 +4,7 @@
 import { useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/layout";
 import { Empty, ErrorBanner, Loading, SearchForm } from "@/components/ui";
-import { listTerms, TERMS_PAGE_SIZE } from "@/features/terms/api";
+import { termQueries, TERMS_PAGE_SIZE } from "@/features/terms/api";
 import { TermPagination } from "@/features/terms/components/TermPagination";
 import { TermTable } from "@/features/terms/components/TermTable";
 import { useFetch } from "@/hooks/useFetch";
@@ -13,7 +13,7 @@ export default function TermListPage() {
   const [params, setParams] = useSearchParams();
   const query = params.get("q") ?? "";
   const skip = Number(params.get("skip") ?? 0);
-  const page = useFetch(() => listTerms(query, skip), [query, skip]);
+  const page = useFetch(termQueries.list(query, skip));
 
   return (
     <>

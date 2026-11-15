@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { queryOptions } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type { S } from "@/types";
 
@@ -24,3 +25,7 @@ export function deleteAnalysis(id: string): Promise<unknown> {
 export function validateAnalysisSql(sql: string): Promise<S["DataResponse_SqlValidationResult_"]> {
   return api("/custom-analyses/validate", { method: "POST", json: { sql } });
 }
+
+export const analysisQueries = {
+  list: (query: string) => queryOptions({ queryKey: ["analyses", "list", query], queryFn: () => listAnalyses(query) }),
+};

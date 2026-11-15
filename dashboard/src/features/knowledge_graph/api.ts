@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { queryOptions } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type { S } from "@/types";
 
@@ -26,3 +27,8 @@ export async function getTermPath(termId: string, otherTermId: string): Promise<
   );
   return response.data;
 }
+
+export const knowledgeGraphQueries = {
+  termPath: (source: string, target: string) =>
+    queryOptions({ queryKey: ["knowledge-graph", "term-path", source, target], queryFn: () => getTermPath(source, target) }),
+};

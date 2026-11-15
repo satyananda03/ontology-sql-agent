@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { queryOptions } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type { S } from "@/types";
 
@@ -67,3 +68,17 @@ export function validateSqlExpression(
     json: { expression, term_id: termId, attribute_id: attributeId },
   });
 }
+
+/** Cache keys start with "terms", so `invalidateQueries({ queryKey: ["terms"] })` covers them all. */
+export const termQueries = {
+  list: (query: string, skip: number) =>
+    queryOptions({ queryKey: ["terms", "list", query, skip], queryFn: () => listTerms(query, skip) }),
+  detail: (id: string) => queryOptions({ queryKey: ["terms", "detail", id], queryFn: () => getTerm(id) }),
+  sqlAttributes: (termId: string) =>
+    queryOptions({ queryKey: ["terms", "detail", termId, "sql-attributes"], queryFn: () => listSqlAttributes(termId) }),
+  columnAttributes: (termId: string) =>
+    queryOptions({
+      queryKey: ["terms", "detail", termId, "column-attributes"],
+      queryFn: () => listColumnAttributes(termId),
+    }),
+};

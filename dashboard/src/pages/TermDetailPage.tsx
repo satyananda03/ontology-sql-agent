@@ -3,7 +3,7 @@
 
 import { Link, useParams } from "react-router-dom";
 import { CertBadge, ErrorBanner, Loading } from "@/components/ui";
-import { getTerm, updateTerm } from "@/features/terms/api";
+import { termQueries, updateTerm } from "@/features/terms/api";
 import { ColumnAttributesSection } from "@/features/terms/components/ColumnAttributesSection";
 import { SqlAttributesSection } from "@/features/terms/components/SqlAttributesSection";
 import { TermOverviewCard } from "@/features/terms/components/TermOverviewCard";
@@ -13,7 +13,7 @@ import type { S } from "@/types";
 
 export default function TermDetailPage() {
   const id = useParams().id!;
-  const detail = useFetch(() => getTerm(id), [id]);
+  const detail = useFetch(termQueries.detail(id));
   const action = useAction();
   const term = detail.data?.data;
 

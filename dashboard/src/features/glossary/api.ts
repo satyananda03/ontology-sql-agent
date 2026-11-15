@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { queryOptions } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type { S } from "@/types";
 
@@ -21,3 +22,7 @@ export function updateAcronym(id: string, body: AcronymBody): Promise<S["Acronym
 export function deleteAcronym(id: string): Promise<null> {
   return api(`/acronyms/${id}`, { method: "DELETE" });
 }
+
+export const glossaryQueries = {
+  acronyms: () => queryOptions({ queryKey: ["glossary", "acronyms"], queryFn: listAcronyms }),
+};

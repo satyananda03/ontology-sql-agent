@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { queryOptions } from "@tanstack/react-query";
 import { getConnection } from "@/features/connections/api";
 import { api } from "@/lib/api-client";
 import type { S } from "@/types";
@@ -47,3 +48,10 @@ export function getTableColumns(tableId: string, limit?: number): Promise<S["Obj
 export function updateNode(id: string, body: S["NodeUpdate"]): Promise<S["NodeUpdateResult"] | null> {
   return api(`/nodes/${id}`, { method: "PATCH", json: body });
 }
+
+export const catalogQueries = {
+  sourceDatabase: () => queryOptions({ queryKey: ["catalog", "source-database"], queryFn: getSourceDatabase }),
+  sourceCatalog: () => queryOptions({ queryKey: ["catalog", "source-catalog"], queryFn: getSourceCatalog }),
+  tableColumns: (tableId: string) =>
+    queryOptions({ queryKey: ["catalog", "table", tableId, "columns"], queryFn: () => getTableColumns(tableId) }),
+};

@@ -6,7 +6,7 @@ import { Empty, ErrorBanner, Loading } from "@/components/ui";
 import { useFetch } from "@/hooks/useFetch";
 import { replaceById } from "@/lib/utils";
 import type { S } from "@/types";
-import { listSqlAttributes } from "../api";
+import { termQueries } from "../api";
 import { SqlAttributeCard } from "./SqlAttributeCard";
 import { SqlAttributeForm } from "./SqlAttributeForm";
 
@@ -16,7 +16,7 @@ interface SqlAttributesSectionProps {
 }
 
 export function SqlAttributesSection({ termId, onCertification }: SqlAttributesSectionProps) {
-  const list = useFetch(() => listSqlAttributes(termId), [termId]);
+  const list = useFetch(termQueries.sqlAttributes(termId));
   const [adding, setAdding] = useState(false);
 
   function replace(attr: S["SqlAttribute"], certification?: string | null) {
@@ -30,7 +30,7 @@ export function SqlAttributesSection({ termId, onCertification }: SqlAttributesS
         <h2>Atribut SQL {list.data && <span className="muted">({list.data.total})</span>}</h2>
         {!adding && <button onClick={() => setAdding(true)}>+ Tambah atribut SQL</button>}
       </div>
-      <p className="muted">Rumus atau filter bisnis dalam SQL, misalnya jumlah, rasio, atau syarat status. Agent memakainya sebagai definisi baku.</p>
+      <p className="muted">Rumus atau filter istilah bisnis tertentu dalam SQL, misalnya jumlah, rasio, atau syarat status, dll (support lintas table). Agent memakainya sebagai definisi baku.</p>
       <ErrorBanner message={list.error} />
       {adding && (
         <SqlAttributeForm

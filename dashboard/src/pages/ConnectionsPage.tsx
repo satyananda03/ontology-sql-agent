@@ -3,11 +3,11 @@
 
 import { PageHeader } from "@/components/layout";
 import { ErrorBanner, Loading } from "@/components/ui";
-import { getConnection } from "@/features/connections/api";
+import { connectionQueries } from "@/features/connections/api";
 import { useFetch } from "@/hooks/useFetch";
 
 export default function ConnectionsPage() {
-  const connection = useFetch(getConnection);
+  const connection = useFetch(connectionQueries.current());
   const c = connection.data;
 
   return (

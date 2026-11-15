@@ -3,12 +3,12 @@
 
 import { PageHeader } from "@/components/layout";
 import { Empty, ErrorBanner, Loading } from "@/components/ui";
-import { getSourceDatabase } from "@/features/catalog/api";
+import { catalogQueries } from "@/features/catalog/api";
 import { KnowledgeGraphViewer } from "@/features/knowledge_graph/components/KnowledgeGraphViewer";
 import { useFetch } from "@/hooks/useFetch";
 
 export default function KnowledgeGraphPage() {
-  const database = useFetch(getSourceDatabase);
+  const database = useFetch(catalogQueries.sourceDatabase());
 
   return (
     <>

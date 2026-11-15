@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { queryOptions } from "@tanstack/react-query";
 import type { ComponentType } from "react";
 import { ForeignKeyDetails, TermPathDetails } from "@/components/knowledge_graph/GraphDetails";
 import { getDataGraph, getSemanticGraph } from "./api";
@@ -49,3 +50,6 @@ export function edgeDetails(edge: RawEdge, nodeKind: (id: string) => NodeKind | 
   if (ends.every((kind) => kind === "table")) return ForeignKeyDetails;
   return null;
 }
+
+export const graphQuery = (databaseId: string) =>
+  queryOptions({ queryKey: ["knowledge-graph", "graph", databaseId], queryFn: () => loadGraph(databaseId) });
