@@ -30,7 +30,7 @@ class State(BaseModel):
     sql_safety_status: Literal["safe", "unsafe"] | None = None
     sql_execution_status: Literal["success", "failure"] | None = None
     sql_execution_result: dict[str, Any] | None = None
-    # ─── Loop perbaikan (error & hasil kosong), lihat nodes/repair.py ───
+    # ─── Loop perbaikan (error & hasil kosong), lihat modules/repair/policy.py ───
     retry_count: int = 0
     retry_feedback: str | None = None
     error_code: str | None = None  # SQLSTATE Postgres

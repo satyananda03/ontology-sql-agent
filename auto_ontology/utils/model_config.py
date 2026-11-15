@@ -1,6 +1,12 @@
 """Shared resolution of model-endpoint env var triplets.
 
-Every triplet (``REASONING``, ``NON_REASONING``, ``EMBED``, ``RERANK``) exposes
+The env vars to set are the binding names in ``_BINDING_ENV`` below, the same
+ones ``sql_agent/core/config.py`` reads: one ``LLM_*`` binding serves both the
+reasoning and the non-reasoning role, ``EMBEDDING_*`` the embeddings and
+``RERANK_*`` the reranker.
+
+The older per-role names still work as a fallback. Every triplet
+(``REASONING``, ``NON_REASONING``, ``EMBED``, ``RERANK``) exposes
 three fields — ``ENDPOINT`` (URL), ``API_KEY``, and ``MODEL`` — as
 ``<PREFIX>_<FIELD>`` env vars. Any field left unset falls back to the
 corresponding ``DEFAULT_MODELS_<FIELD>``, so a single ``DEFAULT_MODELS_*`` triplet
@@ -52,6 +58,24 @@ _DEFAULTS_BY_KEY_PREFIX: dict[str, dict[str, str]] = {
 _FALLBACK_KEY_PREFIX = "sk-"
 
 
+# The binding env var each triplet field is read from first.
+_BINDINGS = {
+    "REASONING": "LLM",
+    "NON_REASONING": "LLM",
+    "EMBED": "EMBEDDING",
+    "RERANK": "RERANK",
+}
+_BINDING_FIELDS = {"ENDPOINT": "BINDING_HOST", "API_KEY": "BINDING_API_KEY"}
+
+
+def _binding(prefix: str, field: str) -> str:
+    """``LLM_BINDING_HOST`` / ``LLM_BINDING_API_KEY`` / ``LLM_MODEL`` and the like."""
+    if prefix not in _BINDINGS:
+        return ""
+    name = f"{_BINDINGS[prefix]}_{_BINDING_FIELDS.get(field, field)}"
+    return os.environ.get(name, "")
+
+
 # Legacy (pre-triplet) env var names, still honored so existing deployments and
 # --set nvidiaApiKey / BASE_URL / MODEL_NAME configs keep working.
 _LEGACY_ENV: dict[str, str] = {
@@ -70,8 +94,12 @@ def _default(field: str) -> str:
 
 
 def _resolve_api_key(prefix: str) -> str:
-    """Effective API key for *prefix* (own env var, else the shared default)."""
-    return os.environ.get(f"{prefix}_API_KEY", "") or _default("API_KEY")
+    """Effective API key for *prefix* (binding, own env var, else the shared default)."""
+    return (
+        _binding(prefix, "API_KEY")
+        or os.environ.get(f"{prefix}_API_KEY", "")
+        or _default("API_KEY")
+    )
 
 
 def _builtin_default(prefix: str, key: str) -> str:
@@ -86,9 +114,15 @@ def _builtin_default(prefix: str, key: str) -> str:
 def resolve(prefix: str, field: str) -> str:
     """Resolve one triplet field.
 
-    Order of precedence: the ``<prefix>_<field>`` env var, then the shared
+    Order of precedence: the binding env var (``LLM_BINDING_HOST`` and the
+    like), the older ``<prefix>_<field>`` env var, then the shared
     ``DEFAULT_MODELS_<field>``, then a built-in default chosen by whether the
     triplet's API key is an ``sk-`` or ``nvapi-`` key.
     """
     key = f"{prefix}_{field}"
-    return os.environ.get(key, "") or _default(field) or _builtin_default(prefix, key)
+    return (
+        _binding(prefix, field)
+        or os.environ.get(key, "")
+        or _default(field)
+        or _builtin_default(prefix, key)
+    )

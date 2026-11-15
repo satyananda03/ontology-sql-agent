@@ -7,16 +7,16 @@ import pandas as pd
 import pytest
 
 from auto_ontology.connectors.base import StatementTimeout
-from sql_agent import db
-from sql_agent.nodes.repair import (
+from sql_agent.modules.answer.formatting import format_query_results_for_llm
+from sql_agent.modules.repair.policy import (
     INFO_NOT_FOUND,
     MAX_RETRIES,
+    classify_error,
     route_failure,
-    sql_failure,
-    sql_repair,
 )
-from sql_agent.state import State
-from sql_agent.utils import classify_error, format_query_results_for_llm
+from sql_agent.modules.sql import execution as db
+from sql_agent.nodes.repair import sql_failure, sql_repair
+from sql_agent.schemas import State
 
 
 class PgError(Exception):

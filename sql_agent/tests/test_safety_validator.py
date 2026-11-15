@@ -3,7 +3,7 @@
 
 import pytest
 
-from sql_agent.nodes.safety_validator import read_only_problem
+from sql_agent.modules.sql.safety import read_only_problem
 
 
 @pytest.mark.parametrize(

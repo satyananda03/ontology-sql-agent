@@ -1,34 +1,18 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
-import re
 from typing import Any
 
-import sqlglot
-from sqlglot import exp
+from sql_agent.core.config import settings
+from sql_agent.core.logging import get_logger
+from sql_agent.modules.answer.formatting import (
+    format_query_results_for_llm,
+    new_filter_words_note,
+)
+from sql_agent.modules.sql.filters import new_filter_words
+from sql_agent.schemas import State
 
-from sql_agent.state import State
-from sql_agent.utils import format_query_results_for_llm, max_rows
-
-logger = logging.getLogger(__name__)
-
-
-def new_filter_words(sql: str, question: str) -> list[str]:
-    try:
-        tree = sqlglot.parse_one(sql, dialect="postgres")
-    except sqlglot.errors.SqlglotError:
-        return []
-    asked = re.findall(r"\w+", question.lower())
-    found: dict[str, None] = {}
-    for pred in tree.find_all(exp.ILike, exp.Like):
-        lit = pred.expression
-        if not (isinstance(lit, exp.Literal) and lit.is_string):
-            continue
-        for word in re.findall(r"\w+", lit.this):
-            if not any(word.lower() in a for a in asked):
-                found[word] = None
-    return list(found)
+logger = get_logger(__name__)
 
 
 def sql_result_analyzer(state: State) -> dict[str, Any]:
@@ -37,7 +21,7 @@ def sql_result_analyzer(state: State) -> dict[str, Any]:
         state.sql_execution_result or {},
         sql=state.sql_query,
         retried=state.value_probed,
-        max_rows=max_rows(),
+        max_rows=settings.sql_agent_max_rows,
     )
     rows = (state.sql_execution_result or {}).get("data")
     if state.value_probed and rows:
@@ -48,10 +32,5 @@ def sql_result_analyzer(state: State) -> dict[str, Any]:
             logger.info(
                 f"[RESULT] filter retry memakai kata di luar pertanyaan: {words}"
             )
-            formatted_results = (
-                "CATATAN : tidak ada yang cocok persis dengan pertanyaan. Filter memakai "
-                f"kata yang tidak ada di pertanyaan: {', '.join(repr(w) for w in words)}. "
-                "Baris di bawah adalah nilai yang mirip, belum tentu yang ditanyakan.\n"
-                + formatted_results
-            )
+            formatted_results = new_filter_words_note(words) + formatted_results
     return {"answer": formatted_results}

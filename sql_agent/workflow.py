@@ -6,6 +6,7 @@ from typing import Any
 
 from langgraph.graph import END, START, StateGraph
 
+from sql_agent.core.logging import timed
 from sql_agent.nodes.ontology_context import (
     check_renavigation,
     check_schema_navigation,
@@ -22,8 +23,7 @@ from sql_agent.nodes.semantic_search import semantic_search
 from sql_agent.nodes.sql_executor import check_sql_execution, sql_executor
 from sql_agent.nodes.sql_generator import check_sql_generation, sql_generator
 from sql_agent.nodes.value_probe import check_value_probe, value_probe
-from sql_agent.state import State
-from sql_agent.utils import timed
+from sql_agent.schemas import State
 
 
 def create_workflow() -> StateGraph:
@@ -75,7 +75,7 @@ def create_workflow() -> StateGraph:
         check_sql_safety,
         {"safe": "sql_executor", "unsafe": END},
     )
-    # Loop perbaikan (nodes/repair.py): error yang bisa diperbaiki dan hasil
+    # Loop perbaikan (modules/repair/policy.py): error yang bisa diperbaiki dan hasil
     # kosong kembali ke sql_generator dengan satu jatah retry bersama. Tidak ada
     # EXPLAIN terpisah: executor mengembalikan error dan SQLSTATE yang sama, jadi
     # validasi sintaks hanya menambah satu round-trip DB per percobaan.

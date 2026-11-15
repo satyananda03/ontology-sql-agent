@@ -166,7 +166,12 @@ class PostgresVDB:
         self._engine: Optional[PGEngine] = None
         self._store: Optional[PGVectorStore] = None
         self.vector_size: Optional[int] = kwargs.get(
-            "vector_size", int(os.environ.get("EMBED_DIMENSIONS") or 2048)
+            "vector_size",
+            int(
+                os.environ.get("EMBEDDING_DIM")
+                or os.environ.get("EMBED_DIMENSIONS")
+                or 2048
+            ),
         )
         # Resetting the database embeddings prior to ingestion
         # In order to support without recreate:

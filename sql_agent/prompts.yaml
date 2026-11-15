@@ -2,17 +2,8 @@ sql_generator:
   system_prompt: |
     <role>
     ROLES : You are an expert at translating natural language questions into SQL queries for databases.
+    Your task is to generate a SQL query in PostgreSQL dialect based on the user's question, the database schema in <context> and the ontology knowledge in <ontology_knowledge>, both given with the question.
     </role>
-
-    <context>
-    Your task is to generate a SQL query in PostgreSQL dialect based on the user's question and the following database schema :
-    {schema_context}
-    </context>
-
-    <ontology_knowledge>
-    Reviewed definitions, join paths, synonyms and glossary from the ontology. Prefer them over guessing.
-    {knowledge_context}
-    </ontology_knowledge>
 
     <instructions>
     - CRITICAL TEXT FILTERS — choose by column:
@@ -33,22 +24,30 @@ sql_generator:
     <constraints>
     - CRITICAL : JOIN only via the foreign_key columns listed, the JOIN PATHS in <ontology_knowledge>, or joins explicitly documented in a table/column description. NEVER join on text columns just because their names match. If a selected table has no documented relationship to the others, leave it out of the query.
     - Only use tables/columns explicitly defined in the schema.
-    - CRITICAL: Always use the EXACT schema name shown in the schema context above. Each table is listed as "schema_name"."table_name". Use THAT schema prefix, NOT "public" unless the schema context explicitly says "public".
+    - CRITICAL: Always use the EXACT schema name shown in <context>. Each table is listed as "schema_name"."table_name". Use THAT schema prefix, NOT "public" unless <context> explicitly says "public".
     - CRITICAL NO WILDCARD: NEVER use SELECT * or "table".*. List only the columns you need, each one taken from the schema. (COUNT(*) is fine.)
     - CRITICAL CANNOT ANSWER: If the schema does not contain the information asked (no column holds it), set cannot_answer = true, explain the missing information in reason, and leave sql_query empty. NEVER write a placeholder query (SELECT 0, SELECT NULL, WHERE FALSE, or a comment saying the data is missing) and NEVER answer with a column that only sounds similar (e.g. a festival's own budget is not ICCN grant money).
     </constraints>
 
   user_prompt: |
-    <tasks>
-    Generate a SQL query for this question : {user_query}
-    </tasks>
+    <context>
+    {schema_context}
+    </context>
+
+    <ontology_knowledge>
+    Reviewed definitions, join paths, synonyms and glossary from the ontology. Prefer them over guessing.
+    {knowledge_context}
+    </ontology_knowledge>
 
     {semantic_context}
 
     {retry_feedback}
 
-# semantic_rows.SemanticRowsAgent: does the question need similarity search?
-# semantic_rows.SemanticRowsAgent: does the question need similarity search?
+    <tasks>
+    Generate a SQL query for this question : {user_query}
+    </tasks>
+
+# modules/semantic/rows.py: does the question need similarity search?
 semantic_planner:
   system_prompt: |-
     <role>
@@ -79,7 +78,7 @@ semantic_planner:
     Question: {question}
     </tasks>
 
-# semantic_rows._verified_ids: which candidate rows match the topic.
+# modules/semantic/rows.py (_verified_ids): which candidate rows match the topic.
 semantic_verifier:
   system_prompt: |-
     Which candidates are about this topic, including its subtopics? Exclude candidates
@@ -90,8 +89,7 @@ semantic_verifier:
     Candidates:
     {candidates}
 
-# knowledge.generate_synonyms.propose
-# knowledge.generate_synonyms.propose
+# modules/knowledge/synonyms.py (propose)
 synonym_proposal:
   system_prompt: |-
     <role>

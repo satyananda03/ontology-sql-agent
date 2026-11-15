@@ -5,7 +5,8 @@ from typing import Any
 
 import pytest
 
-from sql_agent import retrieval
+from sql_agent.core.config import settings
+from sql_agent.modules.retrieval import pipeline as retrieval
 
 
 def test_retrieval_runs_the_steps_in_order(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -45,7 +46,7 @@ def _build_state(
     monkeypatch: pytest.MonkeyPatch, connectors: list[_Connector], **request: Any
 ) -> dict[str, Any]:
     import auto_ontology.connectors as connectors_module
-    import auto_ontology.server.settings_dal as settings_dal
+    import auto_ontology.dal.settings as settings_dal
     import auto_ontology.utils as utils
 
     glossary = [{"name": "PR", "description": "pelaku kreatif"}]
@@ -76,16 +77,11 @@ def test_no_connection_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
         _build_state(monkeypatch, [])
 
 
-@pytest.mark.parametrize(
-    ("configured", "pool"), [(None, 10), ("25", 25), ("0", None), ("", 10)]
-)
-def test_rerank_pool_comes_from_the_environment(
-    monkeypatch: pytest.MonkeyPatch, configured: str | None, pool: int | None
+@pytest.mark.parametrize(("configured", "pool"), [(10, 10), (25, 25), (0, None)])
+def test_rerank_pool_comes_from_the_settings(
+    monkeypatch: pytest.MonkeyPatch, configured: int, pool: int | None
 ) -> None:
-    if configured is None:
-        monkeypatch.delenv("SQL_AGENT_RERANK_POOL", raising=False)
-    else:
-        monkeypatch.setenv("SQL_AGENT_RERANK_POOL", configured)
+    monkeypatch.setattr(settings, "sql_agent_rerank_pool", configured)
     assert retrieval.rerank_pool() == pool
 
 
@@ -112,3 +108,28 @@ def test_warm_up_runs_one_search_on_each_vector_store(
     retrieval.warm_up()
 
     assert semantic.queries == data.queries == [("warm up", 1)]
+
+
+@pytest.mark.parametrize(
+    ("extracted", "expected"),
+    [
+        ({"glossary": [{"name": "PR", "description": "pelaku kreatif"}]}, True),
+        ({}, False),
+    ],
+)
+def test_domain_rules_follow_the_narrowed_glossary(
+    monkeypatch: pytest.MonkeyPatch, extracted: dict[str, Any], expected: bool
+) -> None:
+    """Narrowed together on success; a failed extraction leaves both full."""
+    monkeypatch.setattr(
+        retrieval.QuestionExtractionAgent,
+        "execute",
+        lambda self, state: {"path_state": {}, **extracted},
+    )
+    state = {"initial_question": "berapa pr?", "path_state": {}}
+
+    result = retrieval.CallerQuestionExtractionAgent().execute(state)
+
+    assert ("domain_rules" in result) is expected
+    if expected:
+        assert result["domain_rules"] == extracted["glossary"]

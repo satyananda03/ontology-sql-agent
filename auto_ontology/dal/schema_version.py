@@ -8,7 +8,7 @@ on the strength of a working connection, and every catalog endpoint answers
 
 This is the same rule the chart's ``auto_ontology.waitForCatalogSchema`` init container
 applies before letting the backend start, restated in-process for the people not
-deploying with Helm: ``python -m auto_ontology.server``, docker compose, a bare container.
+deploying with Helm: ``python run.py``, docker compose, a bare container.
 
 It deliberately does **not** migrate. Applying DDL from an application process
 races every other replica doing the same, which is why the chart runs migrations

@@ -1,6 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
-# SPDX-License-Identifier: Apache-2.0
-
 """auto_ontology's retrieval agents, run in order for one standalone question.
 
 Entity extraction, vector search over Terms and columns, then graph search for
@@ -9,10 +6,7 @@ rewrote the question and only asks for data, so intent classification, chat
 history and the SQL-generation keys of the full agent are not needed.
 """
 
-import os
-from functools import lru_cache
 from typing import Any
-
 from auto_ontology.retrieval.entity_coverage.agents.question_extraction import (
     QuestionExtractionAgent,
 )
@@ -27,7 +21,9 @@ from auto_ontology.retrieval.text_to_sql.state import (
     AgentState,
     get_standalone_question,
 )
-from sql_agent.utils import llm_timeout_s, timed
+from sql_agent.core.config import settings
+from sql_agent.core.logging import timed
+from sql_agent.services.llm_service import get_llm
 
 # Ceiling on one retrieval reply (entities, candidate and table filters). They
 # run to a few hundred tokens; ingestion keeps the client's larger default.
@@ -35,17 +31,24 @@ RETRIEVAL_MAX_TOKENS = 5000
 
 
 class CallerQuestionExtractionAgent(QuestionExtractionAgent):
-    """Extract entities, but keep the question exactly as the caller wrote it."""
+    """Extract entities, but keep the question exactly as the caller wrote it.
+
+    The table filter reads the glossary as ``domain_rules``, so it gets the same
+    narrowed list as the SQL generator. A failed extraction narrows neither, and
+    both keep the full glossary.
+    """
 
     def execute(self, state: AgentState) -> dict[str, Any]:
         result = super().execute(state)
         result["path_state"]["normalized_question"] = get_standalone_question(state)
+        if "glossary" in result:
+            result["domain_rules"] = result["glossary"]
         return result
 
 
 def rerank_pool() -> int | None:
     """Vector hits each catalog search hands the reranker; ``0`` turns it off."""
-    return int(os.environ.get("SQL_AGENT_RERANK_POOL") or 10) or None
+    return settings.sql_agent_rerank_pool or None
 
 
 RETRIEVAL_STEPS = (
@@ -61,12 +64,14 @@ RETRIEVAL_STEPS = (
 )
 
 
-@lru_cache(maxsize=1)
 def _llm() -> Any:
-    from auto_ontology.utils.llm_invoke import get_non_reasoning_llm_client
-
-    return get_non_reasoning_llm_client(
-        max_tokens=RETRIEVAL_MAX_TOKENS, timeout=llm_timeout_s()
+    """The chat client the retrieval agents call. They retry on their own
+    (``auto_ontology.utils.llm_invoke``), so the client must not retry as well."""
+    return get_llm(
+        settings.llm_model,
+        max_tokens=RETRIEVAL_MAX_TOKENS,
+        timeout=settings.sql_agent_llm_timeout_s,
+        max_retries=1,
     )
 
 
@@ -75,7 +80,7 @@ def build_state(question: str) -> dict[str, Any]:
     # Imported here: these open connection pools at import time, which must not
     # happen just because the server registered the route.
     from auto_ontology.connectors import get_connectors
-    from auto_ontology.server.settings_dal import fetch_acronyms
+    from auto_ontology.dal.settings import fetch_acronyms
     from auto_ontology.utils import (
         get_data_objects_retriever,
         get_semantic_objects_retriever,
@@ -103,7 +108,6 @@ def build_state(question: str) -> dict[str, Any]:
         "path_state": path_state,
     }
 
-
 def warm_up() -> None:
     """Build the state once and run one throwaway search per vector store.
 
@@ -111,12 +115,8 @@ def warm_up() -> None:
     without a real query the first question pays for every connection.
     """
     state = build_state("warm up")
-    # ponytail: opens one connection per pool; the parallel searches of the
-    # first real question open the rest (measured ~3s, once). Warm up with
-    # parallel searches if that first question matters.
     for retriever in (state["semantic_retriever"], state["data_retriever"]):
         retriever.query("warm up", top_k=1)
-
 
 def merge(state: dict[str, Any], output: dict[str, Any] | None) -> None:
     """Fold one step's output into *state*; ``path_state`` merges key by key."""
@@ -124,7 +124,6 @@ def merge(state: dict[str, Any], output: dict[str, Any] | None) -> None:
         return
     state.setdefault("path_state", {}).update(output.get("path_state") or {})
     state.update({key: value for key, value in output.items() if key != "path_state"})
-
 
 def retrieve(question: str) -> dict[str, Any]:
     """Run the retrieval steps for *question* and return the agent state."""

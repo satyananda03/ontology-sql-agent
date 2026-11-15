@@ -6,8 +6,8 @@ from typing import Any
 import pytest
 
 from sql_agent.nodes import ontology_context as module
-from sql_agent.nodes.repair import INFO_NOT_FOUND
-from sql_agent.state import State
+from sql_agent.modules.repair.policy import INFO_NOT_FOUND
+from sql_agent.schemas import State
 
 TABLE = {
     "name": "fact_partisipasi_program",
@@ -98,7 +98,7 @@ def test_renavigation_asks_again_with_what_was_missing(
         asked.append(question)
         return _ontology([TABLE])
 
-    monkeypatch.setattr(module.retrieval, "retrieve", retrieve)
+    monkeypatch.setattr(module.pipeline, "retrieve", retrieve)
     state = State(
         user_query="siapa researcher",
         selected_table=["dim_user"],
@@ -115,6 +115,6 @@ def test_renavigation_asks_again_with_what_was_missing(
 def test_renavigation_that_finds_nothing_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(module.retrieval, "retrieve", lambda question: _ontology([]))
+    monkeypatch.setattr(module.pipeline, "retrieve", lambda question: _ontology([]))
     update = module.schema_renavigator(State(user_query="q", error="x"))
     assert module.check_renavigation(State(user_query="q", **update)) == "failure"

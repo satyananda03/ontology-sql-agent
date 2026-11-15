@@ -1,13 +1,14 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
 from typing import Any
 
 import pytest
 
 from sql_agent import workflow
-from sql_agent.nodes.repair import INFO_NOT_FOUND
-from sql_agent.state import State
+from sql_agent.modules.repair.policy import INFO_NOT_FOUND
+from sql_agent.schemas import State
 
 ROWS = [{"nama": "A"}]
 
@@ -61,7 +62,9 @@ class FakeNodes:
 
 def _run() -> dict[str, Any]:
     graph = workflow.create_workflow().compile()
-    return graph.invoke(State(user_query="q"), config={"recursion_limit": 50})
+    return asyncio.run(
+        graph.ainvoke(State(user_query="q"), config={"recursion_limit": 50})
+    )
 
 
 def test_answers_on_the_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:

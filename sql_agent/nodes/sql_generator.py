@@ -1,128 +1,60 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
-import os
 from functools import lru_cache
-from pathlib import Path
 from typing import Any, Literal
 
-import sqlglot
-from langchain_core.language_models import BaseChatModel
-from pydantic import BaseModel, Field
-from sqlglot import exp
-
-from auto_ontology.utils.llm_invoke import (
-    get_llm_client,
-    invoke_with_structured_output,
+from sql_agent.core.config import settings
+from sql_agent.core.logging import get_logger
+from sql_agent.modules.repair.policy import INFO_NOT_FOUND, can_renavigate
+from sql_agent.modules.sql.rewrite import (
+    add_filter_columns,
+    fill_semantic_ids,
+    strip_sql_fences,
 )
-from auto_ontology.utils.prompt_loader import load_chat_prompt_template
-from sql_agent.nodes.repair import INFO_NOT_FOUND, can_renavigate
-from sql_agent.nodes.semantic_search import fill_semantic_ids
-from sql_agent.state import State
-from sql_agent.utils import llm_timeout_s, strip_sql_fences
+from sql_agent.schemas import SQLGeneratorOutput, State
+from sql_agent.services.llm_service import (
+    StructuredChain,
+    ainvoke_parsed,
+    get_llm,
+    structured_chain,
+)
+from sql_agent.services.prompt_service import PROMPTS_FILE
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
-FILTER_COLUMN_CHARS = 200
-# The model classic_sql_agent generated with, so the two stay comparable.
-DEFAULT_GENERATOR_MODEL = "qwen.qwen3-coder-480b-a35b-v1:0"
 # Up from 700, which could cut a multi-join query off mid-statement.
 GENERATOR_MAX_TOKENS = 2000
 
-_PROMPT = load_chat_prompt_template(
-    Path(__file__).parents[1] / "prompts.yaml", "sql_generator"
-)
-
-
-class SQLGeneratorOutput(BaseModel):
-    cannot_answer: bool = Field(
-        default=False,
-        description=(
-            "true if the tables/columns in the schema context do not contain the "
-            "information asked. Then leave sql_query empty — never write a "
-            "placeholder query such as SELECT 0 or SELECT NULL."
-        ),
-    )
-    reason: str = Field(
-        default="",
-        description="When cannot_answer is true: which information is missing from the schema.",
-    )
-    sql_query: str = Field(
-        default="",
-        description=(
-            "The complete PostgreSQL query string (empty when cannot_answer is true). "
-            "Use double quotes for schema, table, and column names, example : "
-            '{"sql_query": "SELECT \\"id\\" FROM \\"data_iccn_user\\".\\"profiles\\";"}'
-            "Always prefix tables with the exact schema name from the provided context"
-        ),
-    )
-
 
 @lru_cache(maxsize=1)
-def _llm() -> BaseChatModel:
-    model = os.environ.get("SQL_AGENT_GENERATOR_MODEL") or DEFAULT_GENERATOR_MODEL
-    return get_llm_client(
-        model=model, max_tokens=GENERATOR_MAX_TOKENS, timeout=llm_timeout_s()
+def _chain() -> StructuredChain:
+    llm = get_llm(
+        settings.sql_agent_generator_model,
+        max_tokens=GENERATOR_MAX_TOKENS,
+        timeout=settings.sql_agent_llm_timeout_s,
     )
+    return structured_chain(llm, PROMPTS_FILE, "sql_generator", SQLGeneratorOutput)
 
 
-def add_filter_columns(sql: str) -> str:
-    """Sertakan kolom yang difilter ILIKE/LIKE ke SELECT."""
-    try:
-        tree = sqlglot.parse_one(sql, dialect="postgres")
-    except sqlglot.errors.SqlglotError:
-        return sql
-    where = tree.args.get("where") if isinstance(tree, exp.Select) else None
-    if where is None or tree.args.get("group") or tree.args.get("distinct"):
-        return sql
-    if any(p.find(exp.Star, exp.AggFunc, exp.Window) for p in tree.expressions):
-        return sql
-    have = {p.alias_or_name.lower() for p in tree.expressions}
-    have |= {c.name.lower() for p in tree.expressions for c in p.find_all(exp.Column)}
-    extra = []
-    for pred in where.find_all(exp.ILike, exp.Like):
-        col, lit = pred.this, pred.expression
-        if not (
-            isinstance(col, exp.Column)
-            and isinstance(lit, exp.Literal)
-            and lit.is_string
-        ):
-            continue
-        if pred.find_ancestor(exp.Select) is not tree or col.name.lower() in have:
-            continue
-        have.add(col.name.lower())
-        extra.append(
-            exp.alias_(
-                exp.func("LEFT", col.copy(), exp.Literal.number(FILTER_COLUMN_CHARS)),
-                col.name,
-                quoted=True,
-            )
-        )
-    if not extra:
-        return sql
-    tree.set("expressions", extra + tree.expressions)
-    return tree.sql(dialect="postgres")
-
-
-def sql_generator(state: State) -> dict[str, Any]:
+async def sql_generator(state: State) -> dict[str, Any]:
     logger.info("SQL Generator")
-    messages = _PROMPT.format_messages(
-        user_query=state.user_query,
-        schema_context=state.schema_context,
-        knowledge_context=state.knowledge_context,
-        semantic_context=(
+    variables = {
+        "user_query": state.user_query,
+        "schema_context": state.schema_context,
+        "knowledge_context": state.knowledge_context,
+        "semantic_context": (
             f"<semantic_context>\n{state.semantic_context}\n</semantic_context>"
             if state.semantic_context
             else ""
         ),
-        retry_feedback=state.retry_feedback or "",
-    )
+        "retry_feedback": state.retry_feedback or "",
+    }
     logger.info(
         "[SQL-GEN] using standard prompt"
         + (" (retry with probed values)" if state.retry_feedback else "")
     )
-    response = invoke_with_structured_output(_llm(), messages, SQLGeneratorOutput)
+    response = await ainvoke_parsed(_chain(), variables)
     if response is None:
         logger.error("LLM returned None — structured output parsing failed.")
         return {

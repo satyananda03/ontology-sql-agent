@@ -66,9 +66,6 @@ EXPECTED: dict[str, dict[str, tuple[set[str], dict[str, set[str]]]]] = {
         ),
         "sql_attribute_judge": ({"term_name", "term_description", "expr_block"}, {}),
     },
-    "auto_ontology/pii_detection/prompts.yaml": {
-        "pii_classifier": ({"payload"}, {}),
-    },
     "auto_ontology/server/sql_attributes/prompts.yaml": {
         "description_suggestion": ({"max_chars", "attribute_name", "term_name"}, {}),
     },

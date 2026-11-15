@@ -14,7 +14,8 @@ from sql_agent.nodes.safety_validator import (
     check_sql_safety,
     sql_safety_validator,
 )
-from sql_agent.state import State
+from sql_agent.core.config import settings
+from sql_agent.schemas import State
 
 TABLE = {
     "name": "fact_partisipasi_program",
@@ -143,7 +144,7 @@ def test_probe_failure_does_not_end_the_run() -> None:
 
 
 def test_result_notes_words_the_retry_added(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(result_analyzer, "max_rows", lambda: 10)
+    monkeypatch.setattr(settings, "sql_agent_max_rows", 10)
     state = _state(
         sql_query="SELECT nama FROM t WHERE kota ILIKE '%denpasar%'",
         value_probed=True,

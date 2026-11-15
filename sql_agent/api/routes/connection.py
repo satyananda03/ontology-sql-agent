@@ -6,23 +6,12 @@
 from urllib.parse import unquote, urlparse
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 
 from auto_ontology.connectors.registry import source_connection_string
 from auto_ontology.server.ingestion.proxy import is_ingest_running, trigger_ingest_run
+from sql_agent.schemas import IngestStatus, SourceConnection
 
 router = APIRouter()
-
-
-class SourceConnection(BaseModel):
-    database: str
-    host: str
-    port: int
-    user: str
-
-
-class IngestStatus(BaseModel):
-    running: bool
 
 
 @router.get("/connection", response_model=SourceConnection)

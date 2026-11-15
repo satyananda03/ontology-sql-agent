@@ -27,6 +27,7 @@ _DIMENSIONS = 2048
 def _default_vector_size(monkeypatch: pytest.MonkeyPatch) -> None:
     """These tests write 2048-dimension vectors, whatever a local .env selects."""
     monkeypatch.delenv("EMBED_DIMENSIONS", raising=False)
+    monkeypatch.delenv("EMBEDDING_DIM", raising=False)
 
 
 def _row(node_id: str, embedding: Any, text: str = "orders table") -> dict:

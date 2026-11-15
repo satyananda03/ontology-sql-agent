@@ -46,6 +46,11 @@ class QuestionExtractionAgent(BaseAgent):
 
     When ``include_subject`` is False (entity-coverage path), the LLM is not asked
     for subject or used_glossary_names; glossary is still injected for sanitization.
+
+    In full mode a successful call narrows ``glossary`` to the entries the LLM
+    reports using, which may be none. Otherwise ``glossary`` is left untouched:
+    when the call fails nobody decided the entries were irrelevant, so the steps
+    downstream keep the full list.
     """
 
     def __init__(self, *, include_subject: bool = True) -> None:
@@ -64,8 +69,7 @@ class QuestionExtractionAgent(BaseAgent):
         path_state = state.get("path_state", {})
         original_question = get_question_for_processing(state)
         glossary = state.get("glossary") or []
-        # After this node (full mode), ``glossary`` means only the entries used.
-        result: Dict[str, Any] = {"path_state": path_state, "glossary": []}
+        result: Dict[str, Any] = {"path_state": path_state}
 
         try:
             messages = create_question_extraction_prompt(

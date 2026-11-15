@@ -5,7 +5,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from sql_agent.server.connection import router
+from sql_agent.api.routes.connection import router
 
 
 def _client() -> TestClient:

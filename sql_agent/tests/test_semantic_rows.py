@@ -1,21 +1,19 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
 from typing import Any
 
 import pandas as pd
 import pytest
 
-from sql_agent import semantic_rows as module
-from sql_agent.semantic_rows import (
+from sql_agent.modules.semantic import rows as module
+from sql_agent.modules.semantic.rows import (
     SEMANTIC_TRUNCATED_NOTE,
-    RelevantCandidates,
-    SemanticFilter,
-    SemanticPlan,
-    SemanticRowsAgent,
     searchable_columns,
     sql_literal,
 )
+from sql_agent.schemas import RelevantCandidates, SemanticFilter, SemanticPlan
 
 TABLE = {
     "name": "riset",
@@ -50,9 +48,17 @@ class FakeConnector:
         return self.frame
 
 
+def _run(state: dict[str, Any]) -> dict[str, Any]:
+    return asyncio.run(module.semantic_rows(state))
+
+
+class FakeEmbeddings:
+    async def aembed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [[0.1, 0.2] for _ in texts]
+
+
 def _state(connector: FakeConnector) -> dict[str, Any]:
     return {
-        "llm": object(),
         "connectors": [connector],
         "initial_question": "siapa peneliti pariwisata",
         "path_state": {"relevant_tables": [TABLE]},
@@ -66,21 +72,23 @@ def _stub(
 ) -> list[str]:
     llm_schemas: list[str] = []
 
-    def invoke(llm: Any, messages: list, schema: type) -> Any:
+    # The chain stands in as its schema, which is all the fake LLM needs.
+    async def invoke(schema: type, variables: dict) -> Any:
         llm_schemas.append(schema.__name__)
         if schema is SemanticPlan:
             return SemanticPlan(filters=filters)
         return RelevantCandidates(reasoning="", numbers=verified)
 
-    monkeypatch.setattr(module, "invoke_with_structured_output", invoke)
-    monkeypatch.setattr(module, "get_embed_params", lambda: None)
-    monkeypatch.setattr(
-        module, "embed_texts", lambda texts, *_, **__: [[0.1, 0.2] for _ in texts]
-    )
-    monkeypatch.setattr(
-        module, "rerank_hits", lambda query, rows, **_: rows[: module.VERIFY_K]
-    )
-    monkeypatch.setattr(module, "get_rerank_kwargs", lambda: {})
+    # The reranker keeps the vector order, best first.
+    async def rerank(query: str, documents: list[str], top_n: int) -> list[dict]:
+        return [
+            {"index": i, "relevance_score": float(-i)} for i in range(len(documents))
+        ][:top_n]
+
+    monkeypatch.setattr(module, "_chain", lambda prompt_name, schema: schema)
+    monkeypatch.setattr(module, "ainvoke_parsed", invoke)
+    monkeypatch.setattr(module, "get_embeddings", lambda **_: FakeEmbeddings())
+    monkeypatch.setattr(module, "get_reranker", lambda **_: rerank)
     return llm_schemas
 
 
@@ -103,7 +111,7 @@ def test_no_llm_call_without_searchable_columns(
     state["path_state"]["relevant_tables"] = [
         {**TABLE, "columns": TABLE["columns"][:2]}
     ]
-    assert "semantic_instructions" not in SemanticRowsAgent().execute(state)
+    assert "semantic_instructions" not in _run(state)
     assert schemas == []
 
 
@@ -112,7 +120,7 @@ def test_matches_become_a_placeholder_and_instructions(
 ) -> None:
     _stub(monkeypatch, [FILTER], [2, 1, 2, 99])
     connector = FakeConnector([7, 8, 9])
-    result = SemanticRowsAgent().execute(_state(connector))
+    result = _run(_state(connector))
     assert result["path_state"]["semantic_ids"] == {"__SEMANTIC_1__": "8, 7"}
     assert '"riset"."detail_id" IN (__SEMANTIC_1__)' in result["semantic_instructions"]
     assert connector.calls[0][1][1] == module.RECALL_K
@@ -123,14 +131,14 @@ def test_invented_column_never_reaches_sql(monkeypatch: pytest.MonkeyPatch) -> N
     bad = SemanticFilter(table="riset", column='x"; DROP TABLE t; --', query="q")
     _stub(monkeypatch, [bad], [])
     connector = FakeConnector([1])
-    result = SemanticRowsAgent().execute(_state(connector))
+    result = _run(_state(connector))
     assert connector.calls == []
     assert "semantic_instructions" not in result
 
 
 def test_no_match_yields_an_empty_id_list(monkeypatch: pytest.MonkeyPatch) -> None:
     _stub(monkeypatch, [FILTER], [])
-    result = SemanticRowsAgent().execute(_state(FakeConnector([1])))
+    result = _run(_state(FakeConnector([1])))
     assert result["path_state"]["semantic_ids"] == {"__SEMANTIC_1__": "NULL"}
 
 
@@ -142,8 +150,8 @@ def test_search_failure_falls_back_to_keywords(
     def fail(*_: Any, **__: Any) -> None:
         raise RuntimeError("embedding endpoint down")
 
-    monkeypatch.setattr(module, "embed_texts", fail)
-    result = SemanticRowsAgent().execute(_state(FakeConnector([1])))
+    monkeypatch.setattr(module, "get_embeddings", fail)
+    result = _run(_state(FakeConnector([1])))
     assert result["path_state"]["semantic_ids"] == {}
     assert 'filter "riset"."topik" with ILIKE' in result["semantic_instructions"]
 
@@ -155,7 +163,7 @@ def test_all_reviewed_matching_at_the_limit_is_flagged(
     monkeypatch.setattr(module, "VERIFY_K", 2)
     _stub(monkeypatch, [FILTER], [1, 2])
     state = _state(FakeConnector([1, 2, 3]))
-    SemanticRowsAgent().execute(state)
+    _run(state)
     assert SEMANTIC_TRUNCATED_NOTE in str(state["path_state"].get("thoughts_log"))
 
 
@@ -164,7 +172,7 @@ def test_partial_match_is_not_flagged(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(module, "VERIFY_K", 2)
     _stub(monkeypatch, [FILTER], [1])
     state = _state(FakeConnector([1, 2, 3]))
-    SemanticRowsAgent().execute(state)
+    _run(state)
     assert not state["path_state"].get("thoughts_log")
 
 

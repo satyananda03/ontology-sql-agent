@@ -1,16 +1,15 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
-from decimal import Decimal
 from typing import Any, Literal
 
-from sql_agent.db import run_query
-from sql_agent.nodes.repair import MAX_RETRIES, retry_transient, route_failure
-from sql_agent.nodes.value_probe import extract_text_filters
-from sql_agent.state import State
+from sql_agent.core.logging import get_logger
+from sql_agent.modules.repair.policy import MAX_RETRIES, retry_transient, route_failure
+from sql_agent.modules.sql.execution import run_query
+from sql_agent.modules.sql.filters import looks_empty
+from sql_agent.schemas import State
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def sql_executor(state: State) -> dict[str, Any]:
@@ -29,19 +28,6 @@ def sql_executor(state: State) -> dict[str, Any]:
     }
 
 
-def _is_zero_aggregate(rows: list[dict[str, Any]]) -> bool:
-    if len(rows) != 1:
-        return False
-    for value in rows[0].values():
-        if value is None:
-            continue
-        if isinstance(value, bool) or not isinstance(value, (int, float, Decimal)):
-            return False
-        if value != 0:
-            return False
-    return True
-
-
 def check_sql_execution(
     state: State,
 ) -> Literal["success", "empty", "repair", "renavigate", "fail"]:
@@ -49,10 +35,11 @@ def check_sql_execution(
     if state.sql_execution_status != "success":
         return route_failure(state)
     rows = (state.sql_execution_result or {}).get("data") or []
-    looks_empty = not rows or (
-        _is_zero_aggregate(rows)
-        and bool(extract_text_filters(state.raw_sql_query or state.sql_query or ""))
-    )
-    if looks_empty and not state.value_probed and state.retry_count < MAX_RETRIES:
+    sql = state.raw_sql_query or state.sql_query or ""
+    if (
+        looks_empty(rows, sql)
+        and not state.value_probed
+        and state.retry_count < MAX_RETRIES
+    ):
         return "empty"
     return "success"

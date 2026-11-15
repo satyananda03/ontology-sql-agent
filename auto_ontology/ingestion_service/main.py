@@ -11,15 +11,13 @@ job. They share one lock, so ingest and compilation never run at once.
 
 Usage::
 
-    uv run --no-sync python -m auto_ontology.ingestion_service
+    uv run python run.py ingestion
 """
 
 import asyncio
 import logging
-import os
 from contextlib import asynccontextmanager
 
-import uvicorn
 from fastapi import FastAPI
 
 from auto_ontology.env import load_env
@@ -38,6 +36,9 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info(
+        "Starting Auto Ontology Ingestion Service — app version %s", get_app_version()
+    )
     # Same gate as the API server: this service writes the catalog, so against a
     # schema it does not expect every ingest fails partway through instead of
     # not starting. Worse here than there, because a scheduler runs unattended —
@@ -67,24 +68,3 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Auto Ontology Ingestion Service", lifespan=lifespan)
 app.include_router(router)
-
-
-def main() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
-    logger.info(
-        "Starting Auto Ontology Ingestion Service — app version %s", get_app_version()
-    )
-    uvicorn.run(
-        app,
-        # Loopback by default: the service has no login. A container sets 0.0.0.0.
-        host=os.environ.get("BIND_HOST", "127.0.0.1"),
-        port=int(os.environ.get("INGESTION_PORT", "3002")),
-        log_config=None,
-    )
-
-
-if __name__ == "__main__":
-    main()

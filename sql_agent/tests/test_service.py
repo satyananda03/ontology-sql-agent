@@ -1,13 +1,15 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
 from typing import Any
 
 import pytest
 
-from sql_agent import service
-from sql_agent.nodes.repair import INFO_NOT_FOUND
-from sql_agent.semantic_rows import SEMANTIC_TRUNCATED_NOTE
+from sql_agent.core.config import settings
+from sql_agent.modules.repair.policy import INFO_NOT_FOUND
+from sql_agent.modules.semantic.rows import SEMANTIC_TRUNCATED_NOTE
+from sql_agent.services import query_service as service
 
 
 def _done(rows: list[dict], **fields: Any) -> dict[str, Any]:
@@ -32,7 +34,7 @@ def test_no_rows_is_empty() -> None:
 def test_rows_beyond_the_cap_are_marked_truncated(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(service, "max_rows", lambda: 1)
+    monkeypatch.setattr(settings, "sql_agent_max_rows", 1)
     assert service.to_query_result(_done([{"a": 1}, {"a": 2}])).truncated
 
 
@@ -61,11 +63,11 @@ def test_a_stopped_write_asks_the_caller_to_clarify() -> None:
 
 
 def test_a_crash_becomes_a_tool_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    def crash(*_: Any, **__: Any) -> None:
+    async def crash(*_: Any, **__: Any) -> None:
         raise RuntimeError("store down")
 
     monkeypatch.setattr(service, "run", crash)
-    result = service.answer("q")
+    result = asyncio.run(service.answer("q"))
     assert result.status == "error" and "store down" in result.text
 
 

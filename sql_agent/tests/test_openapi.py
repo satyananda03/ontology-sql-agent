@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from sql_agent import openapi as generator
+from sql_agent.scripts import export_openapi as generator
 
 
 @pytest.mark.parametrize("name", ["backend.json", "ingestion.json"])

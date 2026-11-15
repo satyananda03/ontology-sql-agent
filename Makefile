@@ -38,10 +38,10 @@ dev:
 	wait -n
 
 ingest-dev:
-	uv run python -m auto_ontology.ingestion_service
+	uv run python run.py ingestion
 
 backend-dev:
-	uv run uvicorn auto_ontology.server.__main__:create_app --factory --reload --host 127.0.0.1 --port 3001
+	uv run python run.py api --reload
 
 migrate:
 	uv run alembic upgrade head
@@ -64,7 +64,7 @@ test:
 
 # The dashboard's TypeScript types are generated from docs/openapi/backend.json.
 openapi:
-	uv run python -m sql_agent.openapi
+	uv run python -m sql_agent.scripts.export_openapi
 
 ui:
 	npm --prefix dashboard install --no-audit --no-fund
