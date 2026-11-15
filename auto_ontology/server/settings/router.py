@@ -3,9 +3,8 @@
 
 """Glossary acronyms and instance settings, for the review UI.
 
-Upstream these were Next.js routes writing through Prisma; this repository has
-no Next.js, so they live here. Storage is ``frontend.acronyms`` and
-``frontend.configurations`` via :mod:`auto_ontology.server.settings_dal`.
+Storage is the ``acronym`` and ``configuration`` tables, through
+:mod:`auto_ontology.dal.settings`.
 
 Settings are read back through the same functions the services use
 (``feature_flags`` and the ingestion config), so the values shown are the ones
@@ -17,20 +16,17 @@ from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Response
-from psycopg.errors import UniqueViolation
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from auto_ontology.infra.feature_flags import (
     DISTINCT_VALUE_PROBING_ENABLED_KEY,
     MAX_SQL_QUERY_TIMEOUT_SECONDS,
     MIN_SQL_QUERY_TIMEOUT_SECONDS,
-    PII_DETECTION_ENABLED_KEY,
     SQL_QUERY_TIMEOUT_SECONDS_KEY,
     get_sql_query_timeout_seconds,
     is_distinct_value_probing_enabled,
-    is_pii_detection_enabled,
 )
-from auto_ontology.server import settings_dal
+from auto_ontology.dal import settings as settings_dal
 
 router = APIRouter()
 
@@ -69,7 +65,6 @@ class Settings(BaseModel):
     """The settings in effect, defaults included."""
 
     distinct_value_probing_enabled: bool
-    pii_detection_enabled: bool
     sql_query_timeout_seconds: int
 
 
@@ -79,7 +74,6 @@ class SettingsUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     distinct_value_probing_enabled: bool | None = None
-    pii_detection_enabled: bool | None = None
     sql_query_timeout_seconds: Timeout | None = None
 
 
@@ -87,13 +81,8 @@ class SettingsUpdate(BaseModel):
 # either side fails the import instead of writing a key nothing reads.
 _KEYS = {
     "distinct_value_probing_enabled": DISTINCT_VALUE_PROBING_ENABLED_KEY,
-    "pii_detection_enabled": PII_DETECTION_ENABLED_KEY,
     "sql_query_timeout_seconds": SQL_QUERY_TIMEOUT_SECONDS_KEY,
 }
-
-
-def _taken(name: str) -> HTTPException:
-    return HTTPException(status_code=409, detail=f"Acronym '{name}' already exists.")
 
 
 @router.get("/acronyms", response_model=list[Acronym])
@@ -107,8 +96,8 @@ def create_acronym(body: AcronymCreate) -> dict[str, Any]:
     """Add one acronym; 409 when the name is taken."""
     try:
         return settings_dal.create_acronym(body.name, body.description)
-    except UniqueViolation:
-        raise _taken(body.name) from None
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.patch("/acronyms/{acronym_id}", response_model=Acronym)
@@ -116,10 +105,10 @@ def update_acronym(acronym_id: UUID, body: AcronymUpdate) -> dict[str, Any]:
     """Rename or redescribe one acronym; 404 when absent, 409 on a taken name."""
     try:
         row = settings_dal.update_acronym(
-            acronym_id, name=body.name, description=body.description
+            str(acronym_id), name=body.name, description=body.description
         )
-    except UniqueViolation:
-        raise _taken(body.name or "") from None
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     if row is None:
         raise HTTPException(status_code=404, detail="Acronym not found.")
     return row
@@ -128,7 +117,7 @@ def update_acronym(acronym_id: UUID, body: AcronymUpdate) -> dict[str, Any]:
 @router.delete("/acronyms/{acronym_id}", status_code=204)
 def delete_acronym(acronym_id: UUID) -> Response:
     """Remove one acronym; 404 when absent."""
-    if not settings_dal.delete_acronym(acronym_id):
+    if not settings_dal.delete_acronym(str(acronym_id)):
         raise HTTPException(status_code=404, detail="Acronym not found.")
     return Response(status_code=204)
 
@@ -138,7 +127,6 @@ def read_settings() -> Settings:
     """Return the settings in effect, defaults included."""
     return Settings(
         distinct_value_probing_enabled=is_distinct_value_probing_enabled(),
-        pii_detection_enabled=is_pii_detection_enabled(),
         sql_query_timeout_seconds=get_sql_query_timeout_seconds(),
     )
 

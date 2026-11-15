@@ -101,8 +101,7 @@ def get_engine() -> Engine:
             # but it also means nothing here self-heals, so the bound has to
             # come from the connect itself.
             #
-            # 3 seconds to match every other Postgres consumer in the repo
-            # (auto_ontology/server/settings_dal.py, auto_ontology/ingestion_service/history.py).
+            # 3 seconds: long enough for a healthy database on any network.
             #
             # `search_path` is pinned here, per connection, and not inherited.
             # Every table in this metadata is unqualified, so `search_path` is
@@ -120,13 +119,11 @@ def get_engine() -> Engine:
             # done nothing at all, silently. This pin needs no privileges and
             # covers the connections that actually serve requests.
             #
-            # Safe to hardcode: `public` is the default anyway, and the two
-            # other schemas in the database are reached by owners that name
-            # theirs explicitly -- Prisma through `?schema=frontend` in its own
-            # URL, langchain_postgres through the `vdb` it is handed. Neither
-            # goes through this engine.
+            # Safe to hardcode: `public` is the default anyway, and the other
+            # schema in the database, `vdb`, is reached by langchain_postgres
+            # through the name it is handed, not through this engine.
             connect_args={
-                "connect_timeout": 3,
+                "connect_timeout": 5,
                 "options": "-c search_path=public",
             },
             future=True,

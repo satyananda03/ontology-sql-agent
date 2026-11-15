@@ -1011,20 +1011,46 @@ semantic_compilation_history = Table(
 
 
 # ---------------------------------------------------------------------------
+# Settings
 # ---------------------------------------------------------------------------
 
+# The Glossary page: a word the business uses -- an acronym, a local term --
+# and what it means. Every SQL agent question carries the whole list, so the
+# agent reads "PR" the way this deployment means it.
+acronym = Table(
+    "acronym",
     METADATA,
     _id(),
+    Column("name", Text, nullable=False, unique=True),
+    Column("description", Text, nullable=False, server_default=text("''")),
     Column(
+        "created_at",
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
     ),
+    Column(
+        "updated_at",
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
     ),
 )
 
+# Instance-wide settings from the Settings page, as key/value strings. The keys
+# and how each value is parsed live in `auto_ontology.infra.feature_flags`.
+configuration = Table(
+    "configuration",
     METADATA,
+    Column("key", Text, primary_key=True),
+    Column("value", Text, nullable=False),
     Column(
+        "updated_at",
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
     ),
 )
 
@@ -1216,6 +1242,8 @@ join_path_edge = Table(
 
 __all__ = [
     "METADATA",
+    "acronym",
+    "configuration",
     "TRIGRAM_SEARCH_TABLES",
     "column__join",
     "column__union",

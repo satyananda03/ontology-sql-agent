@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, onto-sql contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Acronym and settings routes against a real ``frontend`` schema.
+"""Acronym and settings routes.
 
 Validation tests need no database. The round trips skip unless ``POSTGRES_*``
-points at a database migrated to head, where ``frontend.acronyms`` and
-``frontend.configurations`` exist.
+points at a database migrated to head, where ``acronym`` and ``configuration``
+exist.
 """
 
 import os
@@ -29,25 +29,25 @@ def client() -> TestClient:
 
 
 @pytest.fixture
-def frontend_tables() -> Iterator[None]:
+def settings_tables() -> Iterator[None]:
     """Skip without the tables; restore both tables' rows afterwards."""
     if not os.environ.get("POSTGRES_USER"):
         pytest.skip("POSTGRES_* not set")
     try:
         conn = psycopg.connect(get_postgres_connection_string(), connect_timeout=3)
         rows = {
-            table: conn.execute(f"SELECT * FROM frontend.{table}").fetchall()
-            for table in ("acronyms", "configurations")
+            table: conn.execute(f"SELECT * FROM {table}").fetchall()
+            for table in ("acronym", "configuration")
         }
     except psycopg.Error as exc:
-        pytest.skip(f"frontend tables unavailable (alembic upgrade head): {exc}")
+        pytest.skip(f"settings tables unavailable (alembic upgrade head): {exc}")
     yield
     with conn:
         for table, saved in rows.items():
-            conn.execute(f"DELETE FROM frontend.{table}")
+            conn.execute(f"DELETE FROM {table}")
             for row in saved:
                 marks = ", ".join(["%s"] * len(row))
-                conn.execute(f"INSERT INTO frontend.{table} VALUES ({marks})", row)
+                conn.execute(f"INSERT INTO {table} VALUES ({marks})", row)
     conn.close()
 
 
@@ -56,7 +56,7 @@ def frontend_tables() -> Iterator[None]:
     [
         {"sql_query_timeout_seconds": 0},
         {"sql_query_timeout_seconds": 3601},
-        {"pii_detection_enabled": "maybe"},
+        {"distinct_value_probing_enabled": "maybe"},
         {"unknown_setting": True},
     ],
 )
@@ -71,7 +71,7 @@ def test_an_acronym_needs_a_name(client: TestClient, body: dict) -> None:
     assert client.post("/api/acronyms", json=body).status_code == 422
 
 
-def test_acronym_round_trip(client: TestClient, frontend_tables: None) -> None:
+def test_acronym_round_trip(client: TestClient, settings_tables: None) -> None:
     name = f"T{uuid4().hex[:8]}"
     created = client.post(
         "/api/acronyms", json={"name": f"  {name} ", "description": "x"}
@@ -94,16 +94,16 @@ def test_acronym_round_trip(client: TestClient, frontend_tables: None) -> None:
 
 
 def test_settings_are_stored_where_the_readers_look(
-    client: TestClient, frontend_tables: None
+    client: TestClient, settings_tables: None
 ) -> None:
     response = client.patch(
         "/api/settings",
-        json={"pii_detection_enabled": True, "sql_query_timeout_seconds": 45},
+        json={"distinct_value_probing_enabled": False, "sql_query_timeout_seconds": 45},
     )
     assert response.status_code == 200
     settings = response.json()
-    assert settings["pii_detection_enabled"] is True
+    assert settings["distinct_value_probing_enabled"] is False
     assert settings["sql_query_timeout_seconds"] == 45
 
-    client.patch("/api/settings", json={"pii_detection_enabled": False})
-    assert client.get("/api/settings").json()["pii_detection_enabled"] is False
+    client.patch("/api/settings", json={"distinct_value_probing_enabled": True})
+    assert client.get("/api/settings").json()["distinct_value_probing_enabled"] is True

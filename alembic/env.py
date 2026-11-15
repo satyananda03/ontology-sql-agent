@@ -1,11 +1,9 @@
 """Alembic environment for the Auto Ontology catalog/semantic schema.
 
-**Scoped to one schema, deliberately.** Three systems share this database:
-Prisma owns ``frontend`` (and ``prisma db push`` reconciles drift there on every
-deploy), ``langchain_postgres`` owns ``vdb``, and this owns ``public``. Without
-``include_object`` filtering, autogenerate would see the other two as "not in my
-metadata" and cheerfully emit ``DROP TABLE`` for the user table and the vector
-store. That is the single most destructive mistake available here, so the filter
+**Scoped to one schema, deliberately.** Two systems share this database:
+``langchain_postgres`` owns ``vdb``, and this owns ``public``. Without
+``include_object`` filtering, autogenerate would see ``vdb`` as "not in my
+metadata" and cheerfully emit ``DROP TABLE`` for the vector store. That is the single most destructive mistake available here, so the filter
 is not an optimisation.
 
 The connection URL comes from ``POSTGRES_*`` via the same helper the rest of the
@@ -47,11 +45,11 @@ _MISSING = object()
 def include_object(obj, name, type_, reflected, compare_to) -> bool:
     """Consider only objects in the connection's default schema.
 
-    This is what keeps autogenerate away from the two schemas Auto Ontology does not own:
-    Prisma's ``frontend`` and langchain_postgres' ``vdb``. Both are reflected and
-    reach this function; without the filter they are tables Alembic can see but
-    cannot find in ``METADATA``, and it would faithfully emit ``drop_table`` for
-    every one of them.
+    This is what keeps autogenerate away from the schema Auto Ontology does not own,
+    langchain_postgres' ``vdb`` (and any other schema someone adds). Those are
+    reflected and reach this function; without the filter they are tables Alembic
+    can see but cannot find in ``METADATA``, and it would faithfully emit
+    ``drop_table`` for every one of them.
 
     The corollary now that Auto Ontology holds ``public``: anything created there by
     something other than a migration *will* be proposed for deletion, because
@@ -84,7 +82,7 @@ def include_object(obj, name, type_, reflected, compare_to) -> bool:
         return type_ not in {"table", "column"}
     # Both sides spell the default schema as None: the MetaData is unqualified,
     # and Alembic normalises a reflected default-schema table to None too. The
-    # schemas Auto Ontology does not own -- `frontend` and `vdb` -- come back named, so
+    # schemas Auto Ontology does not own -- such as `vdb` -- come back named, so
     # this single test is the whole filter.
     return schema is None
 
@@ -149,8 +147,7 @@ def run_migrations_online() -> None:
         # `relation "conversations" already exists`, leaving the frontend blocked
         # forever on its wait-for-schema probe.
         #
-        # Both of today's other owners are already immune by being explicit:
-        # Prisma names `?schema=frontend` in its connection URL and
+        # Today's other schema is already immune by being explicit:
         # langchain_postgres is handed `vdb`. The pin is for whoever comes next
         # and will not have thought about any of this.
         #

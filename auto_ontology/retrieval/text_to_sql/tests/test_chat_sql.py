@@ -105,14 +105,12 @@ def test_chat_sql_uses_the_configured_timeout(configured_timeout: list[int]) -> 
 def test_without_settings_the_default_is_30_seconds(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """No frontend means no ``configurations`` table; the read must fall back."""
+    """An unreadable ``configuration`` table must fall back to the default."""
 
     def _boom(*args: object, **kwargs: object) -> None:
         raise RuntimeError("relation does not exist")
 
-    monkeypatch.setattr(
-        "auto_ontology.infra.feature_flags._read_configuration_row", _boom
-    )
+    monkeypatch.setattr("auto_ontology.dal.settings.read_configuration", _boom)
     connector = _Recorder(supports_timeout=True)
 
     execute_chat_sql(connector, "SELECT 1")
