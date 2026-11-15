@@ -16,14 +16,14 @@ router = APIRouter()
 
 @router.get("/connection", response_model=SourceConnection)
 def get_connection() -> SourceConnection:
-    """The source database from ``CONNECTION_STRINGS``, without its password.
+    """The source database from ``CLIENT_DATABASE``, without its password.
 
     It is the only source: change it in ``.env`` and restart both services.
-    404 when ``CONNECTION_STRINGS`` is empty.
+    404 when ``CLIENT_DATABASE`` is empty.
     """
     url = source_connection_string()
     if url is None:
-        raise HTTPException(status_code=404, detail="CONNECTION_STRINGS is empty.")
+        raise HTTPException(status_code=404, detail="CLIENT_DATABASE is empty.")
     parsed = urlparse(url)
     return SourceConnection(
         database=unquote(parsed.path.lstrip("/")),

@@ -997,7 +997,7 @@ def test_a_tripped_breaker_stops_process_table_sampling(
 def test_the_breaker_key_matches_however_the_database_is_spelled() -> None:
     """_resolve_connector matches case-insensitively, so the key must too.
 
-    A connector loaded from CONNECTION_STRINGS can spell its database
+    A connector loaded from CLIENT_DATABASE can spell its database
     differently from the catalog name the run compiles under; a key that
     disagreed with the reset would leave sampling off for every later run.
     """

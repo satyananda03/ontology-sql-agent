@@ -1,14 +1,12 @@
-"""Text embedding against the configured NIM / inference-api endpoint.
+"""Text embedding against the configured OpenAI-compatible endpoint (LiteLLM).
 
-Both endpoints speak the OpenAI ``/embeddings`` API, plus three NVIDIA fields
-sent through ``extra_body``. ``input_type`` is the one that matters: NVIDIA's
-embedding models are asymmetric, so a stored row must be embedded as a
-``passage`` and a search string as a ``query``. Mixing them up raises no error
--- it just makes every search worse.
+Requests are plain OpenAI ``/embeddings`` calls. NVIDIA's NIM-only fields
+(``input_type``, ``truncate``, ``modality``) are never sent: the gateway
+rejects them.
 
-Some deployments ignore ``input_type`` (see ``_TEXT_PREFIXED_MODELS``); for
-those the type is written into the text as a ``query: `` / ``passage: ``
-prefix, the instruction the model was trained with.
+Models trained on asymmetric ``query`` / ``passage`` input (see
+``_TEXT_PREFIXED_MODELS``) get the type written into the text as a
+``query: `` / ``passage: `` prefix, the instruction the model was trained with.
 
 Ingest and query MUST use the same model; a mismatch produces garbage results
 or a dimension error from pgvector.
@@ -92,10 +90,6 @@ _ERROR_ATTR = "embed_error"
 _FATAL_ATTR = "embed_error_fatal"
 
 
-def _send_nim_params() -> bool:
-    return os.environ.get("EMBED_SEND_NIM_PARAMS", "").strip().lower() != "false"
-
-
 @dataclass(frozen=True)
 class EmbedParams:
     """Where and how to embed. The key is kept out of ``repr`` and so out of logs."""
@@ -103,13 +97,9 @@ class EmbedParams:
     model_name: str
     embed_invoke_url: str
     api_key: str = field(default="", repr=False)
-    embed_modality: str = "text"
     inference_batch_size: int = 32
     nim_http_max_concurrent: int = 32
     request_timeout_s: float = 600.0
-    # From the environment here, not in get_embed_params: several callers build
-    # EmbedParams directly and must not silently send fields a gateway rejects.
-    send_nim_params: bool = field(default_factory=_send_nim_params)
 
 
 def get_embed_params() -> EmbedParams:
@@ -204,15 +194,6 @@ def embed_texts(
                 model=params.model_name,
                 input=[prefix + stripped[i] for i in indices],
                 encoding_format="float",
-                extra_body=(
-                    {
-                        "input_type": input_type,
-                        "truncate": "END",
-                        "modality": params.embed_modality,
-                    }
-                    if params.send_nim_params
-                    else None
-                ),
                 timeout=timeout or params.request_timeout_s,
                 extra_headers=None if params.api_key else _NO_AUTH,
             )

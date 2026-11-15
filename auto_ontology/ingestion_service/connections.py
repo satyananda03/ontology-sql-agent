@@ -1,6 +1,6 @@
 """Resolve configured connections for the ingestion-service schedulers.
 
-The one connection comes from the ``CONNECTION_STRINGS`` env var (see
+The one connection comes from the ``CLIENT_DATABASE`` env var (see
 ``auto_ontology.connectors.registry.source_connection_string``). Both the data and
 semantic schedulers resolve through here so they see the same database.
 """

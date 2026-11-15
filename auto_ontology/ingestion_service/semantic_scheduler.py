@@ -99,7 +99,7 @@ class SemanticScheduler(OnDemandScheduler):
         if not databases:
             logger.info(
                 "semantic: no connection configured; nothing to compile. "
-                "Set CONNECTION_STRINGS in your .env."
+                "Set CLIENT_DATABASE in your .env."
             )
             return
 

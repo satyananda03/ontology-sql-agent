@@ -13,7 +13,7 @@ export default function ConnectionsPage() {
   return (
     <>
       <PageHeader title="Koneksi">
-        Satu database sumber (PostgreSQL), diatur lewat <code>CONNECTION_STRINGS</code> di <code>.env</code>. Untuk
+        Satu database sumber (PostgreSQL), diatur lewat <code>CLIENT_DATABASE</code> di <code>.env</code>. Untuk
         menggantinya, ubah variabel itu lalu restart backend dan ingestion service. Skema yang di-ingest diatur di{" "}
         <code>ingest.yaml</code>.
       </PageHeader>

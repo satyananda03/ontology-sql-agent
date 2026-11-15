@@ -18,7 +18,7 @@ def test_connection_is_shown_without_its_password(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(
-        "CONNECTION_STRINGS", "postgresql://reader:s3cret@db.local:6543/sales"
+        "CLIENT_DATABASE", "postgresql://reader:s3cret@db.local:6543/sales"
     )
 
     response = _client().get("/api/connection")
@@ -33,6 +33,6 @@ def test_connection_is_shown_without_its_password(
 
 
 def test_no_connection_is_a_404(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("CONNECTION_STRINGS", raising=False)
+    monkeypatch.delenv("CLIENT_DATABASE", raising=False)
 
     assert _client().get("/api/connection").status_code == 404

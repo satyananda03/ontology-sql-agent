@@ -1,7 +1,7 @@
 """On-demand data ingestion, triggered by the review UI's "Ingest ulang" button.
 
 Runs :func:`run_ingest` for the source database. The connector is reloaded on
-every pass so a changed ``CONNECTION_STRINGS`` is picked up. A pass ends by
+every pass so a changed ``CLIENT_DATABASE`` is picked up. A pass ends by
 replaying the tagging rules, so columns ingested now are labelled without
 waiting for a compilation — see ``auto_ontology.ingestion_service.rules``.
 """
@@ -35,7 +35,7 @@ class DataScheduler(OnDemandScheduler):
         connectors = get_connectors()
         if not connectors:
             logger.info(
-                "ingest: no connection configured. Set CONNECTION_STRINGS in your .env."
+                "ingest: no connection configured. Set CLIENT_DATABASE in your .env."
             )
             return
 

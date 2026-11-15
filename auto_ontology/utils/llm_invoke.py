@@ -500,11 +500,6 @@ def _structured_output_kwargs(llm: BaseChatModel) -> dict:
     return {}
 
 
-def _send_nim_params() -> bool:
-    """Whether the chat endpoint is a NIM, which honours NVIDIA's ``guided_json``."""
-    return os.environ.get("LLM_SEND_NIM_PARAMS", "").strip().lower() != "false"
-
-
 class _ParseOrNone(PydanticOutputParser[Any]):
     """Parse the reply into the schema, or ``None`` when it does not fit.
 
@@ -522,16 +517,15 @@ class _ParseOrNone(PydanticOutputParser[Any]):
 def _structured_llm(llm: BaseChatModel, schema: Type[T]) -> Runnable:
     """*llm* bound to answer with *schema*.
 
-    ChatNVIDIA asks an endpoint that is not NVIDIA's own with ``guided_json``
-    twice before the OpenAI ``response_format``. A gateway that is not a NIM
-    ignores ``guided_json`` and answers in prose, so every call paid for two
-    discarded generations first (measured: 17s, 11s of it discarded).
-    ``LLM_SEND_NIM_PARAMS=false`` asks with the format that works straight away.
+    The chat endpoint is an OpenAI-compatible gateway (LiteLLM), not a NIM, so
+    the OpenAI ``response_format`` is asked for directly. ChatNVIDIA's own path
+    tries NVIDIA's ``guided_json`` twice first, which the gateway ignores: every
+    call paid for two discarded generations (measured: 17s, 11s of it discarded).
 
     Claude and the ``ChatOpenAI`` models keep the library's own path: they never
     sent ``guided_json``, and Claude rejects ``response_format``.
     """
-    if _send_nim_params() or _is_claude(llm) or _uses_chat_openai(_model_name(llm)):
+    if _is_claude(llm) or _uses_chat_openai(_model_name(llm)):
         return llm.with_structured_output(schema, **_structured_output_kwargs(llm))
     response_format = {
         "type": "json_schema",

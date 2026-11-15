@@ -5681,7 +5681,7 @@
     },
     "/api/connection": {
       "get": {
-        "description": "The source database from ``CONNECTION_STRINGS``, without its password.\n\nIt is the only source: change it in ``.env`` and restart both services.\n404 when ``CONNECTION_STRINGS`` is empty.",
+        "description": "The source database from ``CLIENT_DATABASE``, without its password.\n\nIt is the only source: change it in ``.env`` and restart both services.\n404 when ``CLIENT_DATABASE`` is empty.",
         "operationId": "get_connection_api_connection_get",
         "responses": {
           "200": {

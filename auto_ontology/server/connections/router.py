@@ -1,12 +1,12 @@
 """API routes for UI-managed database connections."""
 
 import logging
-import os
 from typing import Any, TypedDict
 
 from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel
 
+from auto_ontology.connectors.registry import source_connection_string
 from auto_ontology.dal.connections import list_connections as _list_connections
 from auto_ontology.server.connections import service
 from auto_ontology.server.responses import (
@@ -48,12 +48,8 @@ def _serialize_connection(connection: dict[str, Any]) -> PublicConnection:
 
 @router.get("/connections/source", response_model=bool)
 def is_env_source() -> bool:
-    """Report whether connections are managed via the ``CONNECTION_STRINGS`` env."""
-    connection_strings = os.environ.get("CONNECTION_STRINGS", "")
-    connection_strings_exists = [
-        cs.strip() for cs in connection_strings.split(",") if cs.strip()
-    ]
-    return bool(connection_strings_exists)
+    """Report whether the source database is set by the ``CLIENT_DATABASE`` env."""
+    return source_connection_string() is not None
 
 
 @router.get("/connections", response_model=ConnectionListResponse)

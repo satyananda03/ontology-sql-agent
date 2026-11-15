@@ -510,10 +510,7 @@ class _RecordingChat(FakeListChatModel):
         return super()._call(*args, **kwargs)
 
 
-def test_a_gateway_that_is_not_a_nim_is_asked_once_with_response_format(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("LLM_SEND_NIM_PARAMS", "false")
+def test_the_gateway_is_asked_once_with_response_format() -> None:
     llm = _RecordingChat(responses=['{"answer": "ok"}'])
 
     result = llm_invoke.safe_invoke_with_structured_output(
@@ -532,34 +529,34 @@ def test_a_gateway_that_is_not_a_nim_is_asked_once_with_response_format(
     }
 
 
-def test_a_reply_that_does_not_fit_the_schema_is_none(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_a_reply_that_does_not_fit_the_schema_is_none() -> None:
     # None is what the retry loop acts on; an exception would skip the retries.
-    monkeypatch.setenv("LLM_SEND_NIM_PARAMS", "false")
     llm = _RecordingChat(responses=["The answer is ok."])
 
     assert llm_invoke._structured_llm(llm, _Answer).invoke("question") is None
 
 
 @pytest.mark.parametrize(
-    ("send_nim_params", "model"),
+    "model",
     [
-        (None, "meta/llama-3.1-70b-instruct"),  # a NIM: the default
-        ("false", "claude-3-5-sonnet"),  # rejects response_format
-        ("false", "openai/gpt-5"),  # ChatOpenAI never sent guided_json
+        "claude-3-5-sonnet",  # rejects response_format
+        "openai/gpt-5",  # ChatOpenAI never sent guided_json
     ],
 )
-def test_other_clients_keep_the_librarys_own_structured_output(
-    monkeypatch: pytest.MonkeyPatch, send_nim_params: str | None, model: str
-) -> None:
-    if send_nim_params is None:
-        monkeypatch.delenv("LLM_SEND_NIM_PARAMS", raising=False)
-    else:
-        monkeypatch.setenv("LLM_SEND_NIM_PARAMS", send_nim_params)
+def test_other_clients_keep_the_librarys_own_structured_output(model: str) -> None:
     llm = MagicMock(model_name=model)
 
     llm_invoke._structured_llm(llm, _Answer)
 
     llm.with_structured_output.assert_called_once()
     llm.bind.assert_not_called()
+
+
+def test_a_chatnvidia_model_never_asks_for_guided_json() -> None:
+    """Behind LiteLLM, even a NIM-named model is asked with response_format."""
+    llm = MagicMock(model_name="meta/llama-3.1-70b-instruct")
+
+    llm_invoke._structured_llm(llm, _Answer)
+
+    llm.with_structured_output.assert_not_called()
+    llm.bind.assert_called_once()

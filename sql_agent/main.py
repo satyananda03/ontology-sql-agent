@@ -37,7 +37,7 @@ async def lifespan(_app: FastAPI):
     # construct it would break the spec check in CI. The lifespan runs only when
     # the app is actually served.
     require_current_schema()
-    # Raises when CONNECTION_STRINGS holds more than one database.
+    # Raises when CLIENT_DATABASE holds more than one database.
     source_connection_string()
     # Background: a slow DB or LLM endpoint must not hold up startup.
     threading.Thread(target=warm_up, name="sql-agent-warm-up", daemon=True).start()

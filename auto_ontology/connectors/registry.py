@@ -1,6 +1,6 @@
 """Load and cache the SQLDatabase connector for the one source database.
 
-The source database comes from ``CONNECTION_STRINGS`` only, and it must hold
+The source database comes from ``CLIENT_DATABASE`` only, and it must hold
 exactly one connection: this build answers from a single database.
 """
 
@@ -50,17 +50,15 @@ def _redact(connection_string: str) -> str:
 
 
 def source_connection_string() -> str | None:
-    """The source database's URL from ``CONNECTION_STRINGS``, or None when unset.
+    """The source database's URL from ``CLIENT_DATABASE``, or None when unset.
 
     More than one URL is a configuration error, not a list to route between:
     this build supports a single source database.
     """
-    connection_strings = parse_connection_strings(
-        os.environ.get("CONNECTION_STRINGS", "")
-    )
+    connection_strings = parse_connection_strings(os.environ.get("CLIENT_DATABASE", ""))
     if len(connection_strings) > 1:
         raise ValueError(
-            f"CONNECTION_STRINGS holds {len(connection_strings)} connections; "
+            f"CLIENT_DATABASE holds {len(connection_strings)} connections; "
             "this build supports exactly one source database."
         )
     return connection_strings[0] if connection_strings else None
@@ -132,7 +130,7 @@ def get_connectors() -> list[SQLDatabase]:
         url = source_connection_string()
         if url is None:
             logger.warning(
-                "No connection configured. Add CONNECTION_STRINGS to your .env."
+                "No connection configured. Add CLIENT_DATABASE to your .env."
             )
             return []
         _connectors = [create_connector(url)]

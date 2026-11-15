@@ -3,7 +3,7 @@
 
 """Validasi dan eksekusi SQL lewat konektor auto_ontology.
 
-Satu koneksi read-only (``CONNECTION_STRINGS``) dipakai untuk semuanya, dengan
+Satu koneksi read-only (``CLIENT_DATABASE``) dipakai untuk semuanya, dengan
 timeout dari ``execute_chat_sql``. Keluarannya sama dengan versi asyncpg classic,
 jadi node di atasnya tidak perlu tahu drivernya berganti.
 """

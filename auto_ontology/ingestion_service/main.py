@@ -45,7 +45,7 @@ async def lifespan(app: FastAPI):
     # nobody is watching a request come back 500, so the failure surfaces as an
     # empty catalog hours later.
     require_current_schema()
-    # Raises when CONNECTION_STRINGS holds more than one database.
+    # Raises when CLIENT_DATABASE holds more than one database.
     source_connection_string()
 
     # Nothing runs until the review UI triggers it: both schedulers wait for

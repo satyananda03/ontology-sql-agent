@@ -12,7 +12,7 @@ dist/
 .env
 .env*.local
 .env.docker
-ingest.yaml
+config/ingest.yaml
 
 # Evaluation output
 runs/

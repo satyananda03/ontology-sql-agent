@@ -31,23 +31,17 @@ _NO_CACHE = {"cache": {"no-cache": True}}
 #: ID tool call yang diterima semua model chat (Bedrock/Anthropic: [A-Za-z0-9_-], OpenAI: ≤ 40 karakter).
 _PORTABLE_TOOL_CALL_ID = re.compile(r"[A-Za-z0-9_-]{1,40}")
 
-
 def portable_tool_call_id(tool_call_id: str) -> str:
     """ID dari model lain (Kimi: ``functions.get_rubric:1``) → ID yang diterima model mana pun saat model diganti
     di tengah percakapan. Deterministik: tool call dan hasil tool-nya tetap berpasangan, prompt cache tetap kena.
-
-    ponytail: duplikat ``_sanitize_bedrock_tool_use_id`` LiteLLM (sudah ada di 1.105.7); hapus setelah proxy
-    LiteLLM di server di-upgrade.
     """
     if _PORTABLE_TOOL_CALL_ID.fullmatch(tool_call_id):
         return tool_call_id
     return "call_" + hashlib.sha256(tool_call_id.encode()).hexdigest()[:24]
 
-
 _NOVA_REASONING = {
     "reasoningConfig": {"type": "enabled", "maxReasoningEffort": "medium"}
 }
-
 
 def _is_empty(result) -> bool:
     """Respons tanpa teks dan tanpa tool call."""
@@ -55,7 +49,6 @@ def _is_empty(result) -> bool:
     return message is None or (
         not message.text.strip() and not getattr(message, "tool_calls", None)
     )
-
 
 def _is_exhausted_empty(result) -> bool:
     """Completion yang menghabiskan max_tokens tidak membaik bila request identik diulang."""
@@ -66,18 +59,11 @@ def _is_exhausted_empty(result) -> bool:
         and message.response_metadata.get("finish_reason") == "length"
     )
 
-
 class RetryingChat(ChatOpenAI):
     """``ChatOpenAI`` dengan retry sendiri, retry untuk respons kosong, ``cache_control`` pada pesan tool, dan ID
     tool call yang diterima semua model.
-
-    langchain_openai membuang ``cache_control`` blok konten pesan tool saat konversi, padahal LiteLLM
-    membacanya di level pesan; tanpa itu riwayat agent tidak pernah dibaca dari prompt cache.
-    ID tool call dinormalisasi di payload saja (:func:`portable_tool_call_id`); riwayat tersimpan tidak berubah.
     """
-
     retry_attempts: int = 1
-
     def _get_request_payload(self, input_, *, stop=None, **kwargs) -> dict:
         payload = super()._get_request_payload(input_, stop=stop, **kwargs)
         for m, d in zip(self._convert_input(input_).to_messages(), payload["messages"]):
@@ -153,7 +139,6 @@ class RetryingChat(ChatOpenAI):
             )
             await asyncio.sleep(wait)
 
-
 @lru_cache(maxsize=100)
 def get_llm(
     model_id: str,
@@ -227,14 +212,11 @@ def cache_prompt(msgs: list) -> list:
         last.content[-2] = {**last.content[-2], "cache_control": {"type": "ephemeral"}}
     return msgs
 
-
-#: Percobaan satu panggilan terstruktur, termasuk perbaikan setelah argumen tool ditolak validasi skema.
 STRUCTURED_ATTEMPTS = 3
 
 _LEAKED_PARAMETER = re.compile(
     r'<parameter name="(\w+)">(.*?)(?=</parameter>|<parameter name="|$)', re.S
 )
-
 
 def repair_tool_args(args: dict) -> dict:
     """Pulihkan dua slip encoding tool call tanpa memanggil model lagi:
@@ -269,18 +251,8 @@ def repair_tool_args(args: dict) -> dict:
                 break
     return repaired
 
-
 class StructuredChain:
-    """YAML prompt -> cache_control -> forced tool use -> ``{"raw": AIMessage, "parsed": schema}``.
-
-    Argumen tool yang ditolak skema dikembalikan ke model sebagai hasil tool berisi pesan galatnya, lalu model
-    memanggil ulang. Mengulang request yang identik pada temperature 0 cenderung menghasilkan galat yang sama.
-
-    ``reasoning_effort``: tool_choice "auto" alih-alih paksa, karena Claude di Bedrock diam-diam mematikan thinking
-    bila tool dipaksa. Model boleh tidak memanggil tool, jadi itu diperlakukan seperti argumen yang ditolak. Token
-    thinking ikut ``max_tokens``.
-    """
-
+    """YAML prompt -> cache_control -> forced tool use -> ``{"raw": AIMessage, "parsed": schema}``"""
     def __init__(
         self,
         llm: RetryingChat,
@@ -388,7 +360,6 @@ class StructuredChain:
         raise OutputParserException(
             f"output tidak valid setelah {STRUCTURED_ATTEMPTS} percobaan: {out['parsing_error']}"
         )
-
 
 def structured_chain(
     llm: RetryingChat,

@@ -1,6 +1,6 @@
 """Limit what ingestion reads, per database, from an optional YAML file.
 
-The file is ``ingest.yaml`` at the repo root, or ``INGEST_CONFIG_FILE``::
+The file is ``config/ingest.yaml`` in the repo, or ``INGEST_CONFIG_FILE``::
 
     databases:
       sales_db:
@@ -8,7 +8,7 @@ The file is ``ingest.yaml`` at the repo root, or ``INGEST_CONFIG_FILE``::
         exclude_tables: [tmp_import]
 
 A missing file, or a database it does not list, means everything is ingested.
-Connection credentials do not belong here; they stay in ``CONNECTION_STRINGS``.
+Connection credentials do not belong here; they stay in ``CLIENT_DATABASE``.
 """
 
 import logging
@@ -21,7 +21,7 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_PATH = Path(__file__).resolve().parents[2] / "ingest.yaml"
+_DEFAULT_PATH = Path(__file__).resolve().parents[2] / "config" / "ingest.yaml"
 
 
 def _names(scope: dict[str, Any], key: str, path: Path) -> set[str]:

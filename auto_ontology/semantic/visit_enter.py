@@ -180,7 +180,7 @@ class _SamplingCircuitBreaker:
     @staticmethod
     def _key(connector: "SQLDatabase") -> str:
         # Casefolded to match _resolve_connector: a connector loaded from
-        # CONNECTION_STRINGS can spell its database differently from the
+        # CLIENT_DATABASE can spell its database differently from the
         # catalog name a run is compiled under, and a key that disagrees with
         # the reset would leave the breaker open for every later run.
         name = getattr(connector, "database_name", None)

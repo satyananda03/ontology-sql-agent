@@ -5,7 +5,7 @@ import { queryOptions } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type { S } from "@/types";
 
-/** The one source database, from `CONNECTION_STRINGS` in .env. */
+/** The one source database, from `CLIENT_DATABASE` in .env. */
 export function getConnection(): Promise<S["SourceConnection"]> {
   return api("/connection");
 }
