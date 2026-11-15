@@ -41,7 +41,7 @@ interface PanelProps {
 
 function NodePanel({ node, graph }: Omit<PanelProps, "showDetails"> & { node: RawNode }) {
   const { openLink, label: kindLabel } = NODE_KINDS[node.kind];
-  const link = openLink(node.id);
+  const link = openLink(node);
   const neighbours = new Set(
     graph.edges
       .filter((edge) => edge.source === node.id || edge.target === node.id)

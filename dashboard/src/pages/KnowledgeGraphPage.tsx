@@ -13,7 +13,7 @@ export default function KnowledgeGraphPage() {
   return (
     <>
       <PageHeader title="Knowledge Graph">
-        Term dan tabel dalam satu graf. Klik node atau garis untuk melihat detailnya.
+        Term, tabel, dan atribut SQL dalam satu graf. Klik node atau garis untuk melihat detailnya.
       </PageHeader>
       <ErrorBanner message={database.error} />
       {database.loading && !database.data && <Loading />}

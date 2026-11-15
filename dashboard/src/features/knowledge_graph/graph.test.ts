@@ -79,6 +79,39 @@ describe("combinedGraphToRaw", () => {
   });
 });
 
+describe("SQL attributes", () => {
+  const attribute = (id: string, termId: string | null, sql: string): S["SqlAttribute"] => ({
+    id,
+    name: id,
+    term_id: termId,
+    sql,
+    source: "manual",
+  });
+  const raw = () =>
+    combinedGraphToRaw(semanticGraph, dataGraph, [
+      attribute("ActiveOrders", "Order", "SELECT 1"),
+      attribute("OrderCount", "Order", "SELECT COUNT(*) FROM orders"),
+      attribute("Elsewhere", "OtherDbTerm", "SELECT 1"),
+    ]);
+
+  test("becomes a node hanging off its term, carrying the term for the edit link", () => {
+    const node = raw().nodes.find((n) => n.id === "ActiveOrders");
+    expect(node).toMatchObject({ kind: "sqlAttribute", termId: "Order" });
+    expect(kindOf(raw(), "Order", "ActiveOrders")).toBe("termSqlAttribute");
+  });
+
+  test("links to the tables its SQL reaches, except the term's own", () => {
+    // "SELECT 1" joins orders and events; Order already owns orders.
+    expect(kindOf(raw(), "ActiveOrders", "events")).toBe("sqlAttributeTable");
+    expect(kindOf(raw(), "ActiveOrders", "orders")).toBeUndefined();
+    expect(raw().edges.filter((edge) => edge.source === "OrderCount")).toHaveLength(0);
+  });
+
+  test("leaves out attributes whose term is not in this graph", () => {
+    expect(raw().nodes.some((n) => n.id === "Elsewhere")).toBe(false);
+  });
+});
+
 describe("sigmaGraphFromRaw", () => {
   test("builds every node and edge, sizing the busiest node largest", () => {
     const graph = sigmaGraphFromRaw(combined());

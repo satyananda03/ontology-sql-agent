@@ -6,10 +6,18 @@
 import { NODE_COLORS } from "@/features/knowledge_graph/graphColor";
 import { NODE_KINDS } from "@/features/knowledge_graph/graphKinds";
 import { useKnowledgeGraphStore } from "@/features/knowledge_graph/store";
-import type { NodeKind } from "@/features/knowledge_graph/types";
+import type { NodeKind, SqlAttributeFilter } from "@/features/knowledge_graph/types";
+
+const SQL_ATTRIBUTE_FILTERS: { value: SqlAttributeFilter; label: string; title: string }[] = [
+  { value: "off", label: "Sembunyi", title: "Jangan tampilkan atribut SQL" },
+  { value: "manual", label: "Manual", title: "Hanya atribut SQL yang dibuat pengguna" },
+  { value: "all", label: "Semua", title: "Termasuk atribut SQL hasil kompilasi otomatis" },
+];
 
 export function GraphLegend() {
   const rawGraph = useKnowledgeGraphStore((state) => state.rawGraph);
+  const filter = useKnowledgeGraphStore((state) => state.sqlAttributeFilter);
+  const setFilter = useKnowledgeGraphStore((state) => state.setSqlAttributeFilter);
   if (!rawGraph?.nodes.length) return null;
 
   const counts = new Map<NodeKind, number>();
@@ -31,6 +39,25 @@ export function GraphLegend() {
             <span className="shrink-0 text-[10px] text-neutral-400">{counts.get(kind) ?? 0}</span>
           </div>
         ))}
+      </div>
+      <div className="mt-2 border-t border-[#2A2A2A] pt-2">
+        <span className="mb-1 block text-[10px] text-neutral-500">Tampilkan atribut SQL</span>
+        <div className="grid grid-cols-3 gap-1">
+          {SQL_ATTRIBUTE_FILTERS.map(({ value, label, title }) => (
+            <button
+              key={value}
+              type="button"
+              title={title}
+              aria-pressed={filter === value}
+              onClick={() => setFilter(value)}
+              className={`rounded px-1 py-0.5 text-[10px] transition-colors ${
+                filter === value ? "bg-[#2A2A2A] text-white" : "text-neutral-500 hover:text-neutral-200"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
       <p className="mt-2 border-t border-[#2A2A2A] pt-2 text-[10px] text-neutral-500">Ukuran node = jumlah relasinya.</p>
     </aside>

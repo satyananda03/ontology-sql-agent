@@ -20,6 +20,12 @@ export async function getSemanticGraph(databaseId: string): Promise<S["SemanticE
   return response.data;
 }
 
+/** Every SQL attribute in every database, with its term and SQL text. */
+export async function getSqlAttributes(): Promise<S["SqlAttribute"][]> {
+  const response = await api<S["ListResponse_SqlAttribute_"]>("/sql-attributes");
+  return response.data;
+}
+
 /** The hop chain behind one term-to-term edge: term, table, column, attribute, term. */
 export async function getTermPath(termId: string, otherTermId: string): Promise<S["ExplorationLinkPath"]> {
   const response = await api<S["DataResponse_ExplorationLinkPath_"]>(

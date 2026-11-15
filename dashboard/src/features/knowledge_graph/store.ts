@@ -3,7 +3,7 @@
 
 import MiniSearch from "minisearch";
 import { create } from "zustand";
-import type { RawEdge, RawGraph, RawNode } from "./types";
+import type { RawEdge, RawGraph, RawNode, SqlAttributeFilter } from "./types";
 
 // Above this, building the search index costs more than searching saves.
 const SEARCH_INDEX_LIMIT = 50_000;
@@ -26,6 +26,9 @@ interface KnowledgeGraphState {
    * NOT bump this: dragging only moves x/y on the existing instance.
    */
   dataVersion: number;
+  /** Which SQL attributes are drawn. Changing it rebuilds the graph from the cached sources. */
+  sqlAttributeFilter: SqlAttributeFilter;
+  setSqlAttributeFilter: (filter: SqlAttributeFilter) => void;
   setRawGraph: (graph: RawGraph) => void;
   setLayoutRunning: (running: boolean) => void;
   selectNode: (id: string | null, moveTo?: boolean) => void;
@@ -61,6 +64,9 @@ export const useKnowledgeGraphStore = create<KnowledgeGraphState>((set) => ({
   searchIndex: null,
   isLayoutRunning: false,
   dataVersion: 0,
+  // User-made attributes only, by default: compilation can generate hundreds.
+  sqlAttributeFilter: "manual",
+  setSqlAttributeFilter: (sqlAttributeFilter) => set({ sqlAttributeFilter }),
   setRawGraph: (rawGraph) =>
     set((state) => ({
       rawGraph,

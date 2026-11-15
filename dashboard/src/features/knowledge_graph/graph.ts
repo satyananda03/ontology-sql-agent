@@ -59,11 +59,80 @@ function buildRawGraph(nodeInputs: NodeInput[], edgeInputs: EdgeInput[]): RawGra
 const viaInferredJoin = (types: string[]): EdgeKind | null => (types.includes(SEMANTIC_FK) ? "semanticFk" : null);
 
 /**
- * Terms and tables in one graph, every kind of relation included. Terms link to
- * the tables they are built from and to terms sharing a table; tables link by
- * foreign key and by a shared SQL query.
+ * SQL attributes as nodes: each hangs off its term and links to every table its
+ * SQL reaches outside that term's own tables.
+ *
+ * The tables come from the table-to-table links, whose `queries` carry the very
+ * statement text an attribute's `sql` holds (the backend keys statements on that
+ * text), so no per-attribute request is needed.
  */
-export function combinedGraphToRaw(semantic: S["SemanticExplorationGraph"], data: S["DataExplorationGraph"]): RawGraph {
+function sqlAttributesToRaw(
+  sqlAttributes: S["SqlAttribute"][],
+  semantic: S["SemanticExplorationGraph"],
+  data: S["DataExplorationGraph"],
+): { nodes: NodeInput[]; edges: EdgeInput[] } {
+  const terms = new Set((semantic.nodes ?? []).map((term) => term.id));
+  const termTables = new Map<string, Set<string>>();
+  for (const { term_id, table_id } of semantic.term_tables ?? []) {
+    if (!termTables.has(term_id)) termTables.set(term_id, new Set());
+    termTables.get(term_id)!.add(table_id);
+  }
+  const tablesBySql = new Map<string, Set<string>>();
+  for (const link of data.links ?? []) {
+    for (const query of link.queries ?? []) {
+      if (!tablesBySql.has(query)) tablesBySql.set(query, new Set());
+      tablesBySql.get(query)!.add(link.source).add(link.target);
+    }
+  }
+
+  const nodes: NodeInput[] = [];
+  const edges: EdgeInput[] = [];
+  const noDetails = { relationshipTypes: [], foreignKeys: [], queries: [] };
+  // `/sql-attributes` spans every database; the semantic graph is already scoped to this one.
+  for (const attribute of sqlAttributes) {
+    const termId = attribute.term_id;
+    if (!termId || !terms.has(termId)) continue;
+    nodes.push({
+      id: attribute.id,
+      label: attribute.name || attribute.id,
+      kind: "sqlAttribute",
+      termId,
+      properties: {
+        Jenis: "Atribut SQL",
+        Term: attribute.term_name,
+        Deskripsi: attribute.description,
+        Sumber: attribute.source === MANUAL_SOURCE ? "Manual" : `Otomatis (${attribute.source ?? "-"})`,
+        SQL: attribute.sql,
+      },
+    });
+    edges.push({ source: termId, target: attribute.id, kind: "termSqlAttribute", weight: 1, ...noDetails });
+    // ponytail: a statement touching a single table forms no table-to-table link, so
+    // a one-table attribute whose table is not its term's own shows no table edge.
+    // Upgrade path: /exploration/sql/{sql_id}/details once the list returns sql_id.
+    const own = termTables.get(termId) ?? new Set<string>();
+    for (const tableId of tablesBySql.get(attribute.sql ?? "") ?? []) {
+      if (!own.has(tableId)) {
+        edges.push({ source: attribute.id, target: tableId, kind: "sqlAttributeTable", weight: 1, ...noDetails });
+      }
+    }
+  }
+  return { nodes, edges };
+}
+
+/** The `source` the backend gives a SQL attribute a user made by hand. */
+export const MANUAL_SOURCE = "manual";
+
+/**
+ * Terms, tables and SQL attributes in one graph, every kind of relation
+ * included. Terms link to the tables they are built from and to terms sharing a
+ * table; tables link by foreign key and by a shared SQL query; SQL attributes
+ * link to their term and to the other tables their SQL uses.
+ */
+export function combinedGraphToRaw(
+  semantic: S["SemanticExplorationGraph"],
+  data: S["DataExplorationGraph"],
+  sqlAttributes: S["SqlAttribute"][] = [],
+): RawGraph {
   const terms = (semantic.nodes ?? []).map((term) => ({
     id: term.id,
     label: term.name || term.id,
@@ -129,7 +198,11 @@ export function combinedGraphToRaw(semantic: S["SemanticExplorationGraph"], data
       queries,
     };
   });
-  return buildRawGraph([...terms, ...tables], [...termTerm, ...termTable, ...tableTable]);
+  const attributes = sqlAttributesToRaw(sqlAttributes, semantic, data);
+  return buildRawGraph(
+    [...terms, ...tables, ...attributes.nodes],
+    [...termTerm, ...termTable, ...tableTable, ...attributes.edges],
+  );
 }
 
 /** `min..max` scaled by the square root of where *value* sits in its range. */

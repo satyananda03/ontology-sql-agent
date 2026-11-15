@@ -57,8 +57,7 @@ export function SqlAttributeForm({ termId, attr, onDone }: SqlAttributeFormProps
       <label className="field">
         Ekspresi SQL
         <span className="hint">
-          Query SELECT lengkap atas tabel term ini: rumus, misalnya SELECT SUM(amount) FROM sales.orders, atau filter,
-          misalnya SELECT * FROM sales.orders WHERE status = 'aktif'.
+          Query SELECT lengkap; boleh JOIN ke tabel lain bila rumusnya butuh.
         </span>
         <textarea
           className="mono"

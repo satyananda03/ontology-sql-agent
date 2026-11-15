@@ -7,6 +7,7 @@ import type { EdgeKind, NodeKind } from "./types";
 export const NODE_COLORS: Record<NodeKind, string> = {
   term: "#00E0A4",
   table: "#7C8CFF",
+  sqlAttribute: "#C77DFF",
 };
 
 /** Edge colour per kind; the legend shows the same. Muted, except the two that call for attention. */
@@ -16,4 +17,6 @@ export const EDGE_COLORS: Record<EdgeKind, string> = {
   semanticFk: "#00E676",
   foreignKey: "#6B6B6B",
   sqlOnly: "#FFD600",
+  termSqlAttribute: "#7A4FA8",
+  sqlAttributeTable: "#C77DFF",
 };

@@ -69,7 +69,7 @@ function NodeSearch() {
             }
             if (event.key === "Escape") setIsOpen(false);
           }}
-          placeholder="Cari term atau tabel…"
+          placeholder="Cari term, tabel, atribut SQL…"
           aria-label="Cari node"
           className="w-full bg-transparent font-mono text-xs text-white placeholder-neutral-500 outline-none"
         />

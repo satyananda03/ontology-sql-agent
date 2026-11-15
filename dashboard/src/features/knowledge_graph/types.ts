@@ -4,11 +4,21 @@
 import type { Attributes } from "graphology-types";
 import type { S } from "@/types";
 
-/** What a node is: a business term or a database table. Picks its colour and legend row. */
-export type NodeKind = "term" | "table";
+/** What a node is: a business term, a database table or a SQL attribute. Picks its colour and legend row. */
+export type NodeKind = "term" | "table" | "sqlAttribute";
 
 /** How two nodes are connected; picks the edge colour and its legend row. */
-export type EdgeKind = "termTable" | "sharedTable" | "semanticFk" | "foreignKey" | "sqlOnly";
+export type EdgeKind =
+  | "termTable"
+  | "sharedTable"
+  | "semanticFk"
+  | "foreignKey"
+  | "sqlOnly"
+  | "termSqlAttribute"
+  | "sqlAttributeTable";
+
+/** Which SQL attributes the graph shows: none, only the user-made ones, or every one. */
+export type SqlAttributeFilter = "off" | "manual" | "all";
 
 /** One row of the properties panel; empty values are left out when shown. */
 export type NodeProperties = Record<string, string | number | null | undefined>;
@@ -19,6 +29,8 @@ export interface RawNode {
   kind: NodeKind;
   properties: NodeProperties;
   degree: number;
+  /** SQL attributes only: the owning term, which is where the attribute is edited. */
+  termId?: string;
   x?: number;
   y?: number;
 }
