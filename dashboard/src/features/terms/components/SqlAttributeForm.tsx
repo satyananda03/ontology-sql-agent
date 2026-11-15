@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState } from "react";
-import { Badge, CertifyChoice, ErrorBanner, useCertifyChoice } from "@/components/ui";
+import { Badge, BusyButton, CertifyChoice, ErrorBanner, useCertifyChoice } from "@/components/ui";
 import { useAction } from "@/hooks/useAction";
 import type { S } from "@/types";
 import { patchSqlAttribute, saveSqlAttribute, validateSqlExpression } from "../api";
@@ -80,9 +80,9 @@ export function SqlAttributeForm({ termId, attr, onDone }: SqlAttributeFormProps
       <ErrorBanner message={action.error} />
       {valid === false && <div className="banner">Ekspresi tidak valid untuk tabel term ini.</div>}
       <div className="row">
-        <button className="primary" onClick={save} disabled={action.busy || !name.trim() || !expression.trim()}>
+        <BusyButton className="primary" onClick={save} busy={action.busy} disabled={!name.trim() || !expression.trim()}>
           Simpan
-        </button>
+        </BusyButton>
         <button onClick={validate} disabled={action.busy || !expression.trim()}>
           Validasi
         </button>

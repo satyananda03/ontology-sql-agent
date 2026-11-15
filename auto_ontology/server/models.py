@@ -23,7 +23,9 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
+
+from auto_ontology.utils.column_types import VECTOR_TYPES
 
 __all__ = [
     "ApiModel",
@@ -254,6 +256,12 @@ class ColumnSummary(ApiModel):
     description_certified: bool | None = None
     sample_values: list[str] | None = None
     tags: list[TagChip] = Field(default_factory=list)
+
+    @computed_field
+    @property
+    def is_embedding(self) -> bool:
+        """An embedding: kept for row search by meaning, outside the ontology."""
+        return self.data_type in VECTOR_TYPES
 
 
 class TableColumns(ApiModel):

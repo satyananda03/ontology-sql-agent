@@ -12,3 +12,9 @@ databases:
     # Table names to skip, in any listed schema.
     exclude_tables:
       - tmp_import
+    # Columns to skip: a name skips it in every table, table.column in one table.
+    # Embedding (vector) columns need no entry: they are kept out of the
+    # semantic layer by type, and row search by meaning needs them ingested.
+    exclude_columns:
+      - teks_pencarian_bm25           # nama saja: di semua tabel
+      # - dim_layanan.catatan_internal  # tabel.kolom: di satu tabel saja

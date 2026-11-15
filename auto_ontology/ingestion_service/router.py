@@ -6,6 +6,7 @@ from fastapi import APIRouter, Body, Request
 from fastapi.responses import JSONResponse
 from auto_ontology.dal.semantic_compilation_status import last_outcomes
 from auto_ontology.ingestion_service.ingest import (
+    reset_in_progress,
     trigger_delete_ingest,
     trigger_ingest,
     trigger_reset_semantic,
@@ -81,9 +82,15 @@ async def ingest_run(request: Request) -> dict[str, str]:
 
 
 @router.get("/ingest/status", response_model=IngestRunningResponse)
-async def ingest_status(request: Request) -> dict[str, bool]:
-    """Report whether an ingest pass is executing right now."""
-    return {"running": request.app.state.data_scheduler.running}
+async def ingest_status(request: Request) -> dict[str, bool | str | None]:
+    """Report whether an ingest pass is executing or queued, when the last one
+    succeeded, and when it last failed (only if more recent than the success)."""
+    scheduler = request.app.state.data_scheduler
+    return {
+        "running": scheduler.busy,
+        "last_success_at": scheduler.last_success_at,
+        "last_failure_at": scheduler.last_failure_at,
+    }
 
 
 @router.post("/ingest/delete", status_code=202, response_model=StatusResponse)
@@ -130,7 +137,7 @@ async def semantic_compile(request: Request) -> dict[str, str]:
 
 @router.get("/semantic/status", response_model=SemanticRunningResponse)
 async def semantic_status(request: Request) -> dict[str, bool | str | None]:
-    """Report whether a compilation pass is executing right now, when the last
+    """Report whether a compilation pass is executing or queued, when the last
     one finished successfully, and when it last failed (if that's more recent
     than the last success).
 
@@ -139,7 +146,8 @@ async def semantic_status(request: Request) -> dict[str, bool | str | None]:
     """
     scheduler = request.app.state.semantic_scheduler
     return {
-        "running": scheduler.running,
+        # A reset pauses the scheduler while it deletes: still busy to the UI.
+        "running": scheduler.busy or reset_in_progress(),
         **last_outcomes(),
     }
 

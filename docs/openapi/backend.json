@@ -758,6 +758,12 @@
             "title": "Id",
             "type": "string"
           },
+          "is_embedding": {
+            "description": "An embedding: kept for row search by meaning, outside the ontology.",
+            "readOnly": true,
+            "title": "Is Embedding",
+            "type": "boolean"
+          },
           "ordinal_position": {
             "anyOf": [
               {
@@ -792,7 +798,8 @@
           }
         },
         "required": [
-          "id"
+          "id",
+          "is_embedding"
         ],
         "title": "ColumnSummary",
         "type": "object"
@@ -2250,6 +2257,28 @@
       },
       "IngestStatus": {
         "properties": {
+          "last_failure_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Failure At"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
           "running": {
             "title": "Running",
             "type": "boolean"
@@ -6845,7 +6874,7 @@
     },
     "/api/ingest/status": {
       "get": {
-        "description": "Whether an ingest pass is running; False when the service is unreachable.",
+        "description": "Whether an ingest pass is running, and when the last one succeeded or failed.\n\nIdle with no outcome when the ingestion service is unreachable.",
         "operationId": "ingest_status_api_ingest_status_get",
         "responses": {
           "200": {

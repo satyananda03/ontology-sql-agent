@@ -2,42 +2,56 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { ReactNode } from "react";
-import { Badge, ErrorBanner } from "@/components/ui";
+import { ErrorBanner, Spinner } from "@/components/ui";
 import { useAction } from "@/hooks/useAction";
 import { formatDateTime } from "@/lib/utils";
-import { regenerateOntology, settingsQueries, triggerCompilation, triggerIngest } from "../api";
-import { useFetch } from "@/hooks/useFetch";
-
-// Job status while the page is open, so a running job shows when it finishes.
-const POLL_MS = 10_000;
+import { regenerateOntology, triggerCompilation, triggerIngest } from "../api";
+import { useJobStatus } from "../hooks/useJobStatus";
+import { JOBS, type JobKind, useJobStore } from "../jobs";
 
 const REGENERATE_WARNING =
   "Regenerate ontologi?\n\nSeluruh ontologi dihapus lalu dikompilasi ulang dari nol: term, atribut, hasil review, dan few-shot examples. Few-shot examples TIDAK dibuat ulang. Deskripsi katalog tetap.\n\nExport model dulu bila perlu cadangan.";
 
-/** The three jobs that keep the catalog and ontology current. Nothing runs on its own. */
+/** The three jobs that keep the catalog and ontology current. Progress and outcome show in JobMonitor. */
 export function OperationsPanel() {
-  const ingest = useFetch({ ...settingsQueries.ingestStatus(), refetchInterval: POLL_MS });
-  const compile = useFetch({ ...settingsQueries.compilationStatus(), refetchInterval: POLL_MS });
+  const { ingest, compile, active, failureOf } = useJobStatus();
+  const setJob = useJobStore((s) => s.setJob);
+  const arm = useJobStore((s) => s.arm);
+  const setDialogOpen = useJobStore((s) => s.setDialogOpen);
   const action = useAction();
-  const ingesting = !!ingest.data?.running;
-  const compiling = !!compile.data?.running;
   // One job at a time: the ingestion service queues a second one anyway.
-  const busy = action.busy || ingesting || compiling;
+  const busy = action.busy || active !== null;
 
-  async function runIngest() {
-    const status = await action.run(triggerIngest, "Sinkronisasi skema dimulai");
-    if (status) ingest.setData(status);
+  async function start(kind: JobKind, trigger: () => Promise<unknown>) {
+    setJob({ kind, armed: false, failureBefore: failureOf(kind) });
+    setDialogOpen(true);
+    if ((await action.run(trigger)) === undefined) {
+      // The trigger itself failed: the banner says why, nothing is running.
+      setDialogOpen(false);
+      setJob(null);
+      return;
+    }
+    await (kind === "ingest" ? ingest : compile).reload();
+    arm();
   }
 
-  async function runCompile() {
-    await action.run(triggerCompilation, "Pembuatan term & atribut dimulai");
-    compile.reload();
+  function runRegenerate() {
+    if (window.confirm(REGENERATE_WARNING)) void start("regenerate", regenerateOntology);
   }
 
-  async function runRegenerate() {
-    if (!window.confirm(REGENERATE_WARNING)) return;
-    await action.run(regenerateOntology, "Regenerate dimulai");
-    compile.reload();
+  /** A job's button; while that job runs it turns into a spinner that reopens the progress dialog. */
+  function jobButton(kind: JobKind, className: string, run: () => void) {
+    if (active === kind)
+      return (
+        <button className={className} onClick={() => setDialogOpen(true)} aria-busy="true">
+          <Spinner /> Lihat progres
+        </button>
+      );
+    return (
+      <button className={className} onClick={run} disabled={busy}>
+        {JOBS[kind].title}
+      </button>
+    );
   }
 
   const c = compile.data;
@@ -45,26 +59,13 @@ export function OperationsPanel() {
     <section className="card stack">
       <h2>Operasi</h2>
       <ErrorBanner message={ingest.error ?? compile.error ?? action.error} />
-      <Operation
-        title="Sinkronkan Schema"
-        running={ingesting}
-        action={
-          <button className="primary" onClick={runIngest} disabled={busy}>
-            Sinkronkan Schema
-          </button>
-        }
-      >
+      <Operation title={JOBS.ingest.title} action={jobButton("ingest", "primary", () => start("ingest", triggerIngest))}>
         Sinkronkan struktur database sumber (tabel, kolom, key) ke katalog. Jalankan setelah ada tabel atau kolom
         baru.
       </Operation>
       <Operation
-        title="Lengkapi term & atribut"
-        running={compiling}
-        action={
-          <button className="primary" onClick={runCompile} disabled={busy}>
-            Lengkapi term & atribut
-          </button>
-        }
+        title={JOBS.compile.title}
+        action={jobButton("compile", "primary", () => start("compile", triggerCompilation))}
       >
         Buat term dan atribut untuk tabel yang belum punya, setelah selesai sinkronisasi skema.
         {c && (
@@ -80,14 +81,7 @@ export function OperationsPanel() {
           </dl>
         )}
       </Operation>
-      <Operation
-        title="Regenerate Ontology"
-        action={
-          <button className="danger" onClick={runRegenerate} disabled={busy}>
-            Regenerate Ontology
-          </button>
-        }
-      >
+      <Operation title={JOBS.regenerate.title} action={jobButton("regenerate", "danger", runRegenerate)}>
         Hapus seluruh ontologi lalu kompilasi ulang dari nol. Hasil review dan few-shot examples ikut hilang.
       </Operation>
     </section>
@@ -96,19 +90,15 @@ export function OperationsPanel() {
 
 interface OperationProps {
   title: string;
-  running?: boolean;
   action: ReactNode;
   children: ReactNode;
 }
 
-function Operation({ title, running, action, children }: OperationProps) {
+function Operation({ title, action, children }: OperationProps) {
   return (
     <div className="operation">
       <div className="operation-body">
-        <div className="row">
-          <h3>{title}</h3>
-          {running && <Badge tone="info">Berjalan</Badge>}
-        </div>
+        <h3>{title}</h3>
         <div className="muted">{children}</div>
       </div>
       {action}

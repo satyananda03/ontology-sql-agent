@@ -103,7 +103,7 @@ def _embed_analysis(analysis_id: str) -> None:
     database_name = fetch_database_name_for_analysis(analysis_id)
     if database_name is None:
         logger.warning(
-            "CustomAnalysis %s references no catalogued database; embedding it "
+            "Few Shot Example %s references no catalogued database; embedding it "
             "unscoped, so retrieval's database filter will skip it",
             analysis_id,
         )

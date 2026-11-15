@@ -220,6 +220,11 @@ _background_tasks: set[asyncio.Task[None]] = set()
 _reset_lock = asyncio.Lock()
 
 
+def reset_in_progress() -> bool:
+    """Whether a reset is stopping, deleting or about to recompile."""
+    return _reset_lock.locked()
+
+
 async def _wait_until_idle(scheduler: Any) -> bool:
     """Block until *scheduler* is not mid-pass. False if it never stopped."""
     deadline = time.monotonic() + _ABORT_DRAIN_TIMEOUT_S

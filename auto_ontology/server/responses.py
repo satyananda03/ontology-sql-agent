@@ -192,9 +192,13 @@ class SemanticStatusResponse(_Payload):
 
 
 class IngestRunningResponse(_Payload):
-    """The ingestion service's ingest status: whether a pass is executing now."""
+    """The ingestion service's ingest status: whether a pass is executing now,
+    when the last one succeeded, and when it last failed (only set if more
+    recent than the last success)."""
 
     running: bool
+    last_success_at: str | None
+    last_failure_at: str | None
 
 
 class SemanticRunningResponse(_Payload):

@@ -42,16 +42,24 @@ def trigger_ingest_run() -> None:
     httpx.post(f"{_base_url()}/ingest/run", timeout=_REQUEST_TIMEOUT).raise_for_status()
 
 
-def is_ingest_running() -> bool:
-    """Whether an ingest pass is executing right now; False when unreachable."""
+def get_ingest_status() -> dict[str, Any]:
+    """Whether an ingest pass is running, and when the last one succeeded or failed.
+
+    Idle with no outcome when the service is unreachable.
+    """
     url = f"{_base_url()}/ingest/status"
     try:
         response = httpx.get(url, timeout=_REQUEST_TIMEOUT)
         response.raise_for_status()
-        return bool(response.json().get("running", False))
+        body = response.json()
     except Exception as exc:
         logger.warning("Failed to query ingest status via %s: %s", url, exc)
-        return False
+        body = {}
+    return {
+        "running": bool(body.get("running", False)),
+        "last_success_at": body.get("last_success_at"),
+        "last_failure_at": body.get("last_failure_at"),
+    }
 
 
 def trigger_semantic_compile() -> None:

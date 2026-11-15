@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useEffect, useState } from "react";
+import { BusyButton } from "./BusyButton";
 import { CertifyChoice, useCertifyChoice } from "./Certify";
 
 interface TextEditorProps {
@@ -46,9 +47,9 @@ export function TextEditor({ value, onSave, busy, mono, rows = 3, placeholder, c
             />
           )}
           <div className="row">
-            <button className="primary" disabled={busy} onClick={() => onSave(draft, certify.patch)}>
+            <BusyButton className="primary" busy={busy} onClick={() => onSave(draft, certify.patch)}>
               Simpan
-            </button>
+            </BusyButton>
             <button
               disabled={busy}
               onClick={() => {

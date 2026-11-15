@@ -35,3 +35,4 @@ runs/
 dashboard/node_modules/
 dashboard/dist/
 dashboard/src/types/schema.d.ts
+classic_sql_agent

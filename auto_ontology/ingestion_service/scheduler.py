@@ -28,6 +28,8 @@ class OnDemandScheduler:
         self._trigger = asyncio.Event()
         self._abort = asyncio.Event()
         self._running = False
+        # Triggered but not started yet, e.g. waiting for the other job's lock.
+        self._queued = False
         self._paused = False
         self._task: asyncio.Task[None] | None = None
 
@@ -48,6 +50,7 @@ class OnDemandScheduler:
         Triggers that arrive while a run is in flight collapse into one more run
         after it, so clicking twice never queues two passes.
         """
+        self._queued = True
         self._trigger.set()
 
     def abort(self) -> None:
@@ -58,6 +61,7 @@ class OnDemandScheduler:
         """
         self._abort.set()
         self._trigger.clear()
+        self._queued = False
 
     def pause(self) -> None:
         """Suppress passes until :meth:`resume`.
@@ -89,6 +93,12 @@ class OnDemandScheduler:
         """Whether a pass is executing right now, as opposed to idle or waiting."""
         return self._running
 
+    @property
+    def busy(self) -> bool:
+        """Running, or triggered and waiting to run: what a status endpoint reports,
+        so the UI does not read a queued pass as one already finished."""
+        return self._running or self._queued
+
     async def _run_once(self) -> None:
         """Perform one pass of the job. Implemented by subclasses."""
         raise NotImplementedError
@@ -102,12 +112,14 @@ class OnDemandScheduler:
         """
         if self._paused:
             logger.info("%s: paused; skipping this pass", self.name)
+            self._queued = False
             return
         if self._lock.locked():
             logger.info("%s: waiting for the other job to finish", self.name)
         async with self._lock:
             self._abort.clear()
             self._running = True
+            self._queued = False
             try:
                 await self._run_once()
             except Exception:

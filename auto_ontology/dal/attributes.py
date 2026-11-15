@@ -24,6 +24,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import insert
 
+from auto_ontology.utils.column_types import VECTOR_TYPES
 from auto_ontology.dal import schema as s
 from auto_ontology.dal.datasources import fetch_col_table_contexts
 from auto_ontology.dal.session import store, write_transaction
@@ -499,7 +500,7 @@ def find_unlinked_fk_columns(
             .where(s.column__has_attribute.c.column_id == s.catalog_column.c.id)
             .exists(),
             # Has no attribute by design, and never references another table.
-            s.catalog_column.c.data_type.is_distinct_from("vector"),
+            func.coalesce(s.catalog_column.c.data_type, "").not_in(VECTOR_TYPES),
         )
     )
     if database_name is not None:

@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import Any
 
 import pandas as pd
+import psycopg
 import pytest
 
 from sql_agent.nodes import result_analyzer, sql_executor
@@ -123,6 +124,25 @@ def test_parallel_probes_keep_filter_order() -> None:
         "retry_feedback"
     ]
     assert feedback.index("'Bali!'") < feedback.index("'Ani!'")
+
+
+def test_probe_ranks_in_python_when_pg_trgm_is_missing() -> None:
+    class NoTrigram(FakeConnector):
+        def execute(
+            self, sql: str, parameters: list | None = None, timeout_s: float = 0
+        ) -> pd.DataFrame:
+            if "word_similarity" in sql:
+                raise psycopg.errors.UndefinedFunction(
+                    "function word_similarity does not exist"
+                )
+            return pd.DataFrame({"v": self.values})
+
+    sql = 'SELECT count(*) FROM "iccn_dwh"."fact_partisipasi_program" WHERE provinsi = \'Bali\''
+    connector = NoTrigram(["JAWA TIMUR", "BANTEN", "BALI"])
+    feedback = probe.value_probe(_state(sql_query=sql, connector=connector))[
+        "retry_feedback"
+    ]
+    assert "'BALI', 'BANTEN', 'JAWA TIMUR'" in feedback
 
 
 def test_probe_skips_tables_the_query_does_not_read() -> None:

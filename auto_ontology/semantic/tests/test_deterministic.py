@@ -36,6 +36,7 @@ def test_excludes_vector_columns(_mock_desc) -> None:
     columns = [
         {"name": "topic", "data_type": "text"},
         {"name": "topic_vector", "data_type": "vector"},
+        {"name": "topic_half", "data_type": "halfvec"},
     ]
     specs = column_attribute_specs(columns, [])
     assert {s.source_column for s in specs} == {"topic"}

@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from auto_ontology.utils.column_types import VECTOR_TYPES
 from auto_ontology.utils.sample_values import stringify_sample_values
 
 
@@ -271,6 +272,14 @@ def format_tables_for_prompt(
         columns = table.get("columns")
         if not isinstance(columns, list):
             columns = []
+        # An embedding is matched by the row search, never written into SQL.
+        columns = [
+            column
+            for column in columns
+            if not (
+                isinstance(column, dict) and column.get("data_type") in VECTOR_TYPES
+            )
+        ]
         if columns:
             column_rows = [_column_row(column) for column in columns]
             blocks.append(_pipe_table(_COLUMN_HEADERS, column_rows))

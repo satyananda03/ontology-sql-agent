@@ -8,16 +8,18 @@ import type { S } from "@/types";
 interface TermOverviewCardProps {
   term: S["TermDetail"];
   busy: boolean;
-  onPatch: (body: S["TermUpdate"]) => void;
+  onPatch: (body: S["TermUpdate"]) => Promise<unknown>;
+  /** Saves a certify flag; rejects on failure. */
+  onCertify: (body: S["TermUpdate"]) => Promise<unknown>;
 }
 
 /** Name, description, synonyms and tables of one term. */
-export function TermOverviewCard({ term, busy, onPatch }: TermOverviewCardProps) {
+export function TermOverviewCard({ term, busy, onPatch, onCertify }: TermOverviewCardProps) {
   return (
     <div className="card stack">
       <div className="row spread">
         <h3>Nama</h3>
-        <CertifyToggle certified={term.name_certified} disabled={busy} onChange={(v) => onPatch({ name_certified: v })} />
+        <CertifyToggle certified={term.name_certified} name="nama term" onChange={(v) => onCertify({ name_certified: v })} />
       </div>
       <TextEditor
         value={term.name}
@@ -30,8 +32,8 @@ export function TermOverviewCard({ term, busy, onPatch }: TermOverviewCardProps)
         <h3>Deskripsi</h3>
         <CertifyToggle
           certified={term.description_certified}
-          disabled={busy}
-          onChange={(v) => onPatch({ description_certified: v })}
+          name="deskripsi term"
+          onChange={(v) => onCertify({ description_certified: v })}
         />
       </div>
       <TextEditor

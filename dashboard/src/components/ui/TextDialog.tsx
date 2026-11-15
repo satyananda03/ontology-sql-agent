@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { BusyButton } from "./BusyButton";
 import { CertifyChoice, useCertifyChoice } from "./Certify";
 import { ErrorBanner } from "./Feedback";
 
@@ -38,9 +39,9 @@ export function TextDialog({ title, children, value, onSave, onClose, busy, erro
         )}
         <ErrorBanner message={error} />
         <div className="row">
-          <button className="primary" disabled={busy || !changed} onClick={() => onSave(draft, certify.patch)}>
+          <BusyButton className="primary" busy={busy} disabled={!changed} onClick={() => onSave(draft, certify.patch)}>
             Simpan
-          </button>
+          </BusyButton>
           <button disabled={busy} onClick={() => ref.current?.close()}>
             Batal
           </button>

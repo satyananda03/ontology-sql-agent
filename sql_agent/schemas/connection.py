@@ -15,3 +15,6 @@ class SourceConnection(BaseModel):
 
 class IngestStatus(BaseModel):
     running: bool
+    last_success_at: str | None = None
+    # Set only while the latest pass failed: a success clears it.
+    last_failure_at: str | None = None

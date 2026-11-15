@@ -18,6 +18,7 @@ from typing import Any, Iterable
 import pandas as pd
 
 from auto_ontology.catalog.constants import Labels
+from auto_ontology.utils.column_types import VECTOR_TYPES
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ class CatalogEmbeddingRowsOp:
 
     * one ``Table`` row per table, whose ``text`` joins the table description
       with a compact list of its columns; and
-    * one ``Column`` row per column.
+    * one ``Column`` row per column, embeddings excepted.
     """
 
     def __init__(self, *, database_name: str) -> None:
@@ -119,6 +120,11 @@ class CatalogEmbeddingRowsOp:
                 data_type = (
                     "" if pd.isna(v := column.get("data_type")) else str(v).strip()
                 )
+                if data_type in VECTOR_TYPES:
+                    # No question names an embedding, so a row for it would only
+                    # crowd real columns out of retrieval. The table text above
+                    # still lists it: row search finds its columns through there.
+                    continue
                 column_description = (
                     "" if pd.isna(v := column.get("description")) else str(v).strip()
                 )

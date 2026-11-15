@@ -252,7 +252,7 @@ def fetch_custom_analyses() -> list[dict[str, str]]:
             .order_by(s.custom_analysis.c.name)
         )
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Failed to fetch custom analyses: %s", exc)
+        logger.warning("Failed to fetch Few Shot Examples: %s", exc)
         return []
 
     rules: list[dict[str, str]] = []
@@ -266,7 +266,7 @@ def fetch_custom_analyses() -> list[dict[str, str]]:
             parts.append(f"SQL: {row['sql_code']}")
         if parts:
             rules.append({"name": row["name"], "description": "\n".join(parts)})
-    logger.info("Fetched %d custom analyses as domain rules", len(rules))
+    logger.info("Fetched %d Few Shot Examples as domain rules", len(rules))
     return rules
 
 
@@ -529,7 +529,7 @@ def embed_custom_analyses(
     docs = _custom_analysis_docs(analysis_id)
     if not docs:
         logger.info(
-            "No CustomAnalysis rows found for analysis_id=%r; skipping VDB upsert.",
+            "No Few Shot Example rows found for analysis_id=%r; skipping VDB upsert.",
             analysis_id,
         )
         return

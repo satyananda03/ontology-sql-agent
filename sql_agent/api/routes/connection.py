@@ -8,7 +8,7 @@ from urllib.parse import unquote, urlparse
 from fastapi import APIRouter, HTTPException
 
 from auto_ontology.connectors.registry import source_connection_string
-from auto_ontology.server.ingestion.proxy import is_ingest_running, trigger_ingest_run
+from auto_ontology.server.ingestion.proxy import get_ingest_status, trigger_ingest_run
 from sql_agent.schemas import IngestStatus, SourceConnection
 
 router = APIRouter()
@@ -51,5 +51,8 @@ def start_ingest() -> IngestStatus:
 
 @router.get("/ingest/status", response_model=IngestStatus)
 def ingest_status() -> IngestStatus:
-    """Whether an ingest pass is running; False when the service is unreachable."""
-    return IngestStatus(running=is_ingest_running())
+    """Whether an ingest pass is running, and when the last one succeeded or failed.
+
+    Idle with no outcome when the ingestion service is unreachable.
+    """
+    return IngestStatus(**get_ingest_status())

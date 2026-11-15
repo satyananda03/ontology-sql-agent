@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
+from auto_ontology.utils.column_types import VECTOR_TYPES
 from auto_ontology.semantic.date_format import is_date_type
 from auto_ontology.semantic.models import ColumnAttributeSpec, ColumnDescriptionResult
 from auto_ontology.utils.llm_client import get_llm_client
@@ -214,7 +215,7 @@ def column_attribute_specs(
         for col in columns
         if (name := col.get("name", ""))
         and name not in fk_cols
-        and col.get("data_type") != "vector"
+        and col.get("data_type") not in VECTOR_TYPES
     ]
 
     # Only ask the LLM for columns that don't already have a description

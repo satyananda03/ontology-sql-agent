@@ -186,6 +186,33 @@ def test_process_emits_one_table_row_and_one_row_per_column() -> None:
     assert labels == [Labels.TABLE, Labels.COLUMN, Labels.COLUMN]
 
 
+def test_an_embedding_column_gets_no_row_but_stays_in_the_table_text() -> None:
+    tables = _tables(
+        {
+            "id": "t1",
+            "table_name": "news",
+            "table_schema": "public",
+            "description": "d",
+        }
+    )
+    columns = pd.DataFrame(
+        [
+            {
+                "id": "c1",
+                "table_name": "news",
+                "table_schema": "public",
+                "column_name": "title_vector",
+                "data_type": "vector",
+                "description": None,
+                "sample_values": None,
+            }
+        ]
+    )
+    out = _op().process((tables, columns))
+    assert [r["metadata"]["label"] for _, r in out.iterrows()] == [Labels.TABLE]
+    assert "{name: title_vector, data_type: vector}" in out.iloc[0]["text"]
+
+
 def test_same_table_name_in_two_schemas_does_not_merge_columns() -> None:
     """The bucketing key includes the schema.
 

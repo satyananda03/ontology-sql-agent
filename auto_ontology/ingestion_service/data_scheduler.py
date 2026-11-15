@@ -4,11 +4,15 @@ Runs :func:`run_ingest` for the source database. The connector is reloaded on
 every pass so a changed ``CLIENT_DATABASE`` is picked up. A pass ends by
 replaying the tagging rules, so columns ingested now are labelled without
 waiting for a compilation — see ``auto_ontology.ingestion_service.rules``.
+
+How the last pass ended is kept for ``GET /ingest/status``, so the review UI can
+report a failed ingest instead of reading every finished pass as a success.
 """
 
 import asyncio
 import logging
 import time
+from datetime import UTC, datetime
 
 from auto_ontology.connectors.registry import (
     get_connectors,
@@ -26,7 +30,31 @@ class DataScheduler(OnDemandScheduler):
 
     name = "ingest"
 
+    def __init__(self, lock: asyncio.Lock | None = None) -> None:
+        super().__init__(lock)
+        # ISO 8601, mirroring ``semantic_compilation_status``: a success clears
+        # the failure, so ``last_failure_at`` is set only while the latest pass failed.
+        # ponytail: in memory, a restart forgets it; persist like semantic_compilation_status if that matters.
+        self.last_success_at: str | None = None
+        self.last_failure_at: str | None = None
+
     async def _run_once(self) -> None:
+        try:
+            succeeded = await self._ingest_all()
+        except Exception:
+            self._record_outcome(succeeded=False)
+            raise
+        self._record_outcome(succeeded)
+
+    def _record_outcome(self, succeeded: bool) -> None:
+        now = datetime.now(UTC).isoformat()
+        if succeeded:
+            self.last_success_at, self.last_failure_at = now, None
+        else:
+            self.last_failure_at = now
+
+    async def _ingest_all(self) -> bool:
+        """Ingest every connection; True only when there was one and all succeeded."""
         # Reload connectors each pass so newly added connections are picked up
         # without a restart. get_connectors caches, so invalidate first; the
         # returned connectors carry each connection's schema allowlist and are
@@ -37,7 +65,7 @@ class DataScheduler(OnDemandScheduler):
             logger.info(
                 "ingest: no connection configured. Set CLIENT_DATABASE in your .env."
             )
-            return
+            return False
 
         logger.info("ingest: starting (%s connection(s))", len(connectors))
         started = time.monotonic()
@@ -73,3 +101,4 @@ class DataScheduler(OnDemandScheduler):
                 succeeded,
                 elapsed,
             )
+        return not failed

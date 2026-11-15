@@ -19,12 +19,16 @@ export function ColumnAttributesSection({ termId, onCertification }: ColumnAttri
   const action = useAction();
   const [editing, setEditing] = useState<S["ColumnAttribute"]>();
 
-  async function patch(attr: S["ColumnAttribute"], body: S["ColumnAttributeUpdate"]) {
-    const saved = await action.run(() => updateColumnAttribute(termId, attr.id, body), "Tersimpan");
-    if (!saved || !list.data) return false;
-    list.setData({ ...list.data, data: replaceById(list.data.data, saved.data) });
+  // Writes and updates what is shown, throwing on failure: certify calls it directly, edits through `patch`.
+  async function save(attr: S["ColumnAttribute"], body: S["ColumnAttributeUpdate"]) {
+    const saved = await updateColumnAttribute(termId, attr.id, body);
+    list.setData((current) => ({ ...current, data: replaceById(current.data, saved.data) }));
     onCertification(saved.term_certification);
-    return true;
+    return saved;
+  }
+
+  async function patch(attr: S["ColumnAttribute"], body: S["ColumnAttributeUpdate"]) {
+    return (await action.run(() => save(attr, body), "Tersimpan")) !== undefined;
   }
 
   async function saveDescription(description: string, certified?: boolean) {
@@ -80,8 +84,8 @@ export function ColumnAttributesSection({ termId, onCertification }: ColumnAttri
                   <td>
                     <CertifyToggle
                       certified={attr.certified}
-                      disabled={action.busy}
-                      onChange={(certified) => patch(attr, { certified })}
+                      name={attr.name}
+                      onChange={(certified) => save(attr, { certified })}
                     />
                   </td>
                 </tr>

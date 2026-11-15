@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState } from "react";
-import { ErrorBanner } from "@/components/ui";
+import { BusyButton, ErrorBanner } from "@/components/ui";
 import { useAction } from "@/hooks/useAction";
 import type { S } from "@/types";
 import { deleteGlossaryEntry, updateGlossaryEntry } from "../api";
@@ -39,9 +39,9 @@ export function GlossaryRow({ entry, onChange }: { entry: S["GlossaryEntry"]; on
         </td>
         <td>
           <div className="row">
-            <button className="primary" onClick={save} disabled={action.busy || !name.trim()}>
+            <BusyButton className="primary" onClick={save} busy={action.busy} disabled={!name.trim()}>
               Simpan
-            </button>
+            </BusyButton>
             <button onClick={() => setEditing(false)}>Batal</button>
           </div>
         </td>

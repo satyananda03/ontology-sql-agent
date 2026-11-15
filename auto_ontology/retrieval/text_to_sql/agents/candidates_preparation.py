@@ -310,12 +310,12 @@ class CandidatePreparationAgent(BaseAgent):
             phase_started = now
 
         # --- 1. Custom analyses ---
-        self.logger.info("Retrieved %d custom analyses", len(custom_analyses))
+        self.logger.info("Retrieved %d Few Shot Examples", len(custom_analyses))
 
         analysis_ids = [str(ca["id"]) for ca in custom_analyses if ca.get("id")]
         relevant_queries = fetch_custom_analyses_with_sql(analysis_ids)
         self.logger.info(
-            "Found %d relevant queries from custom analyses", len(relevant_queries)
+            "Found %d relevant queries from Few Shot Examples", len(relevant_queries)
         )
 
         custom_analyses_str = self._build_custom_analyses_str(relevant_queries)
@@ -518,7 +518,7 @@ class CandidatePreparationAgent(BaseAgent):
             prev_len = len(relevant_tables)
             relevant_tables = _merge_tables(relevant_tables, ca_linked_tables)
             self.logger.info(
-                "Added %d table(s) from custom analyses SQL references: %s",
+                "Added %d table(s) from Few Shot Examples SQL references: %s",
                 len(relevant_tables) - prev_len,
                 [t["name"] for t in ca_linked_tables],
             )

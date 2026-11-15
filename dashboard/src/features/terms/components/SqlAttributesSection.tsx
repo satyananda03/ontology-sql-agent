@@ -20,7 +20,7 @@ export function SqlAttributesSection({ termId, onCertification }: SqlAttributesS
   const [adding, setAdding] = useState(false);
 
   function replace(attr: S["SqlAttribute"], certification?: string | null) {
-    if (list.data) list.setData({ ...list.data, data: replaceById(list.data.data, attr) });
+    list.setData((current) => ({ ...current, data: replaceById(current.data, attr) }));
     if (certification !== undefined) onCertification(certification);
   }
 

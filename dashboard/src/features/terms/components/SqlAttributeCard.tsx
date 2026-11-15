@@ -19,10 +19,14 @@ export function SqlAttributeCard({ termId, attr, onChange, onDeleted }: SqlAttri
   const [editing, setEditing] = useState(false);
   const action = useAction();
 
-  async function patch(body: S["SqlAttributeMetadataPatch"]) {
-    const saved = await action.run(() => patchSqlAttribute(attr.id, body), "Tersimpan");
-    if (saved) onChange(saved.data, saved.term_certification);
+  // Writes and updates what is shown, throwing on failure: certify calls it directly, edits through `patch`.
+  async function save(body: S["SqlAttributeMetadataPatch"]) {
+    const saved = await patchSqlAttribute(attr.id, body);
+    onChange(saved.data, saved.term_certification);
+    return saved;
   }
+
+  const patch = (body: S["SqlAttributeMetadataPatch"]) => action.run(() => save(body), "Tersimpan");
 
   async function remove() {
     if (!window.confirm(`Hapus atribut SQL “${attr.name}”?`)) return;
@@ -49,7 +53,7 @@ export function SqlAttributeCard({ termId, attr, onChange, onDeleted }: SqlAttri
       <div className="row spread">
         <strong>{attr.name}</strong>
         <div className="row">
-          <CertifyToggle certified={attr.certified} disabled={action.busy} onChange={(certified) => patch({ certified })} />
+          <CertifyToggle certified={attr.certified} name={attr.name} onChange={(certified) => save({ certified })} />
           <button onClick={() => setEditing(true)}>Edit</button>
           <button className="danger" onClick={remove} disabled={action.busy}>
             Hapus

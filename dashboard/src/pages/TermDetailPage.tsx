@@ -17,14 +17,18 @@ export default function TermDetailPage() {
   const action = useAction();
   const term = detail.data?.data;
 
-  async function patch(body: S["TermUpdate"]) {
-    const saved = await action.run(() => updateTerm(id, body), "Tersimpan");
-    if (saved && term) detail.setData({ data: { ...term, ...saved.data } });
+  // Writes and updates what is shown, throwing on failure: certify calls it directly, edits through `patch`.
+  async function save(body: S["TermUpdate"]) {
+    const saved = await updateTerm(id, body);
+    detail.setData((current) => ({ data: { ...current.data, ...saved.data } }));
+    return saved;
   }
+
+  const patch = (body: S["TermUpdate"]) => action.run(() => save(body), "Tersimpan");
 
   // Certifying an attribute can roll the term's own state up or down.
   const setCertification = (certification: string | null) =>
-    term && detail.setData({ data: { ...term, certification } });
+    detail.setData((current) => ({ data: { ...current.data, certification } }));
 
   if (detail.error) return <ErrorBanner message={detail.error} />;
   if (!term) return <Loading />;
@@ -39,7 +43,7 @@ export default function TermDetailPage() {
         <CertBadge value={term.certification} />
       </div>
       <ErrorBanner message={action.error} />
-      <TermOverviewCard term={term} busy={action.busy} onPatch={patch} />
+      <TermOverviewCard term={term} busy={action.busy} onPatch={patch} onCertify={save} />
       <ColumnAttributesSection termId={id} onCertification={setCertification} />
       <SqlAttributesSection termId={id} onCertification={setCertification} />
     </>

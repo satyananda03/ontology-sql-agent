@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useEffect, useState } from "react";
-import { ErrorBanner, Loading } from "@/components/ui";
+import { BusyButton, ErrorBanner, Loading } from "@/components/ui";
 import { useAction } from "@/hooks/useAction";
 import { useFetch } from "@/hooks/useFetch";
 import type { S } from "@/types";
@@ -65,9 +65,9 @@ export function GeneralSettings() {
               <input type="number" min={1} max={3600} value={timeout} onChange={(e) => setTimeoutValue(e.target.value)} />
             </label>
             {timeout !== savedTimeout && (
-              <button className="primary" disabled={action.busy} style={{ alignSelf: "flex-end" }}>
+              <BusyButton className="primary" busy={action.busy} style={{ alignSelf: "flex-end" }}>
                 Simpan
-              </button>
+              </BusyButton>
             )}
           </form>
         </>

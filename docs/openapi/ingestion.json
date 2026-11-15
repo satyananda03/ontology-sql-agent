@@ -16,15 +16,39 @@
       },
       "IngestRunningResponse": {
         "additionalProperties": true,
-        "description": "The ingestion service's ingest status: whether a pass is executing now.",
+        "description": "The ingestion service's ingest status: whether a pass is executing now,\nwhen the last one succeeded, and when it last failed (only set if more\nrecent than the last success).",
         "properties": {
+          "last_failure_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Failure At"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
           "running": {
             "title": "Running",
             "type": "boolean"
           }
         },
         "required": [
-          "running"
+          "running",
+          "last_success_at",
+          "last_failure_at"
         ],
         "title": "IngestRunningResponse",
         "type": "object"
@@ -233,7 +257,7 @@
     },
     "/ingest/status": {
       "get": {
-        "description": "Report whether an ingest pass is executing right now.",
+        "description": "Report whether an ingest pass is executing or queued, when the last one\nsucceeded, and when it last failed (only if more recent than the success).",
         "operationId": "ingest_status_ingest_status_get",
         "responses": {
           "200": {
@@ -318,7 +342,7 @@
     },
     "/semantic/status": {
       "get": {
-        "description": "Report whether a compilation pass is executing right now, when the last\none finished successfully, and when it last failed (if that's more recent\nthan the last success).\n\nThe last two come from the ``semantic_compilation_status`` row this\nservice's scheduler writes.",
+        "description": "Report whether a compilation pass is executing or queued, when the last\none finished successfully, and when it last failed (if that's more recent\nthan the last success).\n\nThe last two come from the ``semantic_compilation_status`` row this\nservice's scheduler writes.",
         "operationId": "semantic_status_semantic_status_get",
         "responses": {
           "200": {

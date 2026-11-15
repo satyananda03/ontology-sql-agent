@@ -391,7 +391,7 @@ class CandidateRetrievalAgent(BaseAgent):
             has_custom = custom_analysis_exists(target_db)
             if not has_custom:
                 self.logger.info(
-                    "No CustomAnalysis nodes found for database %r — skipping VDB search",
+                    "No Few Shot Examples found for database %r — skipping Few Shot Examples search",
                     target_db,
                 )
 
@@ -594,7 +594,7 @@ class CandidateRetrievalAgent(BaseAgent):
             path_state["target_db"] = target_db
 
         self.logger.info(
-            "Retrieved %d ColumnAttributes, %d CustomAnalysis, "
+            "Retrieved %d ColumnAttributes, %d Few Shot Examples, "
             "%d SqlAttribute candidates, and subject Term %s "
             "(%d entities queried, subject=%r)",
             len(deduped_col_attr),

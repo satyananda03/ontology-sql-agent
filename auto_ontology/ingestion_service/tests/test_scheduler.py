@@ -60,3 +60,23 @@ def test_jobs_sharing_a_lock_never_overlap() -> None:
     first, second = log[:2], log[2:]
     assert first[0].split()[0] == first[1].split()[0]
     assert second[0].split()[0] == second[1].split()[0]
+
+
+def test_busy_covers_a_pass_waiting_for_the_lock() -> None:
+    async def scenario() -> tuple[bool, bool, bool]:
+        lock = asyncio.Lock()
+        job = _Job("semantic", [], lock)
+        job.start()
+        async with lock:  # the other job holds the lock
+            job.trigger()
+            await asyncio.sleep(0.02)
+            queued = (job.running, job.busy)
+        await asyncio.sleep(0.05)
+        done = job.busy
+        await job.stop()
+        return *queued, done
+
+    running, busy, done = asyncio.run(scenario())
+
+    assert (running, busy) == (False, True)
+    assert done is False

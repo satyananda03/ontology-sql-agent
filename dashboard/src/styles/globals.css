@@ -48,7 +48,6 @@ touching the rest of the dashboard:
     --color-text-secondary: #344054;
     --color-text-muted: #737373;
     --color-text-inverse: #ffffff;
-    --color-toast: #111827;
 
     /* Status: text / background / border */
     --color-success: #047857;
@@ -72,6 +71,7 @@ touching the rest of the dashboard:
     --radius-panel: 16px;
     --radius-card: 24px;
     --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.03);
+    --shadow-float: 0 12px 32px rgba(16, 24, 40, 0.12), 0 2px 6px rgba(16, 24, 40, 0.06);
     --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --font-code: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
@@ -105,37 +105,95 @@ touching the rest of the dashboard:
   .mono, code, pre, textarea.mono { font-family: var(--font-code); font-size: 13px; }
 
   /* Layout */
-  .shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; }
-  .sidebar {
-    margin: 16px 0 16px 16px; padding: 20px 12px;
-    background: var(--color-surface); border: 1px solid var(--color-border);
-    border-radius: var(--radius-card); box-shadow: var(--shadow-card);
-    position: sticky; top: 16px; height: calc(100vh - 32px); overflow-y: auto;
-  }
-  .brand { font-weight: 700; font-size: 16px; padding: 0 12px 20px; letter-spacing: -0.02em; }
-  .brand span { color: var(--color-primary); }
-  .nav { display: flex; flex-direction: column; gap: 2px; }
-  .nav a {
-    padding: 9px 12px; border-radius: var(--radius-control); text-decoration: none;
-    color: var(--color-text-muted); font-weight: 500;
-  }
-  .nav a:hover { background: var(--color-hover); color: var(--color-text); }
-  .nav a.active { background: var(--color-primary-soft); color: var(--color-primary); font-weight: 600; }
-  .nav .group {
-    color: var(--color-text-muted); font-size: 11px; font-weight: 700;
-    letter-spacing: 0.1em; text-transform: uppercase; padding: 16px 12px 6px;
-  }
+  .shell { display: grid; grid-template-columns: auto minmax(0, 1fr); min-height: 100vh; }
   .content { padding: 32px 32px 64px; max-width: 1240px; width: 100%; min-width: 0; }
   .page-head { margin-bottom: 24px; }
   .page-head > p { font-size: 15px; }
 
+  /* Sidebar: brand on top, one expandable card per group, a tab on the right edge to collapse it to icons. */
+  .sidebar {
+    position: sticky; top: 0; z-index: 1; width: 288px; height: 100vh;
+    display: flex; flex-direction: column;
+    background: var(--color-surface); border-right: 1px solid var(--color-border);
+    transition: width 0.2s ease;
+  }
+  .sidebar.collapsed { width: 84px; }
+  .brand {
+    display: flex; align-items: center; gap: 12px; min-height: 84px; padding: 20px;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .sidebar.collapsed .brand { justify-content: center; padding-inline: 0; }
+  .brand-logo {
+    flex: none; display: grid; place-items: center; width: 40px; height: 40px;
+    border-radius: var(--radius-control); background: var(--color-primary-light); color: var(--color-primary);
+  }
+  .brand-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; white-space: nowrap; }
+  .brand-text strong { font-size: 16px; letter-spacing: -0.02em; }
+  .brand-text span { font-size: 12px; color: var(--color-text-muted); }
+  .sidebar.collapsed .brand-text { display: none; }
+
+  .nav { flex: 1; display: flex; flex-direction: column; gap: 12px; padding: 16px; overflow: hidden auto; }
+  .nav-group { display: flex; flex-direction: column; gap: 6px; }
+
+  .nav-group-card {
+    width: 100%; min-height: 72px; gap: 14px; padding: 16px 14px; text-align: left;
+    border-radius: var(--radius-panel); background: var(--color-surface-muted); color: var(--color-text); font-size: 14px;
+  }
+  .nav-group-card:hover { background: var(--color-surface); border-color: var(--color-border-strong); color: var(--color-text); }
+  .nav-group-card.active { background: var(--color-surface); border-color: var(--color-primary); color: var(--color-primary); }
+  .nav-icon, .nav-chevron { flex: none; color: var(--color-text-muted); }
+  .nav-group-card.active :is(.nav-icon, .nav-chevron) { color: var(--color-primary); }
+  .nav-chevron { transition: transform 0.2s ease; }
+  .nav-chevron.open { transform: rotate(90deg); }
+  .nav-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .nav-label { font-size: 15px; font-weight: 700; line-height: 1.35; }
+  .nav-hint { font-size: 12px; font-weight: 500; color: var(--color-text-muted); }
+
+  /* The group's pages, as wide as its card; the icons line up with the card's icon. */
+  .nav-pages { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .nav-page {
+    display: flex; align-items: center; gap: 14px; padding: 10px 16px;
+    border-radius: var(--radius-control); color: var(--color-text-secondary); text-decoration: none; font-weight: 500;
+  }
+  .nav-page:hover { background: var(--color-hover); color: var(--color-text); }
+  .nav-page.active { background: var(--color-primary-light); color: var(--color-primary); }
+  .nav-page.active .nav-hint { color: inherit; opacity: 0.75; }
+
+  /* Collapsed: the page icons alone, a line between groups. */
+  .sidebar.collapsed .nav { padding-inline: 14px; }
+  .sidebar.collapsed .nav-group + .nav-group { border-top: 1px solid var(--color-border); padding-top: 12px; }
+  .nav-rail-link {
+    display: grid; place-items: center; height: 48px;
+    border: 1px solid transparent; border-radius: var(--radius-control); color: var(--color-text-muted);
+  }
+  .nav-rail-link:hover { background: var(--color-hover); color: var(--color-text); }
+  .nav-rail-link.active { background: var(--color-primary-light); border-color: var(--color-primary-border); color: var(--color-primary); }
+
+  .sidebar-toggle {
+    position: absolute; top: 50%; right: -28px; transform: translateY(-50%);
+    width: 28px; height: 56px; padding: 0; justify-content: center;
+    border-left: 0; border-radius: 0 var(--radius-control) var(--radius-control) 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sidebar, .nav-chevron { transition: none; }
+  }
+
+  /* Narrow screens: the sidebar is a bar on top, and collapsing hides its menu. */
   @media (max-width: 760px) {
     .shell { grid-template-columns: minmax(0, 1fr); }
-    .sidebar { position: static; height: auto; margin: 12px 12px 0; padding: 12px; }
-    .brand { padding: 0 4px 8px; }
-    .nav { flex-direction: row; flex-wrap: wrap; }
-    .nav .group { display: none; }
-    .nav a { padding: 6px 10px; }
+    .sidebar, .sidebar.collapsed {
+      position: relative; width: auto; height: auto;
+      border-right: 0; border-bottom: 1px solid var(--color-border);
+    }
+    .sidebar.collapsed .brand { justify-content: flex-start; padding-inline: 16px; }
+    .sidebar.collapsed .brand-text { display: flex; }
+    .sidebar.collapsed .nav { display: none; }
+    .brand { min-height: 0; padding: 12px 16px; }
+    .sidebar-toggle {
+      top: 32px; right: 16px; width: 36px; height: 36px;
+      border-left: 1px solid var(--color-border); border-radius: var(--radius-control);
+    }
     .content { padding: 20px 16px 48px; }
   }
 
@@ -232,6 +290,43 @@ touching the rest of the dashboard:
   }
   dialog.text-dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
 
+  /* Long server job (ProgressDialog) */
+  dialog.progress-dialog {
+    width: min(440px, calc(100vw - 32px)); padding: 28px; color: var(--color-text); text-align: center;
+    background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-card);
+    box-shadow: 0 24px 48px -12px rgba(16, 24, 40, 0.18);
+  }
+  dialog.progress-dialog[open] { animation: dialog-in 160ms ease-out; }
+  dialog.progress-dialog::backdrop { background: rgba(16, 24, 40, 0.45); backdrop-filter: blur(2px); }
+  .progress-dialog .stack { align-items: center; }
+  .progress-icon {
+    width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center;
+    font-size: 22px; font-weight: 700; border: 1px solid;
+  }
+  .progress-icon.tone-running { background: var(--color-primary-light); border-color: var(--color-primary-border); }
+  .progress-icon.tone-success { background: var(--color-success-bg); border-color: var(--color-success-border); color: var(--color-success); }
+  .progress-icon.tone-error { background: var(--color-error-bg); border-color: var(--color-error-border); color: var(--color-error); }
+  .progress-ring {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 3px solid var(--color-primary-soft); border-top-color: var(--color-primary);
+    animation: spin 0.8s linear infinite;
+  }
+  .progress-bar {
+    position: relative; width: 100%; height: 6px; overflow: hidden;
+    border-radius: 999px; background: var(--color-primary-light);
+  }
+  .progress-bar::after {
+    content: ""; position: absolute; inset: 0 auto 0 0; width: 40%; border-radius: inherit;
+    background: var(--color-primary); animation: progress-slide 1.4s ease-in-out infinite;
+  }
+  .progress-actions { justify-content: center; margin-top: 4px; }
+  @keyframes progress-slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+  @keyframes dialog-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } }
+  @media (prefers-reduced-motion: reduce) {
+    dialog.progress-dialog[open] { animation: none; }
+    .progress-ring, .progress-bar::after { animation-duration: 3s; }
+  }
+
   /* Feedback */
   .banner {
     border: 1px solid var(--color-primary-border); background: var(--color-primary-light); color: var(--color-primary);
@@ -244,10 +339,40 @@ touching the rest of the dashboard:
     animation: spin 0.8s linear infinite; display: inline-block;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+  /* Inside a button the spinner takes the label's color, so it reads on primary and danger alike. */
+  button .spinner { border-color: currentColor; border-top-color: transparent; }
+  /* The clicked button stays disabled against double clicks, but not dimmed: its spinner must read. */
+  button[aria-busy="true"]:disabled { opacity: 1; cursor: progress; }
+  /* A badge shown before its save lands (certify): a smaller spinner in the badge's colour, in place of its dot. */
+  .badge .spinner { width: 10px; height: 10px; border-color: currentColor; border-top-color: transparent; }
+  .badge:has(.spinner)::before { display: none; }
+  /* Toast: a floating card, a tone-coloured icon, and a bar that runs down until it closes. */
+  .toaster { position: fixed; right: 20px; bottom: 20px; z-index: 10; }
   .toast {
-    position: fixed; right: 20px; bottom: 20px; z-index: 10;
-    background: var(--color-toast); color: var(--color-text-inverse);
-    padding: 10px 16px; border-radius: var(--radius-control);
+    --toast-tone: var(--color-success); --toast-tone-bg: var(--color-success-bg);
+    position: relative; overflow: hidden; display: flex; align-items: center; gap: 12px;
+    min-width: 240px; max-width: min(420px, calc(100vw - 32px)); padding: 12px 18px 14px 12px;
+    background: var(--color-surface); color: var(--color-text); font-weight: 600;
+    border: 1px solid var(--color-border); border-radius: var(--radius-panel); box-shadow: var(--shadow-float);
+    animation: toast-in 0.25s ease-out;
+  }
+  .toast.tone-error { --toast-tone: var(--color-error); --toast-tone-bg: var(--color-error-bg); }
+  .toast-icon {
+    flex: none; display: grid; place-items: center; width: 32px; height: 32px;
+    border-radius: 50%; background: var(--toast-tone-bg); color: var(--toast-tone);
+  }
+  .toast::after {
+    content: ""; position: absolute; inset: auto 0 0 0; height: 3px; background: var(--toast-tone);
+    transform-origin: left; animation: toast-countdown var(--toast-ms) linear forwards;
+  }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(12px) scale(0.98); } }
+  @keyframes toast-countdown { to { transform: scaleX(0); } }
+  @media (prefers-reduced-motion: reduce) {
+    .toast { animation: none; }
+  }
+  @media (max-width: 760px) {
+    .toaster { right: 16px; bottom: 16px; left: 16px; }
+    .toast { max-width: none; }
   }
   pre.code {
     background: var(--color-surface-muted); border: 1px solid var(--color-border); border-radius: var(--radius-control);
@@ -287,8 +412,7 @@ touching the rest of the dashboard:
     padding-top: 16px; border-top: 1px solid var(--color-border);
   }
   .operation-body { flex: 1; min-width: 0; }
-  .operation-body h3 { margin: 0; }
-  .operation-body .row { margin-bottom: 4px; }
+  .operation-body h3 { margin: 0 0 4px; }
   @media (max-width: 760px) { .operation { flex-direction: column; } }
 
   /*

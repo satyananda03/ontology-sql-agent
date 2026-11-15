@@ -46,6 +46,22 @@ def test_schemas_and_excluded_tables_apply_to_every_frame(config) -> None:
     assert len(columns) == 1
 
 
+def test_excluded_columns_match_by_name_or_by_table_dot_name(config) -> None:
+    config("databases: {db: {exclude_columns: [Teks_BM25, dim_user.note]}}")
+    columns = pd.DataFrame(
+        {
+            "table_schema": ["dwh"] * 5,
+            "table_name": ["dim_user", "dim_user", "dim_user", "tmp", "tmp"],
+            "column_name": ["id", "teks_bm25", "note", "teks_bm25", "note"],
+        }
+    )
+    _tables_kept, kept = ingest_config.apply("db", _tables(), columns)
+    assert list(zip(kept["table_name"], kept["column_name"])) == [
+        ("dim_user", "id"),
+        ("tmp", "note"),
+    ]
+
+
 def test_a_listed_schema_with_no_tables_raises_instead_of_emptying_the_catalog(
     config,
 ) -> None:

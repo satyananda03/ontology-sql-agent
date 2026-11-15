@@ -2,27 +2,73 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState } from "react";
+import { queryClient } from "@/lib/query-client";
 import { Badge } from "./Badge";
+import { BusyButton } from "./BusyButton";
+import { Spinner } from "./Feedback";
+import { toast } from "./Toaster";
+
+// Certify writes run one at a time in click order, so a reviewer can click down a list without waiting.
+let queueTail: Promise<unknown> = Promise.resolve();
+let queued = 0;
+
+function enqueueCertify<T>(write: () => Promise<T>): Promise<T> {
+  queued++;
+  const run = queueTail.then(write);
+  queueTail = run
+    .catch(() => undefined)
+    .finally(() => {
+      // Other pages show certification too: refresh them once the queue is empty, not per click.
+      if (--queued === 0) void queryClient.invalidateQueries();
+    });
+  return run;
+}
 
 interface CertifyToggleProps {
   certified: boolean | null | undefined;
-  onChange: (certified: boolean) => void;
-  disabled?: boolean;
+  /** What is certified, named in the failure toast: a column, an attribute, "nama term"... */
+  name?: string | null;
+  /** Saves the flag and updates the cached data; rejects when the save failed. */
+  onChange: (certified: boolean) => Promise<unknown>;
 }
 
-/** One control per item: a Certify button while pending; the badge and an undo once certified. */
-export function CertifyToggle({ certified, onChange, disabled }: CertifyToggleProps) {
-  return certified ? (
+/**
+ * One control per item: a Certify button while pending; the badge and an undo once certified.
+ * A click shows its outcome at once and saves through the queue; a failed save reverts and says so.
+ */
+export function CertifyToggle({ certified, name, onChange }: CertifyToggleProps) {
+  // The flag being saved, shown in place of the stored one until the save ends.
+  const [saving, setSaving] = useState<boolean>();
+  const busy = saving !== undefined;
+
+  async function save(value: boolean) {
+    setSaving(value);
+    try {
+      await enqueueCertify(() => onChange(value));
+      toast(value ? "Certified" : "Certify dibatalkan");
+    } catch {
+      toast([value ? "Certify" : "Batalkan certify", name, "gagal"].filter(Boolean).join(" "), "error");
+    } finally {
+      setSaving(undefined);
+    }
+  }
+
+  return (saving ?? certified) ? (
     <div className="row certify">
-      <Badge tone="success">Certified</Badge>
-      <button className="link small" disabled={disabled} onClick={() => onChange(false)}>
-        Batalkan
-      </button>
+      <Badge tone="success">
+        {busy && <Spinner />}
+        Certified
+      </Badge>
+      {!busy && (
+        <button className="link small" onClick={() => save(false)}>
+          Batalkan
+        </button>
+      )}
     </div>
   ) : (
-    <button className="certify" disabled={disabled} onClick={() => onChange(true)}>
+    <BusyButton className="certify" busy={busy} onClick={() => save(true)}>
       Certify
-    </button>
+    </BusyButton>
   );
 }
 

@@ -36,9 +36,7 @@ export default function PlaygroundPage() {
   return (
     <>
       <PageHeader title="Playground">
-        Uji tool <em>search database records</em>. Setiap pesan dikirim apa adanya ke{" "}
-        <code>POST /api/sql-agent/query</code> dan hasilnya sama persis dengan yang diterima agent lewat MCP. Pesan
-        tidak saling terhubung dan riwayat hanya tersimpan di layar ini.
+        Uji tool <em>search database records</em>.
       </PageHeader>
       <div className="chat" aria-live="polite">
         {turns.length === 0 && <p className="muted">Belum ada pertanyaan.</p>}

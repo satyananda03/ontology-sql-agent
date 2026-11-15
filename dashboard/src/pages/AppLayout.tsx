@@ -4,6 +4,7 @@
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "@/components/layout";
 import { Toaster } from "@/components/ui";
+import { JobMonitor } from "@/features/settings/components/JobMonitor";
 
 /** Sidebar on the left, the current page on the right. */
 export default function AppLayout() {
@@ -13,6 +14,7 @@ export default function AppLayout() {
       <main className="content">
         <Outlet />
       </main>
+      <JobMonitor />
       <Toaster />
     </div>
   );

@@ -1,5 +1,10 @@
-"""Which columns admit a hand-edited sample value.
+"""What a column's declared type says about how it may be used.
 
+Embeddings (:data:`VECTOR_TYPES`) stay in the catalog, where row search by
+meaning finds them, but are never described, embedded or shown to the SQL
+generator: no question names one, and writing one into SQL is never the answer.
+
+The rest of this module decides which columns admit a hand-edited sample value.
 Profiled samples arrive already carrying the column's own type, but an edited
 one is whatever text the user typed. Only a column whose declared SQL type can
 hold that text as-is is editable: the text family (``text``, ``varchar``,
@@ -12,6 +17,9 @@ overwrite them with text the warehouse would never return.
 """
 
 import re
+
+#: pgvector's column types, as ``format_type`` spells them.
+VECTOR_TYPES = frozenset({"vector", "halfvec", "sparsevec"})
 
 _TEXT_TYPES = frozenset(
     {
@@ -89,6 +97,7 @@ def sample_values_edit_error(data_type: str | None) -> str | None:
 
 
 __all__ = [
+    "VECTOR_TYPES",
     "sample_values_edit_error",
     "sample_values_editable",
 ]

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState } from "react";
-import { Badge, ErrorBanner } from "@/components/ui";
+import { Badge, BusyButton, ErrorBanner } from "@/components/ui";
 import { useAction } from "@/hooks/useAction";
 import type { S } from "@/types";
 import { saveAnalysis, validateAnalysisSql } from "../api";
@@ -57,9 +57,9 @@ export function AnalysisForm({ analysis, onDone }: AnalysisFormProps) {
       <ErrorBanner message={action.error} />
       {valid === false && <div className="banner">SQL tidak valid terhadap katalog.</div>}
       <div className="row">
-        <button className="primary" onClick={save} disabled={action.busy || !name.trim() || !sql.trim()}>
+        <BusyButton className="primary" onClick={save} busy={action.busy} disabled={!name.trim() || !sql.trim()}>
           Simpan
-        </button>
+        </BusyButton>
         <button onClick={validate} disabled={action.busy || !sql.trim()}>
           Validasi SQL
         </button>

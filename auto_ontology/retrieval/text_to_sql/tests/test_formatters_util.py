@@ -140,6 +140,22 @@ def test_prompt_spells_out_sample_values_without_list_punctuation() -> None:
     assert "['open'" not in rendered
 
 
+def test_prompt_omits_embedding_columns() -> None:
+    rendered = format_tables_for_prompt(
+        [
+            {
+                "name": "news",
+                "columns": [
+                    {"name": "title", "data_type": "text"},
+                    {"name": "title_vector", "data_type": "vector"},
+                ],
+            }
+        ]
+    )
+    assert "title | text" in rendered
+    assert "title_vector" not in rendered
+
+
 def test_prompt_omits_sample_values_when_absent() -> None:
     rendered = format_tables_for_prompt(
         [
