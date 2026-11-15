@@ -318,7 +318,7 @@
     },
     "/semantic/status": {
       "get": {
-        "description": "Report whether a compilation pass is executing right now, when the last\none finished successfully, and when it last failed (if that's more recent\nthan the last success).\n\nBacked by the ``semantic_compilation_history`` table (see ``history.py``),\nwhich this service owns \u2014 the Auto Ontology API server relays this response rather\nthan reading that table itself.",
+        "description": "Report whether a compilation pass is executing right now, when the last\none finished successfully, and when it last failed (if that's more recent\nthan the last success).\n\nThe last two come from the ``semantic_compilation_status`` row this\nservice's scheduler writes.",
         "operationId": "semantic_status_semantic_status_get",
         "responses": {
           "200": {

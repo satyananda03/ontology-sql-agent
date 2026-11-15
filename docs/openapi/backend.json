@@ -1,96 +1,6 @@
 {
   "components": {
     "schemas": {
-      "Acronym": {
-        "description": "One glossary entry the SQL agent reads on every question.",
-        "properties": {
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "description": {
-            "title": "Description",
-            "type": "string"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "updated_at": {
-            "format": "date-time",
-            "title": "Updated At",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "description",
-          "created_at",
-          "updated_at"
-        ],
-        "title": "Acronym",
-        "type": "object"
-      },
-      "AcronymCreate": {
-        "properties": {
-          "description": {
-            "default": "",
-            "maxLength": 4000,
-            "title": "Description",
-            "type": "string"
-          },
-          "name": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "name"
-        ],
-        "title": "AcronymCreate",
-        "type": "object"
-      },
-      "AcronymUpdate": {
-        "description": "Fields to change; an omitted field keeps its value.",
-        "properties": {
-          "description": {
-            "anyOf": [
-              {
-                "maxLength": 4000,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "maxLength": 200,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          }
-        },
-        "title": "AcronymUpdate",
-        "type": "object"
-      },
       "Body_import_model_api_model_import_post": {
         "properties": {
           "file": {
@@ -136,17 +46,6 @@
             ],
             "title": "Created"
           },
-          "created_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created By"
-          },
           "datatype": {
             "anyOf": [
               {
@@ -184,17 +83,6 @@
               }
             ],
             "title": "Modified"
-          },
-          "modified_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Modified By"
           },
           "name": {
             "anyOf": [
@@ -1252,19 +1140,6 @@
         "title": "DataResponse[ExplorationRelatedNodes]",
         "type": "object"
       },
-      "DataResponse_Group_": {
-        "additionalProperties": true,
-        "properties": {
-          "data": {
-            "$ref": "#/components/schemas/Group"
-          }
-        },
-        "required": [
-          "data"
-        ],
-        "title": "DataResponse[Group]",
-        "type": "object"
-      },
       "DataResponse_IdRef_": {
         "additionalProperties": true,
         "properties": {
@@ -1524,17 +1399,6 @@
               }
             ],
             "title": "Num Of Schemas"
-          },
-          "owner_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Owner Id"
           },
           "schemas": {
             "items": {
@@ -2239,6 +2103,96 @@
         "title": "GlobalSearchRequest",
         "type": "object"
       },
+      "GlossaryEntry": {
+        "description": "One glossary entry the SQL agent reads on every question.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "GlossaryEntry",
+        "type": "object"
+      },
+      "GlossaryEntryCreate": {
+        "properties": {
+          "description": {
+            "default": "",
+            "maxLength": 4000,
+            "title": "Description",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "GlossaryEntryCreate",
+        "type": "object"
+      },
+      "GlossaryEntryUpdate": {
+        "description": "Fields to change; an omitted field keeps its value.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "GlossaryEntryUpdate",
+        "type": "object"
+      },
       "GraphLink": {
         "additionalProperties": true,
         "description": "An undirected term\u2194term link (two terms sharing at least one table).\n\n``relationship_types`` names the relationship kind(s)\n(``REPRESENTS``, ``HAS_ATTRIBUTE``, ``SEMANTIC_FK``) connecting either\nterm to a table they share, for labeling the connection in the graph.",
@@ -2264,233 +2218,6 @@
           "target"
         ],
         "title": "GraphLink",
-        "type": "object"
-      },
-      "Group": {
-        "additionalProperties": true,
-        "description": "A group, its members, its role, and the permissions that role grants.\n\n``role`` is the stored value. ``roles`` is that same role as a one-element\nlist, and ``permissions`` is ``resource:action`` strings expanded from it.\nMembership does not change an account's own role.",
-        "properties": {
-          "color": {
-            "title": "Color",
-            "type": "string"
-          },
-          "created": {
-            "format": "date-time",
-            "title": "Created",
-            "type": "string"
-          },
-          "description": {
-            "title": "Description",
-            "type": "string"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "permissions": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Permissions",
-            "type": "array"
-          },
-          "role": {
-            "title": "Role",
-            "type": "string"
-          },
-          "roles": {
-            "items": {
-              "$ref": "#/components/schemas/GroupRole"
-            },
-            "title": "Roles",
-            "type": "array"
-          },
-          "users": {
-            "items": {
-              "$ref": "#/components/schemas/GroupUser"
-            },
-            "title": "Users",
-            "type": "array"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "description",
-          "color",
-          "role",
-          "roles",
-          "users",
-          "permissions",
-          "created"
-        ],
-        "title": "Group",
-        "type": "object"
-      },
-      "GroupCreate": {
-        "properties": {
-          "color": {
-            "title": "Color",
-            "type": "string"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "role": {
-            "title": "Role",
-            "type": "string"
-          },
-          "user_ids": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "title": "User Ids",
-            "type": "array"
-          }
-        },
-        "required": [
-          "name",
-          "color",
-          "role"
-        ],
-        "title": "GroupCreate",
-        "type": "object"
-      },
-      "GroupRole": {
-        "additionalProperties": true,
-        "description": "One role on a group.\n\nA group carries a single role, ``admin`` or ``viewer``. ``id`` and\n``name`` are that same value: there is no separate role catalog.",
-        "properties": {
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name"
-        ],
-        "title": "GroupRole",
-        "type": "object"
-      },
-      "GroupUpdate": {
-        "properties": {
-          "color": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Color"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "role": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Role"
-          },
-          "user_ids": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "User Ids"
-          }
-        },
-        "title": "GroupUpdate",
-        "type": "object"
-      },
-      "GroupUser": {
-        "additionalProperties": true,
-        "description": "An account as a member of a group.\n\n``name`` and ``email`` are empty when the account has been deleted and\nthe membership remains. ``role`` is the account's own role, not the\ngroup's.",
-        "properties": {
-          "email": {
-            "title": "Email",
-            "type": "string"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "role": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Role"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "email"
-        ],
-        "title": "GroupUser",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -2598,50 +2325,6 @@
           "count"
         ],
         "title": "ListResponse[GlobalSearchItem]",
-        "type": "object"
-      },
-      "ListResponse_Group_": {
-        "additionalProperties": true,
-        "properties": {
-          "count": {
-            "title": "Count",
-            "type": "integer"
-          },
-          "data": {
-            "items": {
-              "$ref": "#/components/schemas/Group"
-            },
-            "title": "Data",
-            "type": "array"
-          }
-        },
-        "required": [
-          "data",
-          "count"
-        ],
-        "title": "ListResponse[Group]",
-        "type": "object"
-      },
-      "ListResponse_Owner_": {
-        "additionalProperties": true,
-        "properties": {
-          "count": {
-            "title": "Count",
-            "type": "integer"
-          },
-          "data": {
-            "items": {
-              "$ref": "#/components/schemas/Owner"
-            },
-            "title": "Data",
-            "type": "array"
-          }
-        },
-        "required": [
-          "data",
-          "count"
-        ],
-        "title": "ListResponse[Owner]",
         "type": "object"
       },
       "ListResponse_SqlAttribute_": {
@@ -2784,17 +2467,6 @@
             ],
             "title": "Description Certified"
           },
-          "owner_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Owner Id"
-          },
           "sample_values": {
             "anyOf": [
               {
@@ -2843,17 +2515,6 @@
             "title": "Id",
             "type": "string"
           },
-          "owner_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Owner Id"
-          },
           "sample_values": {
             "anyOf": [
               {
@@ -2896,57 +2557,6 @@
           "total"
         ],
         "title": "ObjectPageResponse[TableColumns]",
-        "type": "object"
-      },
-      "Owner": {
-        "additionalProperties": true,
-        "description": "A user or a group that can be chosen as an owner.\n\n``permissions`` is the ``resource:action`` list the account's role, or the\ngroup's role, grants. ``member_ids`` is empty for a user. For a group it\nis the caller when they belong to that group, and empty otherwise.\n``color`` is only set for a group.",
-        "properties": {
-          "color": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Color"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "kind": {
-            "title": "Kind",
-            "type": "string"
-          },
-          "member_ids": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Member Ids",
-            "type": "array"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "permissions": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Permissions",
-            "type": "array"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "kind",
-          "permissions"
-        ],
-        "title": "Owner",
         "type": "object"
       },
       "PagedListResponse_ColumnAttribute_": {
@@ -3113,15 +2723,11 @@
       },
       "Rule": {
         "additionalProperties": true,
-        "description": "A saved search, and the tags to apply to everything it matches.\n\n``search_term``, ``text_match_option`` and ``filters`` are the global-search\nrequest the rule replays; together they are what the rule *is*, which is why\nthey are required rather than optional like most of this module \u2014 a rule\nmissing any of the three matches nothing.\n\n``tags`` carry the name to show and the id to act by, both read from the tag\ntable on every read rather than from what the write that saved them sent \u2014\nso a renamed tag reads back renamed here, and a caller posting whole tag\nobjects is answered with the tags as they are rather than as it sent them.\nSee ``RuleTagRef`` in ``auto_ontology/server/rules/router.py``. The ids are checked\nagainst that table, so a rule cannot apply a tag that does not exist.\n\n``created_by`` is the id of the user who saved it, read from the trusted\ngateway header rather than from the request body \u2014 see\n``auto_ontology/server/identity.py``. ``modified_by`` is the same for whoever\nlast renamed it, and null until somebody has \u2014 which is the same fact as\n``modified`` still equalling ``created``, and null again for a rename whose\nrequest carried no identity to record.\n\n``created`` and ``modified`` follow the convention :class:`Tag` sets: a\ntimezone-aware ``datetime`` serialised as ISO 8601, from one clock.",
+        "description": "A saved search, and the tags to apply to everything it matches.\n\n``search_term``, ``text_match_option`` and ``filters`` are the global-search\nrequest the rule replays; together they are what the rule *is*, which is why\nthey are required rather than optional like most of this module \u2014 a rule\nmissing any of the three matches nothing.\n\n``tags`` carry the name to show and the id to act by, both read from the tag\ntable on every read rather than from what the write that saved them sent \u2014\nso a renamed tag reads back renamed here, and a caller posting whole tag\nobjects is answered with the tags as they are rather than as it sent them.\nSee ``RuleTagRef`` in ``auto_ontology/server/rules/router.py``. The ids are checked\nagainst that table, so a rule cannot apply a tag that does not exist.\n\n``created`` and ``modified`` follow the convention :class:`Tag` sets: a\ntimezone-aware ``datetime`` serialised as ISO 8601, from one clock.",
         "properties": {
           "created": {
             "format": "date-time",
             "title": "Created",
-            "type": "string"
-          },
-          "created_by": {
-            "title": "Created By",
             "type": "string"
           },
           "filters": {
@@ -3135,17 +2741,6 @@
             "format": "date-time",
             "title": "Modified",
             "type": "string"
-          },
-          "modified_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Modified By"
           },
           "name": {
             "title": "Name",
@@ -3173,7 +2768,6 @@
           "search_term",
           "text_match_option",
           "filters",
-          "created_by",
           "created",
           "modified"
         ],
@@ -3293,17 +2887,6 @@
           "id": {
             "title": "Id",
             "type": "string"
-          },
-          "owner_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Owner Id"
           },
           "schema_name": {
             "anyOf": [
@@ -3520,10 +3103,6 @@
             "title": "Distinct Value Probing Enabled",
             "type": "boolean"
           },
-          "pii_detection_enabled": {
-            "title": "Pii Detection Enabled",
-            "type": "boolean"
-          },
           "sql_query_timeout_seconds": {
             "title": "Sql Query Timeout Seconds",
             "type": "integer"
@@ -3531,7 +3110,6 @@
         },
         "required": [
           "distinct_value_probing_enabled",
-          "pii_detection_enabled",
           "sql_query_timeout_seconds"
         ],
         "title": "Settings",
@@ -3551,17 +3129,6 @@
               }
             ],
             "title": "Distinct Value Probing Enabled"
-          },
-          "pii_detection_enabled": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pii Detection Enabled"
           },
           "sql_query_timeout_seconds": {
             "anyOf": [
@@ -3689,17 +3256,6 @@
             ],
             "title": "Created"
           },
-          "created_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created By"
-          },
           "database_name": {
             "anyOf": [
               {
@@ -3760,17 +3316,6 @@
             ],
             "title": "Modified"
           },
-          "modified_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Modified By"
-          },
           "name": {
             "anyOf": [
               {
@@ -3781,17 +3326,6 @@
               }
             ],
             "title": "Name"
-          },
-          "owner_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Owner Id"
           },
           "source": {
             "anyOf": [
@@ -3898,17 +3432,6 @@
             "minLength": 1,
             "title": "Name",
             "type": "string"
-          },
-          "owner_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Owner Id"
           },
           "source": {
             "default": "manual",
@@ -4018,17 +3541,6 @@
               }
             ],
             "title": "Name"
-          },
-          "owner_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Owner Id"
           }
         },
         "title": "SqlAttributeMetadataPatch",
@@ -4749,17 +4261,6 @@
             ],
             "title": "Name"
           },
-          "owner_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Owner Id"
-          },
           "schema_name": {
             "anyOf": [
               {
@@ -4820,23 +4321,12 @@
       },
       "Tag": {
         "additionalProperties": true,
-        "description": "A tag, as both the list and the create endpoint return it.\n\nThe four columns describing *when* are required, unlike most of this\nmodule: each is ``NOT NULL`` and ``auto_ontology.dal.tags`` selects them on every\npath.\n\n``created`` and ``modified`` are the first timestamps this module carries,\nso they set the convention: a timezone-aware ``datetime``, which Pydantic\nserialises as ISO 8601 and the client parses directly. They are read from\nthe database rather than the application clock, so a client comparing two\ntags is comparing one clock.\n\nThe two describing *who* are nullable, and each null says something\ndifferent. ``created_by`` is null for a tag made by a caller that reached\nFastAPI without the gateway's identity header. ``modified_by`` is\nadditionally null for a tag nobody has renamed, which is the same fact\n``modified == created`` states.\n\nBoth are opaque Better Auth user ids. Resolving one to a name is the\ngateway's job -- the accounts live in a schema this service does not own --\nso this API deliberately answers with the id it stored.",
+        "description": "A tag, as both the list and the create endpoint return it.\n\nThe two columns describing *when* are required, unlike most of this\nmodule: each is ``NOT NULL`` and ``auto_ontology.dal.tags`` selects them on every\npath.\n\n``created`` and ``modified`` are the first timestamps this module carries,\nso they set the convention: a timezone-aware ``datetime``, which Pydantic\nserialises as ISO 8601 and the client parses directly. They are read from\nthe database rather than the application clock, so a client comparing two\ntags is comparing one clock.",
         "properties": {
           "created": {
             "format": "date-time",
             "title": "Created",
             "type": "string"
-          },
-          "created_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created By"
           },
           "id": {
             "title": "Id",
@@ -4846,17 +4336,6 @@
             "format": "date-time",
             "title": "Modified",
             "type": "string"
-          },
-          "modified_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Modified By"
           },
           "name": {
             "title": "Name",
@@ -4907,7 +4386,7 @@
       },
       "TagItem": {
         "additionalProperties": true,
-        "description": "One object carrying a tag, whichever of the five kinds it is.\n\n``type`` is what tells them apart, as :class:`TagTargetType` spells the five.\n\n``path`` says where the object sits \u2014 ``database.schema`` for a Table,\n``database.schema.table`` for a Column, and the owning Term for either kind\nof attribute, which are properties of one in the same sense and so are\ndescribed the same way. Null only for a Term, which is a glossary entry\nrather than a catalog object and sits under nothing.\n\n``tagged_by`` and ``rule`` are where the label came from, for the page's\n\"Tagged By\" column: the account that applied it by hand, or the rule that\nmatched. At most one is set \u2014 a label has one source \u2014 and both null is an\nanswer rather than a gap: it is what an attach carrying no identity records,\nso the page reads it as \"Auto Generated\", the deployment having labelled\nthis itself. A row written before either column existed reads the same way,\nsince a label nobody claimed is a label nobody claimed.\n\n``tagged_by`` is an opaque Better Auth user id, resolved to a name by the\ngateway for the reason :class:`Tag`'s authors are: the accounts live in a\nschema this service does not own. An id that resolves to nothing reads as\n\"Auto Generated\" as well \u2014 these are not foreign keys, so an account can be\ndeleted and leave the label behind, and the column names a person or a rule\nor neither rather than spelling out which kind of nobody this is.\n\nThe four id fields are the same relationships as ids, which is what a link\nto the object's own page is built from: a Table and a Column are addressed\nby their whole catalog chain, an attribute by the Term whose page lists it,\nand a Term by its own id alone. Each kind fills only the ones it has.",
+        "description": "One object carrying a tag, whichever of the five kinds it is.\n\n``type`` is what tells them apart, as :class:`TagTargetType` spells the five.\n\n``path`` says where the object sits \u2014 ``database.schema`` for a Table,\n``database.schema.table`` for a Column, and the owning Term for either kind\nof attribute, which are properties of one in the same sense and so are\ndescribed the same way. Null only for a Term, which is a glossary entry\nrather than a catalog object and sits under nothing.\n\n``rule`` is the rule that applied the label, or null for one applied by\nhand.\n\nThe four id fields are the same relationships as ids, which is what a link\nto the object's own page is built from: a Table and a Column are addressed\nby their whole catalog chain, an attribute by the Term whose page lists it,\nand a Term by its own id alone. Each kind fills only the ones it has.",
         "properties": {
           "database_id": {
             "anyOf": [
@@ -4975,17 +4454,6 @@
             "format": "date-time",
             "title": "Tagged",
             "type": "string"
-          },
-          "tagged_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tagged By"
           },
           "term_id": {
             "anyOf": [
@@ -5138,17 +4606,6 @@
             ],
             "title": "Name Certified"
           },
-          "owner_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Owner Id"
-          },
           "synonyms": {
             "anyOf": [
               {
@@ -5231,17 +4688,6 @@
             ],
             "title": "Created"
           },
-          "created_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created By"
-          },
           "description": {
             "anyOf": [
               {
@@ -5280,17 +4726,6 @@
             ],
             "title": "Modified"
           },
-          "modified_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Modified By"
-          },
           "name": {
             "anyOf": [
               {
@@ -5312,17 +4747,6 @@
               }
             ],
             "title": "Name Certified"
-          },
-          "owner_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Owner Id"
           },
           "related_terms": {
             "items": {
@@ -5568,17 +4992,6 @@
             ],
             "title": "Name Certified"
           },
-          "owner_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Owner Id"
-          },
           "schema_names": {
             "anyOf": [
               {
@@ -5794,16 +5207,22 @@
             ],
             "title": "Name Certified"
           },
-          "owner_id": {
+          "synonyms": {
             "anyOf": [
               {
-                "type": "string"
+                "items": {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "type": "array"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Owner Id"
+            "title": "Synonyms"
           }
         },
         "title": "TermUpdate",
@@ -6041,10 +5460,6 @@
             "title": "Color",
             "type": "string"
           },
-          "created_by": {
-            "title": "Created By",
-            "type": "string"
-          },
           "description": {
             "anyOf": [
               {
@@ -6071,8 +5486,7 @@
         "required": [
           "name",
           "color",
-          "items",
-          "created_by"
+          "items"
         ],
         "title": "ZoneCreate",
         "type": "object"
@@ -6188,161 +5602,6 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/api/acronyms": {
-      "get": {
-        "description": "Return every glossary acronym, ordered by name.",
-        "operationId": "list_acronyms_api_acronyms_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/Acronym"
-                  },
-                  "title": "Response List Acronyms Api Acronyms Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "List Acronyms",
-        "tags": [
-          "settings"
-        ]
-      },
-      "post": {
-        "description": "Add one acronym; 409 when the name is taken.",
-        "operationId": "create_acronym_api_acronyms_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AcronymCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Acronym"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Create Acronym",
-        "tags": [
-          "settings"
-        ]
-      }
-    },
-    "/api/acronyms/{acronym_id}": {
-      "delete": {
-        "description": "Remove one acronym; 404 when absent.",
-        "operationId": "delete_acronym_api_acronyms__acronym_id__delete",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "acronym_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Acronym Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Delete Acronym",
-        "tags": [
-          "settings"
-        ]
-      },
-      "patch": {
-        "description": "Rename or redescribe one acronym; 404 when absent, 409 on a taken name.",
-        "operationId": "update_acronym_api_acronyms__acronym_id__patch",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "acronym_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Acronym Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AcronymUpdate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Acronym"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Update Acronym",
-        "tags": [
-          "settings"
-        ]
-      }
-    },
     "/api/columns/{table_id}": {
       "get": {
         "description": "Columns for a table.\n\nColumns come back ordered by ordinal position, and *skip*/*limit* select\none page of that order; ``total`` reports how many the table has in full,\nso a pager knows when to stop asking. Omitting *limit* returns every\ncolumn, which is what the lazy catalog tree loads.",
@@ -7407,35 +6666,39 @@
         ]
       }
     },
-    "/api/groups": {
+    "/api/glossary": {
       "get": {
-        "description": "Return every group, ordered by name, with its members. Requires admin.",
-        "operationId": "list_groups_api_groups_get",
+        "description": "Return every glossary entry, ordered by name.",
+        "operationId": "list_glossary_api_glossary_get",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse_Group_"
+                  "items": {
+                    "$ref": "#/components/schemas/GlossaryEntry"
+                  },
+                  "title": "Response List Glossary Api Glossary Get",
+                  "type": "array"
                 }
               }
             },
             "description": "Successful Response"
           }
         },
-        "summary": "List Groups",
+        "summary": "List Glossary",
         "tags": [
-          "users"
+          "settings"
         ]
       },
       "post": {
-        "description": "Create a group and its members. Requires the admin role.\n\nThe caller is the gateway's identity header. A missing header is 401; a\ncaller who is not an admin is 403.\n\n409 when another group already holds the name, compared\ncase-insensitively on the trimmed value. 400 when a member id is not an\naccount, or when the name, color, or role is missing or invalid.",
-        "operationId": "create_group_api_groups_post",
+        "description": "Add one glossary entry; 409 when the name is taken.",
+        "operationId": "create_glossary_entry_api_glossary_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/GroupCreate"
+                "$ref": "#/components/schemas/GlossaryEntryCreate"
               }
             }
           },
@@ -7446,7 +6709,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DataResponse_Group_"
+                  "$ref": "#/components/schemas/GlossaryEntry"
                 }
               }
             },
@@ -7463,36 +6726,30 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Create Group",
+        "summary": "Create Glossary Entry",
         "tags": [
-          "users"
+          "settings"
         ]
       }
     },
-    "/api/groups/{group_id}": {
+    "/api/glossary/{entry_id}": {
       "delete": {
-        "description": "Delete one group. Its membership is deleted with it.\n\nRequires the admin role. 404 rather than 204 for an id that is not\nthere: the caller deleted from a list it has already read, so a missing\ngroup means that list is stale.",
-        "operationId": "delete_group_api_groups__group_id__delete",
+        "description": "Remove one glossary entry; 404 when absent.",
+        "operationId": "delete_glossary_entry_api_glossary__entry_id__delete",
         "parameters": [
           {
             "in": "path",
-            "name": "group_id",
+            "name": "entry_id",
             "required": true,
             "schema": {
-              "title": "Group Id",
+              "format": "uuid",
+              "title": "Entry Id",
               "type": "string"
             }
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DataResponse_IdRef_"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "422": {
@@ -7506,62 +6763,22 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Delete Group",
+        "summary": "Delete Glossary Entry",
         "tags": [
-          "users"
-        ]
-      },
-      "get": {
-        "description": "Return one group. Requires admin.\n\n404 for an unknown id rather than an empty group: the caller asked for a\nrow it expects to exist.",
-        "operationId": "get_group_api_groups__group_id__get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "group_id",
-            "required": true,
-            "schema": {
-              "title": "Group Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DataResponse_Group_"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Get Group",
-        "tags": [
-          "users"
+          "settings"
         ]
       },
       "patch": {
-        "description": "Update a group's fields and, when sent, replace its members.\n\nRequires the admin role, for the same reason create does.\n\nOmitting ``user_ids`` leaves membership alone. Sending a list replaces\nit, and an empty list clears it. A patch that names no field returns the\ngroup unchanged.\n\n404 for an unknown id, 409 for a name another group holds, 400 for an\ninvalid field or a member id that is not an account.",
-        "operationId": "update_group_api_groups__group_id__patch",
+        "description": "Rename or redescribe one glossary entry; 404 when absent, 409 on a taken name.",
+        "operationId": "update_glossary_entry_api_glossary__entry_id__patch",
         "parameters": [
           {
             "in": "path",
-            "name": "group_id",
+            "name": "entry_id",
             "required": true,
             "schema": {
-              "title": "Group Id",
+              "format": "uuid",
+              "title": "Entry Id",
               "type": "string"
             }
           }
@@ -7570,7 +6787,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/GroupUpdate"
+                "$ref": "#/components/schemas/GlossaryEntryUpdate"
               }
             }
           },
@@ -7581,7 +6798,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DataResponse_Group_"
+                  "$ref": "#/components/schemas/GlossaryEntry"
                 }
               }
             },
@@ -7598,9 +6815,9 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Update Group",
+        "summary": "Update Glossary Entry",
         "tags": [
-          "users"
+          "settings"
         ]
       }
     },
@@ -7817,28 +7034,6 @@
         ]
       }
     },
-    "/api/owners": {
-      "get": {
-        "description": "Return every account and every group that can be shown as an owner.\n\nEach row carries the permissions of its role, which is what a picker uses\nto offer only the people who may own that kind of object. A group's\n``member_ids`` names the caller when they belong to it, and nobody else.\nThe edit button only needs that. The full roster stays on the admin group\nlist.",
-        "operationId": "list_owners_api_owners_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ListResponse_Owner_"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "List Owners",
-        "tags": [
-          "users"
-        ]
-      }
-    },
     "/api/question-entity-coverage": {
       "post": {
         "description": "Return ranked semantic candidates and a 0\u20131 entity coverage grade.\n\nExtracts entities from the question, retrieves semantic candidates, filters\nby vector distance, enriches from the catalog, and grades how many entities have\nat least one covering ColumnAttribute candidate.\n\nReturns 422 when the flow cannot produce a result for the question.",
@@ -7966,7 +7161,7 @@
         ]
       },
       "post": {
-        "description": "Save a rule, and answer with its id.\n\nThe id alone: the dialog that posted the rule closes on success and the\nsettings list re-reads, so a whole rule in the answer would be a copy\nnothing renders. Everything else about a stored rule -- the timestamps, the\nauthor, the tag names -- comes from :func:`list_rules`, read from the row\nrather than from what was posted.\n\nThe filters are stored as the caller sent them, ``exclude_none`` and not a\nfull dump: a filter that was not sent is absent from the stored JSON rather\nthan present as ``null``. It reads back the same either way -- the response\nmodel fills the default -- but the row then says which filters a rule\nactually carries, instead of recording every filter the search has ever\noffered against every rule ever saved.\n\nSaving the rule also *applies* it: the search is replayed and the tags are\nattached to everything it matches, recorded as this rule's doing so a tag's\npage can name the rule that labelled each object. The insert and those\nlabels are one transaction, so a rule that could not label the catalog is\nnot left saved and inert -- the create either produces a rule with its\nlabels or nothing at all. The search that finds them runs before that\ntransaction, holding no write connection and no locks while it does; see\n``rules.service.find_targets``.\n\n400 for a body that could never be a rule: a blank name, a search term\nshorter than global search accepts, a match option it does not implement,\nor no tags at all. 404 for a tag id that is not a tag. 409 for a name\nanother rule already holds, as renaming answers. 401 when the request\ncarries no identity to attribute the rule to.",
+        "description": "Save a rule, and answer with its id.\n\nThe id alone: the dialog that posted the rule closes on success and the\nsettings list re-reads, so a whole rule in the answer would be a copy\nnothing renders. Everything else about a stored rule -- the timestamps and\nthe tag names -- comes from :func:`list_rules`, read from the row\nrather than from what was posted.\n\nThe filters are stored as the caller sent them, ``exclude_none`` and not a\nfull dump: a filter that was not sent is absent from the stored JSON rather\nthan present as ``null``. It reads back the same either way -- the response\nmodel fills the default -- but the row then says which filters a rule\nactually carries, instead of recording every filter the search has ever\noffered against every rule ever saved.\n\nSaving the rule also *applies* it: the search is replayed and the tags are\nattached to everything it matches, recorded as this rule's doing so a tag's\npage can name the rule that labelled each object. The insert and those\nlabels are one transaction, so a rule that could not label the catalog is\nnot left saved and inert -- the create either produces a rule with its\nlabels or nothing at all. The search that finds them runs before that\ntransaction, holding no write connection and no locks while it does; see\n``rules.service.find_targets``.\n\n400 for a body that could never be a rule: a blank name, a search term\nshorter than global search accepts, a match option it does not implement,\nor no tags at all. 404 for a tag id that is not a tag. 409 for a name\nanother rule already holds, as renaming answers.",
         "operationId": "create_rule_api_rules_post",
         "requestBody": {
           "content": {
@@ -8008,7 +7203,7 @@
     },
     "/api/rules/{rule_id}": {
       "delete": {
-        "description": "Delete one rule by id.\n\n**This also takes back every tag the rule applied**, unless ``keep_tags``\nsays otherwise. The labels it wrote cascade with it -- see\n``rules_dal.delete_rule`` -- while labels people applied by hand stay,\nincluding on an object the rule had also matched, because those rows record\nno rule to cascade from. Taking ``PII`` off a column this way also takes it\noff that column's attributes, the same cascade as detaching the tag or a\nreplay that no longer matches. A rule goes on labelling the catalog as the\ncatalog grows, so by default its labels are not left behind for nothing on\nscreen to explain and nothing to re-apply.\n\n**And a tag left labelling nothing is deleted**, unless another rule applies\nit: emptying it is what this request just did, and a tag that describes no\npart of the catalog and that nothing will apply again is not vocabulary. One\nthat still labels anything -- another object, or the same one by a person's\nhand -- stays.\n\n``keep_tags`` is the other reading, and a defensible one: the labels are a\nclassification that happens to have come from a rule, worth keeping once the\nrule that suggested them is gone. They stay where they are, attributed to\nwhoever wrote the rule -- a rule is a person deciding a search's results\ndeserve a tag, so their own labels is what is left when the mechanism goes,\nand the tag's page names them there. Not the caller, who may be an admin\ndeleting somebody else's rule. Recreating the same rule afterwards does not\nadopt them -- an existing label is left alone rather than claimed, the same\nway a rule cannot take over a hand-applied one -- so this is a way to keep\nthe labels, not a way to detach and reattach them.\n\n404 rather than a silent 204 for an id that is not there: the settings page\ndeletes from a list it has already read, so a missing rule means that list\nis stale and the row would be left on screen with nothing to explain it.\n\nAnswers with the id, as deleting a tag does, so a caller has the row it just\nremoved without holding on to what it sent.",
+        "description": "Delete one rule by id.\n\n**This also takes back every tag the rule applied**, unless ``keep_tags``\nsays otherwise. The labels it wrote cascade with it -- see\n``rules_dal.delete_rule`` -- while labels people applied by hand stay,\nincluding on an object the rule had also matched, because those rows record\nno rule to cascade from. A rule goes on labelling the catalog as the\ncatalog grows, so by default its labels are not left behind for nothing on\nscreen to explain and nothing to re-apply.\n\n**And a tag left labelling nothing is deleted**, unless another rule applies\nit: emptying it is what this request just did, and a tag that describes no\npart of the catalog and that nothing will apply again is not vocabulary. One\nthat still labels anything -- another object, or the same one by a person's\nhand -- stays.\n\n``keep_tags`` is the other reading, and a defensible one: the labels are a\nclassification that happens to have come from a rule, worth keeping once the\nrule that suggested them is gone. They stay where they are, attributed to\nwhoever wrote the rule -- a rule is a person deciding a search's results\ndeserve a tag, so their own labels is what is left when the mechanism goes,\nand the tag's page names them there. Not the caller, who may be an admin\ndeleting somebody else's rule. Recreating the same rule afterwards does not\nadopt them -- an existing label is left alone rather than claimed, the same\nway a rule cannot take over a hand-applied one -- so this is a way to keep\nthe labels, not a way to detach and reattach them.\n\n404 rather than a silent 204 for an id that is not there: the settings page\ndeletes from a list it has already read, so a missing rule means that list\nis stale and the row would be left on screen with nothing to explain it.\n\nAnswers with the id, as deleting a tag does, so a caller has the row it just\nremoved without holding on to what it sent.",
         "operationId": "delete_rule_api_rules__rule_id__delete",
         "parameters": [
           {
@@ -8061,7 +7256,7 @@
         ]
       },
       "patch": {
-        "description": "Rename a rule.\n\nThe name is all an edit changes -- see :class:`RuleUpdate` for why the\nsearch and the tags are not editable. What the rule has already labelled is\nuntouched: those rows name the rule by id, so the new name appears against\nevery object it labelled under the old one.\n\nAnswers with the whole rule rather than an echo of the name, the way\nrenaming a tag does: the edit also advances ``modified`` and records a\n``modified_by``, so the row the caller just edited is redrawn from this one\nresponse instead of from a re-read.\n\n400 for a blank name. 409 for a name another rule holds -- rule names are\nunique, so that the list's own way of referring to a rule identifies one.\nA rename to the rule's own name is not a conflict, and neither is one that\nonly changes case, which is how a rule created shouting gets fixed. 404 for\nan id that is not stored -- the settings page edits a row from a list it has\nalready read, so a missing rule means that list is stale.\n\nNo 401, unlike the create: an edit is recorded against whoever made it when\nthe request says, and a request that names nobody still renames the rule\nsomebody else created. ``modified_by`` is nullable for exactly that.",
+        "description": "Rename a rule.\n\nThe name is all an edit changes -- see :class:`RuleUpdate` for why the\nsearch and the tags are not editable. What the rule has already labelled is\nuntouched: those rows name the rule by id, so the new name appears against\nevery object it labelled under the old one.\n\nAnswers with the whole rule rather than an echo of the name, the way\nrenaming a tag does: the edit also advances ``modified``, so the row the caller just edited is redrawn from this one\nresponse instead of from a re-read.\n\n400 for a blank name. 409 for a name another rule holds -- rule names are\nunique, so that the list's own way of referring to a rule identifies one.\nA rename to the rule's own name is not a conflict, and neither is one that\nonly changes case, which is how a rule created shouting gets fixed. 404 for\nan id that is not stored -- the settings page edits a row from a list it has\nalready read, so a missing rule means that list is stale.",
         "operationId": "update_rule_api_rules__rule_id__patch",
         "parameters": [
           {
@@ -8272,7 +7467,7 @@
     },
     "/api/semantic-compilation/status": {
       "get": {
-        "description": "Report whether the semantic layer has been calculated (any Term exists),\nwhether the ingestion service is compiling it right now, when the last\npass completed successfully, and when it last failed.\n\n``running`` needs the live ingestion process, so it goes through the HTTP\nproxy and degrades to ``False`` if that's unreachable. ``last_success_at``\nand ``last_failure_at`` are read straight from the ``semantic_compilation_history``\ntable instead \u2014 a temporarily unreachable ingestion service has no bearing\non Postgres, so history stays visible even while it's down (see\n``auto_ontology/server/ingestion/proxy.py``).",
+        "description": "Report whether the semantic layer has been calculated (any Term exists),\nwhether the ingestion service is compiling it right now, when the last\npass completed successfully, and when it last failed.\n\n``running`` needs the live ingestion process, so it goes through the HTTP\nproxy and degrades to ``False`` if that's unreachable. ``last_success_at``\nand ``last_failure_at`` are read straight from the ``semantic_compilation_status``\nrow instead \u2014 a temporarily unreachable ingestion service has no bearing\non Postgres, so they stay visible even while it's down (see\n``auto_ontology/server/ingestion/proxy.py``).",
         "operationId": "semantic_status_api_semantic_compilation_status_get",
         "responses": {
           "200": {
@@ -8380,24 +7575,6 @@
       "post": {
         "description": "Answer one standalone question from the database.\n\nThe caller rewrites follow-ups into a standalone question first. ``text`` is\nmeant to be handed to the calling agent as it is; a failure inside the agent\ncomes back as ``status: error`` rather than an HTTP error.",
         "operationId": "query_api_sql_agent_query_post",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "x-api-key",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -8458,7 +7635,7 @@
         ]
       },
       "post": {
-        "description": "Create a SqlAttribute with its Sql node, linked to a Term.\n\nThe connector is resolved server-side (never chosen by the client \u2014\nsee ``auto_ontology/connectors/registry.py``). ``owner_id``, when set,\nnames a user or a group that can edit the catalog; omit it to leave the\nattribute unassigned. The caller is stored as ``created_by`` so the side\npanel can name them. Returns 400 when that id cannot be assigned, 409\nwhen the name is already taken, 422 when the target Term does not exist\nor the SQL can't be parsed.",
+        "description": "Create a SqlAttribute with its Sql node, linked to a Term.\n\nThe connector is resolved server-side (never chosen by the client \u2014\nsee ``auto_ontology/connectors/registry.py``). Returns 409 when the name\nis already taken, 422 when the target Term does not exist\nor the SQL can't be parsed.",
         "operationId": "create_sql_attribute_api_sql_attributes_post",
         "requestBody": {
           "content": {
@@ -8675,7 +7852,7 @@
         ]
       },
       "put": {
-        "description": "Replace a SqlAttribute, re-parse SQL, and re-link to a Term.\n\nThe connector is resolved server-side (never chosen by the client \u2014\nsee ``auto_ontology/connectors/registry.py``). Returns 404 when no SqlAttribute\nwith that id exists, 409 on name conflict, 422 when the Term doesn't\nexist or SQL can't be parsed. Returns 403 when the caller may not edit\nthis attribute, the same check as the metadata patch.",
+        "description": "Replace a SqlAttribute, re-parse SQL, and re-link to a Term.\n\nThe connector is resolved server-side (never chosen by the client \u2014\nsee ``auto_ontology/connectors/registry.py``). Returns 404 when no SqlAttribute\nwith that id exists, 409 on name conflict, 422 when the Term doesn't\nexist or SQL can't be parsed.",
         "operationId": "update_sql_attribute_api_sql_attributes__attr_id__put",
         "parameters": [
           {
@@ -8728,7 +7905,7 @@
     },
     "/api/sql-attributes/{attr_id}/description-suggestion": {
       "get": {
-        "description": "LLM-generated (or cached) description suggestion for a SqlAttribute.\n\nReturns 404 when no SqlAttribute with that id exists. ``data`` is\n``null`` when a suggestion could not be produced (e.g. the LLM call\nfailed) \u2014 that is not treated as an error. Returns 403 when the caller\nmay not edit this attribute. A suggestion is cached on the attribute,\nso the same edit check as a save applies.",
+        "description": "LLM-generated (or cached) description suggestion for a SqlAttribute.\n\nReturns 404 when no SqlAttribute with that id exists. ``data`` is\n``null`` when a suggestion could not be produced (e.g. the LLM call\nfailed) \u2014 that is not treated as an error.",
         "operationId": "get_sql_attribute_description_suggestion_api_sql_attributes__attr_id__description_suggestion_get",
         "parameters": [
           {
@@ -8916,7 +8093,7 @@
         ]
       },
       "post": {
-        "description": "Create a tag.\n\nThe author is read from the gateway's identity header rather than taken\nfrom the body: the Next.js route in front of this one has already resolved\nthe session, so the header is the one account that can be credited, and a\nbody field would let a caller name somebody else.\n\n``required=False`` because the identity is audit rather than authorization\n-- the route's permission gate is the gateway's -- so a direct call on the\nprivate network still creates the tag, with no author recorded.",
+        "description": "Create a tag. 409 for a name another tag holds.",
         "operationId": "create_tag_api_tags_post",
         "requestBody": {
           "content": {
@@ -8958,7 +8135,7 @@
     },
     "/api/tags/{tag_id}": {
       "delete": {
-        "description": "Delete one tag by id.\n\n404 rather than 204 for an id that is not there: the settings page deletes\nfrom a list it has already read, so a missing tag means its list is stale,\nand answering \"done\" would leave the row on screen with nothing to explain\nit.\n\n403 for the system-managed ``PII`` tag: no caller may delete it.",
+        "description": "Delete one tag by id.\n\n404 rather than 204 for an id that is not there: the settings page deletes\nfrom a list it has already read, so a missing tag means its list is stale,\nand answering \"done\" would leave the row on screen with nothing to explain\nit.",
         "operationId": "delete_tag_api_tags__tag_id__delete",
         "parameters": [
           {
@@ -9040,7 +8217,7 @@
         ]
       },
       "patch": {
-        "description": "Rename a tag.\n\nAnswers with the whole tag rather than an echo of the name, because the\nrename has also advanced ``modified`` and recorded a ``modified_by`` \u2014 so\nthe settings page redraws the row it just edited from this one response\ninstead of re-reading the list to find out what they became.\n\nThe editor is read from the gateway's identity header, for the reason\n``create_tag`` reads the author from it.\n\n404 for an unknown id and 409 for a name another tag holds, as create and\ndelete answer: the page renames from a list it has already read, so either\nmeans that list is stale.\n\nA rename to the tag's own name is not a 409 \u2014 see ``update_tag`` in the DAL\n\u2014 and neither is one that only changes case, which is the ordinary way to\nfix a tag that was created shouting.\n\n403 for the system-managed ``PII`` tag, which PII detection finds by name.",
+        "description": "Rename a tag.\n\nAnswers with the whole tag rather than an echo of the name, because the\nrename has also advanced ``modified`` \u2014 so the settings page redraws the row it just edited from this one response\ninstead of re-reading the list to find out what they became.\n\n404 for an unknown id and 409 for a name another tag holds, as create and\ndelete answer: the page renames from a list it has already read, so either\nmeans that list is stale.\n\nA rename to the tag's own name is not a 409 \u2014 see ``update_tag`` in the DAL\n\u2014 and neither is one that only changes case, which is the ordinary way to\nfix a tag that was created shouting.",
         "operationId": "update_tag_api_tags__tag_id__patch",
         "parameters": [
           {
@@ -9167,7 +8344,7 @@
         ]
       },
       "post": {
-        "description": "Label one object with this tag.\n\nBoth write routes live here rather than on ``/terms/{id}/tags`` and its two\nattribute equivalents, because ``tag_target`` is one polymorphic table and\nsix routes over three routers would spread that polymorphism across the\ncodebase to say the same thing.\n\nAnswers with the **object's** tags, so the page that added a chip redraws\nits whole set from one response instead of trusting its own optimistic\nedit. Labelling something that already carries the tag is a 201 with the\nsame body: two clicks on one tag are one intention.\n\nWho applied the label is read from the gateway's identity header, for the\nreason ``create_tag`` reads an author from it, and shows in the \"Tagged By\"\ncolumn on the tag's page. ``required=False`` for the same reason too: it is\naudit rather than authorization, so a direct call on the private network\nstill labels the object -- recorded as the deployment's own doing, which\nthat column names \"Auto Generated\". See ``attach_tag`` in the DAL.\n\nRe-labelling something keeps the source it already had, so this does not\ntake a label away from the rule that applied it -- see ``attach_tag`` in the\nDAL.\n\n409 for a column or SQL attribute that is not a property of any term: it\nexists, so a 404 would be a lie, but it is unreachable \u2014 every list of\nattributes goes through the term that owns them \u2014 and a tag on it could\nnever be seen or taken off again.",
+        "description": "Label one object with this tag.\n\nBoth write routes live here rather than on ``/terms/{id}/tags`` and its two\nattribute equivalents, because ``tag_target`` is one polymorphic table and\nsix routes over three routers would spread that polymorphism across the\ncodebase to say the same thing.\n\nAnswers with the **object's** tags, so the page that added a chip redraws\nits whole set from one response instead of trusting its own optimistic\nedit. Labelling something that already carries the tag is a 201 with the\nsame body: two clicks on one tag are one intention.\n\nRe-labelling something keeps the source it already had, so this does not\ntake a label away from the rule that applied it -- see ``attach_tag`` in the\nDAL.\n\n409 for a column or SQL attribute that is not a property of any term: it\nexists, so a 404 would be a lie, but it is unreachable \u2014 every list of\nattributes goes through the term that owns them \u2014 and a tag on it could\nnever be seen or taken off again.",
         "operationId": "attach_tag_api_tags__tag_id__targets_post",
         "parameters": [
           {
@@ -9220,7 +8397,7 @@
     },
     "/api/tags/{tag_id}/targets/{target_type}/{item_id}": {
       "delete": {
-        "description": "Take this tag off one object.\n\nTaking ``PII`` off a column also takes it off that column's\nColumnAttributes, and off any SqlAttribute whose SQL no longer reads a\ntagged column. A SqlAttribute that still reads another PII column keeps\nthe label. The column detach and that cleanup share one transaction.\n\n404 when the object was not carrying it \u2014 including when either side no\nlonger exists. The page removed a chip it had just rendered, so all three\nmean its view is stale, and answering \"done\" would leave the chip gone from\nthe screen and still on the object.",
+        "description": "Take this tag off one object.\n\n404 when the object was not carrying it \u2014 including when either side no\nlonger exists. The page removed a chip it had just rendered, so all three\nmean its view is stale, and answering \"done\" would leave the chip gone from\nthe screen and still on the object.",
         "operationId": "detach_tag_api_tags__tag_id__targets__target_type___item_id__delete",
         "parameters": [
           {
@@ -9675,21 +8852,8 @@
     },
     "/api/zones": {
       "get": {
-        "description": "Return every zone to the requesting user.",
+        "description": "Return every zone.",
         "operationId": "list_zones_api_zones_get",
-        "parameters": [
-          {
-            "description": "Requesting user id",
-            "in": "query",
-            "name": "uid",
-            "required": true,
-            "schema": {
-              "description": "Requesting user id",
-              "title": "Uid",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -9700,16 +8864,6 @@
               }
             },
             "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
           }
         },
         "summary": "List Zones",
@@ -9718,7 +8872,7 @@
         ]
       },
       "post": {
-        "description": "Create a zone and attach catalog items.  Requires admin role.",
+        "description": "Create a zone and attach catalog items.",
         "operationId": "create_zone_api_zones_post",
         "requestBody": {
           "content": {
@@ -9812,17 +8966,6 @@
               "title": "Zone Id",
               "type": "string"
             }
-          },
-          {
-            "description": "Requesting user id",
-            "in": "query",
-            "name": "uid",
-            "required": true,
-            "schema": {
-              "description": "Requesting user id",
-              "title": "Uid",
-              "type": "string"
-            }
           }
         ],
         "responses": {
@@ -9906,7 +9049,7 @@
     },
     "/api/zones/{zone_id}/status": {
       "patch": {
-        "description": "Enable or disable a zone.  Requires admin role.\n\nDisabling clears the zone's ``enabled`` flag\n(re-enabling reverses it), which immediately revokes the catalog access\nthe zone granted without deleting it.",
+        "description": "Enable or disable a zone.\n\nDisabling clears the zone's ``enabled`` flag\n(re-enabling reverses it), which immediately revokes the catalog access\nthe zone granted without deleting it.",
         "operationId": "set_zone_status_api_zones__zone_id__status_patch",
         "parameters": [
           {
@@ -9915,17 +9058,6 @@
             "required": true,
             "schema": {
               "title": "Zone Id",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Admin user id performing the request",
-            "in": "query",
-            "name": "admin_uid",
-            "required": true,
-            "schema": {
-              "description": "Admin user id performing the request",
-              "title": "Admin Uid",
               "type": "string"
             }
           }
