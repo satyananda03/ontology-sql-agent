@@ -1,16 +1,20 @@
-"""LLM client construction and structured-output invocation wrappers."""
+"""How auto_ontology calls the LLM: one structured request, retried.
 
-import contextlib
+Callers build a client with :func:`auto_ontology.utils.llm_client.get_llm_client`
+and pass it here with their messages and the schema they want back. This module
+does not know how the client was built; it owns what happens around the request:
+
+* the retry policy for transient errors and for replies that do not validate,
+* message preparation for models with stricter rules (Claude),
+* how the schema is asked for (``response_format``, or tool calling for Claude),
+* the in-flight bound, taken around every request.
+"""
+
 import logging
-import os
 import random
-import threading
 import time
-import warnings
-import weakref
-from typing import Any, Iterator, Type, TypeVar
+from typing import Any, Type, TypeVar
 
-import requests as _requests
 from langchain_core.exceptions import OutputParserException
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
@@ -19,15 +23,11 @@ from langchain_core.outputs import Generation
 from langchain_core.runnables import Runnable
 from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 
-from auto_ontology.utils.model_config import resolve
+from auto_ontology.utils.llm_inflight import inflight_guard
 
 logger = logging.getLogger(__name__)
 
-# ChatNVIDIA warns about any model outside its own catalog, such as one served
-# through a gateway, even when it handles structured output fine. A real failure
-# still raises, so these only add noise to every LLM call.
-warnings.filterwarnings("ignore", message=r"Model '.*' is not known to support")
-warnings.filterwarnings("ignore", message=r"Found .* in available_models, but type")
+T = TypeVar("T", bound=BaseModel)
 
 
 class StrictLLMOutputModel(BaseModel):
@@ -51,99 +51,11 @@ class StrictLLMOutputModel(BaseModel):
         return data
 
 
+# ---------------------------------------------------------------------------
+# Retry policy
+# ---------------------------------------------------------------------------
+
 RETRY_MAX_ATTEMPTS = 3
-LLM_INVOKE_TIMEOUT_S = int(os.environ.get("LLM_INVOKE_TIMEOUT_S", "120"))
-
-# Concurrent LLM requests are unbounded here by default. A process-wide cap used
-# to live at this call site, defaulting to 6, to stop semantic compilation's
-# nested fan-out (tables x terms) from saturating the endpoint's per-worker
-# request cap and drawing HTTP 503s.
-#
-# The cost was paid by every caller. Callers that already bound their own
-# concurrency -- a server handling N requests, an eval running N questions --
-# gained nothing and hit a second, lower ceiling they could not see: measured on
-# a 60-question benchmark at 12 workers, lifting this cap cut wall clock 25%
-# with no change in error rate, because threads sat ~3s per node waiting on the
-# semaphore before reaching the network.
-#
-# Fan-out that needs a bound now asks for one with `limit_inflight`, which
-# applies it for the duration of a block. See `run_semantic_compilation`.
-LLM_MAX_INFLIGHT = int(os.environ.get("LLM_MAX_INFLIGHT", "0"))
-
-# The process-wide default, from the environment. None means unbounded. This is
-# what the guard falls back to whenever no `limit_inflight` block is active.
-_ENV_INFLIGHT: threading.BoundedSemaphore | None = (
-    threading.BoundedSemaphore(LLM_MAX_INFLIGHT) if LLM_MAX_INFLIGHT > 0 else None
-)
-
-# Every `limit_inflight` block currently open, as (max_inflight, semaphore).
-# Tracking the whole set rather than a save/restore of one global is what makes
-# overlapping blocks safe: two blocks that overlap without nesting exit in the
-# opposite order to a stack, and a save/restore would then have each one put
-# back the value *it* captured -- dropping the bound of a block still running,
-# and leaving a stale bound installed forever once both had exited.
-_ACTIVE: list[tuple[int, threading.BoundedSemaphore]] = []
-_ACTIVE_LOCK = threading.Lock()
-
-# The bound in force. Rebound only under _ACTIVE_LOCK by `_refresh_inflight`,
-# but read on the hot path without it: the read is a single attribute lookup,
-# and a caller that reads a semaphore just as its block ends simply waits on a
-# still-valid bound for that one invoke. That is a bounded staleness, not a
-# correctness problem, and it keeps the lock off every LLM call.
-_INFLIGHT: threading.BoundedSemaphore | None = _ENV_INFLIGHT
-
-
-def _refresh_inflight() -> None:
-    """Recompute the bound in force. Caller must hold ``_ACTIVE_LOCK``."""
-    global _INFLIGHT
-    # The most restrictive active block wins. Only one semaphore is ever
-    # acquired, so nested blocks cannot deadlock against each other.
-    _INFLIGHT = (
-        min(_ACTIVE, key=lambda entry: entry[0])[1] if _ACTIVE else _ENV_INFLIGHT
-    )
-
-
-@contextlib.contextmanager
-def limit_inflight(max_inflight: int) -> Iterator[None]:
-    """Bound concurrent LLM invokes to *max_inflight* for the duration of the block.
-
-    For call paths whose own parallelism multiplies -- semantic compilation runs
-    tables in parallel and fans out again within each -- where the resulting
-    request rate can exceed what the endpoint will serve and come back as 503.
-
-    The bound is process-wide, because the fan-out it exists to limit spans
-    worker threads the caller does not own. While several blocks overlap the
-    most restrictive one applies, in any nesting or interleaving; once the last
-    one exits the process returns to ``LLM_MAX_INFLIGHT``.
-
-    A value of 0 or less registers nothing and leaves any other block's bound
-    alone -- "I need no bound" must not mean "remove someone else's".
-    """
-    if max_inflight <= 0:
-        yield
-        return
-    entry = (max_inflight, threading.BoundedSemaphore(max_inflight))
-    with _ACTIVE_LOCK:
-        _ACTIVE.append(entry)
-        _refresh_inflight()
-    try:
-        yield
-    finally:
-        with _ACTIVE_LOCK:
-            # Removal is by identity of the semaphore, so concurrent blocks
-            # asking for the same size still remove their own entry.
-            for index, candidate in enumerate(_ACTIVE):
-                if candidate[1] is entry[1]:
-                    del _ACTIVE[index]
-                    break
-            _refresh_inflight()
-
-
-def _inflight_guard() -> "contextlib.AbstractContextManager[object]":
-    """The active concurrency bound, or a no-op when unbounded."""
-    semaphore = _INFLIGHT
-    return semaphore if semaphore is not None else contextlib.nullcontext()
-
 
 # Substrings that indicate a transient, retryable server condition.
 _RETRYABLE_TOKENS = (
@@ -190,231 +102,9 @@ def _is_retryable(e: Exception) -> bool:
     )
 
 
-class _TimeoutSession(_requests.Session):
-    """requests.Session that enforces a default timeout on every request."""
-
-    def __init__(self, timeout: float = LLM_INVOKE_TIMEOUT_S, **kwargs):
-        super().__init__(**kwargs)
-        self._default_timeout = timeout
-
-    def request(self, method, url, **kwargs):
-        kwargs.setdefault("timeout", self._default_timeout)
-        return super().request(method, url, **kwargs)
-
-
-T = TypeVar("T", bound=BaseModel)
-
-# Main (reasoning) model triplet. Each field falls back to DEFAULT_MODELS_<field>
-# (and the API key additionally to the legacy NVIDIA_API_KEY) when unset.
-_BASE_URL = resolve("REASONING", "ENDPOINT")
-_MODEL_NAME = resolve("REASONING", "MODEL")
-_API_KEY = resolve("REASONING", "API_KEY")
-
-# Non-reasoning model. Kept fully separate (key/endpoint/model) so it can point at
-# a different endpoint than the main model (e.g. inference vs integrate API). Each
-# field falls back to DEFAULT_MODELS_<field> when unset.
-_NON_REASONING_BASE_URL = resolve("NON_REASONING", "ENDPOINT")
-_NON_REASONING_MODEL_NAME = resolve("NON_REASONING", "MODEL")
-_NON_REASONING_API_KEY = resolve("NON_REASONING", "API_KEY")
-
-
-def _uses_chat_openai(model: str) -> bool:
-    """Whether ``_build_client`` serves *model* through ``ChatOpenAI``."""
-    return model.startswith(("openai/", "azure/", "aws/"))
-
-
-def _build_client(
-    *,
-    model: str,
-    api_key: str,
-    base_url: str,
-    temperature: float,
-    max_tokens: int,
-    timeout: float | None = None,
-) -> BaseChatModel:
-    """Build a chat client for the given model/endpoint.
-
-    OpenAI-family models (``openai/``, ``azure/``, ``aws/`` prefixes) go through
-    ``ChatOpenAI``, which supports structured output. Everything else uses
-    ``ChatNVIDIA``. *timeout* (seconds per request) defaults to
-    ``LLM_INVOKE_TIMEOUT_S``.
-    """
-    timeout = timeout or LLM_INVOKE_TIMEOUT_S
-    if _uses_chat_openai(model):
-        from langchain_openai import ChatOpenAI
-
-        return ChatOpenAI(
-            model=model,
-            api_key=api_key,
-            base_url=base_url,
-            # temperature omitted: gpt-5.x/o-series reject any explicit value and
-            # only allow the server default (1). Unset => langchain sends no
-            # temperature field, so the provider default applies.
-            # temperature=temperature,
-            max_tokens=max_tokens,
-            timeout=timeout,
-            max_retries=0,
-        )
-
-    from langchain_nvidia_ai_endpoints import ChatNVIDIA
-
-    client = ChatNVIDIA(
-        model=model,
-        api_key=api_key,
-        base_url=base_url,
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
-    client._client.get_session_fn = lambda: _TimeoutSession(timeout)
-    return client
-
-
-def get_llm_client(
-    *,
-    model: str | None = None,
-    temperature: float = 0.0,
-    max_tokens: int = 8192,
-    timeout: float | None = None,
-) -> BaseChatModel:
-    """Create an LLM client for the main reasoning model.
-
-    Parameters
-    ----------
-    model : str | None
-        Override the default ``REASONING_MODEL`` env var for this client.
-    """
-    if not _API_KEY:
-        raise EnvironmentError("REASONING_API_KEY is not set")
-
-    return _build_client(
-        model=model or _MODEL_NAME,
-        api_key=_API_KEY,
-        base_url=_BASE_URL,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        timeout=timeout,
-    )
-
-
-def get_non_reasoning_llm_client(
-    *,
-    model: str | None = None,
-    temperature: float = 0.0,
-    max_tokens: int = 8192,
-    timeout: float | None = None,
-) -> BaseChatModel:
-    """Create an LLM client for the non-reasoning model.
-
-    Uses ``NON_REASONING_API_KEY`` / ``NON_REASONING_ENDPOINT`` /
-    ``NON_REASONING_MODEL`` so it can target a different endpoint than the
-    main agent model.
-
-    Parameters
-    ----------
-    model : str | None
-        Override the default ``NON_REASONING_MODEL`` env var for this client.
-    """
-    if not _NON_REASONING_API_KEY:
-        raise EnvironmentError("NON_REASONING_API_KEY is not set")
-
-    client = _build_client(
-        model=model or _NON_REASONING_MODEL_NAME,
-        api_key=_NON_REASONING_API_KEY,
-        base_url=_NON_REASONING_BASE_URL,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        timeout=timeout,
-    )
-    _remember_non_reasoning(client)
-    return client
-
-
-# Identity of every live non-reasoning client. Model name is not enough: the two
-# roles can be configured to the same model string, and the langchain clients
-# compare equal by their fields, so a reasoning call must not match a
-# non-reasoning client that happens to share its configuration. ``.bind()``
-# returns a wrapper whose ``bound`` is the client registered here.
-_NON_REASONING_IDS: set[int] = set()
-_NON_REASONING_STRONG_REFS: dict[int, object] = {}
-_REASONING_FALLBACK_CLIENT: BaseChatModel | None = None
-_REASONING_FALLBACK_LOCK = threading.Lock()
-
-# How many ``bound`` links to follow. Real ``.bind()`` chains are a level or two
-# deep; the cap stops the walk on objects whose ``bound`` never ends — a
-# ``MagicMock`` returns a fresh mock for every attribute access.
-_MAX_BINDING_DEPTH = 8
-
-
-def _remember_non_reasoning(client: object) -> None:
-    """Record *client* so a failed call on it can fall back to the reasoning model."""
-    client_id = id(client)
-    _NON_REASONING_IDS.add(client_id)
-    try:
-        weakref.finalize(client, _NON_REASONING_IDS.discard, client_id)
-    except TypeError:
-        # Keep non-weak-referenceable clients alive so Python cannot reuse their
-        # registered id for an unrelated reasoning client.
-        _NON_REASONING_STRONG_REFS[client_id] = client
-
-
-def _is_non_reasoning_client(llm: object) -> bool:
-    """Whether *llm* is a non-reasoning client, including a ``.bind()`` wrapper."""
-    current = llm
-    for _ in range(_MAX_BINDING_DEPTH):
-        if id(current) in _NON_REASONING_IDS:
-            registered = _NON_REASONING_STRONG_REFS.get(id(current))
-            if registered is None or registered is current:
-                return True
-        bound = getattr(current, "bound", None)
-        if bound is None or isinstance(bound, (str, bytes, int, float, bool)):
-            return False
-        current = bound
-    return False
-
-
-def _get_reasoning_fallback_client() -> BaseChatModel:
-    """Build the default reasoning fallback once and reuse its connection pool."""
-    global _REASONING_FALLBACK_CLIENT
-    if _REASONING_FALLBACK_CLIENT is None:
-        with _REASONING_FALLBACK_LOCK:
-            if _REASONING_FALLBACK_CLIENT is None:
-                _REASONING_FALLBACK_CLIENT = get_llm_client()
-    return _REASONING_FALLBACK_CLIENT
-
-
-def _reasoning_fallback_client(llm: object) -> BaseChatModel | None:
-    """The reasoning client when *llm* is non-reasoning, else ``None``.
-
-    A missing reasoning client leaves the original failure in place.
-    """
-    if not _is_non_reasoning_client(llm):
-        return None
-    try:
-        return _get_reasoning_fallback_client()
-    except Exception:
-        logger.warning(
-            "Non-reasoning LLM failed and the reasoning LLM client could not be created",
-            exc_info=True,
-        )
-        return None
-
-
-def _log_non_reasoning_fallback(exc: Exception, schema_name: str | None = None) -> None:
-    """Log the handoff from a failed non-reasoning call to the reasoning model."""
-    detail = (type(exc).__name__, str(exc)[:120])
-    if schema_name is None:
-        logger.warning(
-            "Non-reasoning LLM exhausted %d retries (%s: %s) — falling back to reasoning LLM",
-            RETRY_MAX_ATTEMPTS,
-            *detail,
-        )
-        return
-    logger.warning(
-        "Non-reasoning LLM exhausted %d retries for %s (%s: %s) — falling back to reasoning LLM",
-        RETRY_MAX_ATTEMPTS,
-        schema_name,
-        *detail,
-    )
+# ---------------------------------------------------------------------------
+# Message preparation
+# ---------------------------------------------------------------------------
 
 
 def _ensure_non_system_message(messages: list[BaseMessage]) -> list[BaseMessage]:
@@ -500,11 +190,15 @@ def _structured_output_kwargs(llm: BaseChatModel) -> dict:
     return {}
 
 
+# ---------------------------------------------------------------------------
+# Structured output
+# ---------------------------------------------------------------------------
+
+
 class _ParseOrNone(PydanticOutputParser[Any]):
     """Parse the reply into the schema, or ``None`` when it does not fit.
 
-    ``None`` is the signal ``safe_invoke_with_structured_output`` retries on,
-    and the one ChatNVIDIA's own structured-output parser gives.
+    ``None`` is the signal ``safe_invoke_with_structured_output`` retries on.
     """
 
     def parse_result(self, result: list[Generation], *, partial: bool = False) -> Any:
@@ -517,15 +211,12 @@ class _ParseOrNone(PydanticOutputParser[Any]):
 def _structured_llm(llm: BaseChatModel, schema: Type[T]) -> Runnable:
     """*llm* bound to answer with *schema*.
 
-    The chat endpoint is an OpenAI-compatible gateway (LiteLLM), not a NIM, so
-    the OpenAI ``response_format`` is asked for directly. ChatNVIDIA's own path
-    tries NVIDIA's ``guided_json`` twice first, which the gateway ignores: every
-    call paid for two discarded generations (measured: 17s, 11s of it discarded).
-
-    Claude and the ``ChatOpenAI`` models keep the library's own path: they never
-    sent ``guided_json``, and Claude rejects ``response_format``.
+    The gateway is asked with the OpenAI ``response_format`` (a strict JSON
+    schema), and the reply is parsed here so a reply that does not fit comes
+    back as ``None``. Claude rejects ``response_format`` and is asked through
+    tool calling instead, see :func:`_structured_output_kwargs`.
     """
-    if _is_claude(llm) or _uses_chat_openai(_model_name(llm)):
+    if _is_claude(llm):
         return llm.with_structured_output(schema, **_structured_output_kwargs(llm))
     response_format = {
         "type": "json_schema",
@@ -540,80 +231,9 @@ def _structured_llm(llm: BaseChatModel, schema: Type[T]) -> Runnable:
     )
 
 
-def _invoke_text_once(llm: BaseChatModel, prompt: str) -> str:
-    response = llm.invoke([HumanMessage(content=prompt)])
-    content = getattr(response, "content", response)
-    return content if isinstance(content, str) else str(content)
-
-
-def invoke_text(llm: BaseChatModel, prompt: str) -> str:
-    """Invoke the LLM with a single system-message *prompt* and return its text.
-
-    Free-text counterpart to :func:`invoke_with_structured_output`, for callers
-    that parse the raw response themselves (e.g. the text-to-PQL pipeline).
-    A non-reasoning client that fails is retried once on the reasoning model.
-    """
-    try:
-        return _invoke_text_once(llm, prompt)
-    except Exception as exc:
-        fallback = _reasoning_fallback_client(llm)
-        if fallback is None:
-            raise
-        logger.warning(
-            "Non-reasoning LLM call failed (%s: %s) — falling back to reasoning LLM",
-            type(exc).__name__,
-            str(exc)[:120],
-        )
-        return _invoke_text_once(fallback, prompt)
-
-
-def _safe_invoke_text(llm: BaseChatModel, prompt: str) -> str:
-    """invoke_text with retry/backoff for 503/429 and the inflight semaphore."""
-    messages = [HumanMessage(content=prompt)]
-    for attempt in range(RETRY_MAX_ATTEMPTS):
-        try:
-            with _inflight_guard():
-                response = llm.invoke(messages)
-            content = getattr(response, "content", response)
-            return content if isinstance(content, str) else str(content)
-        except _requests.exceptions.ReadTimeout:
-            logger.error(
-                "LLM invoke timed out after %ds on attempt %d/%d",
-                LLM_INVOKE_TIMEOUT_S,
-                attempt + 1,
-                RETRY_MAX_ATTEMPTS,
-            )
-            if attempt < RETRY_MAX_ATTEMPTS - 1:
-                time.sleep(2 ** (attempt + 1) + random.uniform(0, 1))
-                continue
-            raise
-        except Exception as e:
-            is_retryable = _is_retryable(e)
-            if is_retryable and attempt < RETRY_MAX_ATTEMPTS - 1:
-                wait = 2 ** (attempt + 1) + random.uniform(0, 1)
-                logger.warning(
-                    "Retryable LLM error on attempt %d/%d — retrying in %.1fs: %s",
-                    attempt + 1,
-                    RETRY_MAX_ATTEMPTS,
-                    wait,
-                    str(e)[:120],
-                )
-                time.sleep(wait)
-                continue
-            raise
-    raise RuntimeError("safe_invoke_text exhausted retries")
-
-
-def safe_invoke_text(llm: BaseChatModel, prompt: str) -> str:
-    """invoke_text with retry/backoff, then the reasoning model if this client is non-reasoning."""
-    try:
-        return _safe_invoke_text(llm, prompt)
-    except Exception as exc:
-        fallback = _reasoning_fallback_client(llm)
-        if fallback is None:
-            raise
-        _log_non_reasoning_fallback(exc)
-        return _safe_invoke_text(fallback, prompt)
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
 
 
 def safe_invoke_with_structured_output(
@@ -628,20 +248,8 @@ def safe_invoke_with_structured_output(
     for attempt in range(RETRY_MAX_ATTEMPTS):
         try:
             model_llm = _structured_llm(llm, schema)
-            with _inflight_guard():
+            with inflight_guard():
                 result = model_llm.invoke(_system_messages_first(llm, current_messages))
-        except _requests.exceptions.ReadTimeout:
-            logger.error(
-                "LLM invoke timed out on attempt %d/%d for %s",
-                attempt + 1,
-                RETRY_MAX_ATTEMPTS,
-                schema_name,
-            )
-            if attempt < RETRY_MAX_ATTEMPTS - 1:
-                wait = 2 ** (attempt + 1) + random.uniform(0, 1)
-                time.sleep(wait)
-                continue
-            raise
         except ValidationError as e:
             if attempt < RETRY_MAX_ATTEMPTS - 1:
                 if attempt == 0:
@@ -715,29 +323,12 @@ def invoke_with_structured_output(
     messages: list[BaseMessage],
     schema: Type[T],
 ) -> T | None:
-    """Safe wrapper that returns None on failure.
-
-    A non-reasoning client that still fails after its retries is tried once more
-    on the reasoning model. Reasoning clients are not retried on a second model.
-    """
+    """:func:`safe_invoke_with_structured_output` that returns None on failure."""
     schema_name = getattr(schema, "__name__", str(schema))
     started = time.perf_counter()
     try:
         return safe_invoke_with_structured_output(llm, messages, schema)
     except Exception as e:
-        fallback = _reasoning_fallback_client(llm)
-        if fallback is not None:
-            _log_non_reasoning_fallback(e, schema_name)
-            try:
-                return safe_invoke_with_structured_output(fallback, messages, schema)
-            except Exception as e2:
-                logger.error(
-                    "Reasoning LLM also failed for %s: %s: %s",
-                    schema_name,
-                    type(e2).__name__,
-                    str(e2)[:120],
-                )
-                return None
         logger.error(
             f"invoke_with_structured_output failed for {schema_name} after {RETRY_MAX_ATTEMPTS} attempts: "
             f"{type(e).__name__}: {e}",
@@ -745,46 +336,5 @@ def invoke_with_structured_output(
         )
         return None
     finally:
-        # Wall time including retries and fallback: what the caller waited.
+        # Wall time including retries: what the caller waited.
         logger.info("[TIMING] llm %s %.2fs", schema_name, time.perf_counter() - started)
-
-
-def safe_invoke_text_nr(prompt: str) -> str:
-    """Free-text call on the non-reasoning LLM.
-
-    ``safe_invoke_text`` retries, then falls back to the reasoning model for
-    that single call when the non-reasoning endpoint stays down.
-    """
-    try:
-        client = get_non_reasoning_llm_client()
-    except Exception as exc:
-        _log_non_reasoning_fallback(exc)
-        client = _get_reasoning_fallback_client()
-    return safe_invoke_text(client, prompt)
-
-
-def safe_invoke_structured_nr(
-    messages: list[BaseMessage],
-    schema: Type[T],
-) -> T | None:
-    """Structured call on the non-reasoning LLM.
-
-    ``invoke_with_structured_output`` retries, then falls back to the reasoning
-    model for that single call. Returns ``None`` when both models fail.
-    """
-    try:
-        client = get_non_reasoning_llm_client()
-    except Exception as exc:
-        schema_name = getattr(schema, "__name__", str(schema))
-        _log_non_reasoning_fallback(exc, schema_name)
-        try:
-            client = _get_reasoning_fallback_client()
-        except Exception as fallback_exc:
-            logger.error(
-                "Reasoning LLM also failed for %s: %s: %s",
-                schema_name,
-                type(fallback_exc).__name__,
-                str(fallback_exc)[:120],
-            )
-            return None
-    return invoke_with_structured_output(client, messages, schema)

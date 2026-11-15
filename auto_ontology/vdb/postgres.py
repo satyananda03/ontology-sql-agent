@@ -133,7 +133,7 @@ class PostgresVDB:
 
     Each record becomes a :class:`Document` whose ``page_content`` is
     the searchable text and whose ``metadata`` carries the original record
-    metadata plus ``document_type``. Embeddings produced upstream by the NIM
+    metadata plus ``document_type``. Embeddings produced upstream by the embed
     pipeline are bulk-loaded into PGVectorStore via ``add_embeddings`` so we
     don't re-run the embedder on the write path.
 
@@ -167,11 +167,7 @@ class PostgresVDB:
         self._store: Optional[PGVectorStore] = None
         self.vector_size: Optional[int] = kwargs.get(
             "vector_size",
-            int(
-                os.environ.get("EMBEDDING_DIM")
-                or os.environ.get("EMBED_DIMENSIONS")
-                or 2048
-            ),
+            int(os.environ.get("EMBEDDING_DIM") or 2048),
         )
         # Resetting the database embeddings prior to ingestion
         # In order to support without recreate:

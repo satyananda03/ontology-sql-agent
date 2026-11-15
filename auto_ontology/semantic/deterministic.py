@@ -8,10 +8,8 @@ from typing import Any
 
 from auto_ontology.semantic.date_format import is_date_type
 from auto_ontology.semantic.models import ColumnAttributeSpec, ColumnDescriptionResult
-from auto_ontology.utils.llm_invoke import (
-    get_llm_client,
-    invoke_with_structured_output,
-)
+from auto_ontology.utils.llm_client import get_llm_client
+from auto_ontology.utils.llm_invoke import invoke_with_structured_output
 from auto_ontology.utils.prompt_loader import load_chat_prompt_template
 
 logger = logging.getLogger(__name__)

@@ -11,7 +11,7 @@ from auto_ontology.semantic.embed import build_semantic_embedder
 from auto_ontology.semantic.semantic_fk import resolve_semantic_fks
 
 from auto_ontology.semantic.pipeline import compile_semantic_layer
-from auto_ontology.utils.llm_invoke import limit_inflight
+from auto_ontology.utils.llm_inflight import limit_inflight
 
 logger = logging.getLogger(__name__)
 

@@ -1,12 +1,7 @@
 """Text embedding against the configured OpenAI-compatible endpoint (LiteLLM).
 
-Requests are plain OpenAI ``/embeddings`` calls. NVIDIA's NIM-only fields
-(``input_type``, ``truncate``, ``modality``) are never sent: the gateway
-rejects them.
-
-Models trained on asymmetric ``query`` / ``passage`` input (see
-``_TEXT_PREFIXED_MODELS``) get the type written into the text as a
-``query: `` / ``passage: `` prefix, the instruction the model was trained with.
+Requests are plain OpenAI ``/embeddings`` calls: a stored row and a search
+string are embedded the same way.
 
 Ingest and query MUST use the same model; a mismatch produces garbage results
 or a dimension error from pgvector.
@@ -21,12 +16,12 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Iterator, Literal
+from typing import TYPE_CHECKING, Any, Callable, Iterator
 
 import httpx
-from openai import APIStatusError, Omit, OpenAI
+from openai import APIStatusError, OpenAI
 
-from auto_ontology.utils.model_config import resolve
+from auto_ontology.utils.model_config import binding
 from auto_ontology.vdb.records import write_embedded_rows
 
 if TYPE_CHECKING:
@@ -35,21 +30,6 @@ if TYPE_CHECKING:
     from auto_ontology.vdb.postgres import PostgresVDB
 
 logger = logging.getLogger(__name__)
-
-InputType = Literal["passage", "query"]
-
-# Model ids (matched as substrings) whose endpoint drops ``input_type`` and
-# needs the prefix in the text instead. Without it every vector shares one
-# dominant direction and similarity ranking is close to random; models that do
-# honour ``input_type`` get slightly worse with the prefix added on top. Only
-# the inference-api nvfp4 deployment drops it: the hosted
-# ``nvidia/nemotron-3.5-embed-1b`` on build.nvidia.com honours ``input_type``.
-_TEXT_PREFIXED_MODELS = ("nemotron-3.5-embed-1b-nvfp4",)
-
-# Each field falls back to DEFAULT_MODELS_<field>.
-_EMBED_ENDPOINT = resolve("EMBED", "ENDPOINT")
-_EMBED_MODEL = resolve("EMBED", "MODEL")
-_EMBED_API_KEY = resolve("EMBED", "API_KEY")
 
 # Process-wide cap on embedding requests in flight, across every caller. Unset
 # means no cap. Some gateways scramble the ``index`` of each vector under parallel
@@ -98,25 +78,35 @@ class EmbedParams:
     embed_invoke_url: str
     api_key: str = field(default="", repr=False)
     inference_batch_size: int = 32
-    nim_http_max_concurrent: int = 32
+    max_concurrent_requests: int = 32
     request_timeout_s: float = 600.0
 
 
 def get_embed_params() -> EmbedParams:
+    """The embedding endpoint from the ``EMBEDDING`` binding.
+
+    The only source of ``EmbedParams`` outside tests: callers that need to know
+    whether embedding is configured check ``.api_key`` on the result.
+
+    Raises ``EnvironmentError`` for a key without a host or model. The client
+    library would otherwise send that key to its own default endpoint.
+    """
+    embedding = binding("EMBEDDING")
+    if embedding.api_key and not (embedding.host and embedding.model):
+        raise EnvironmentError(
+            "EMBEDDING_BINDING_HOST and EMBEDDING_MODEL must be set "
+            "along with EMBEDDING_BINDING_API_KEY"
+        )
     return EmbedParams(
-        embed_invoke_url=_EMBED_ENDPOINT,
-        model_name=_EMBED_MODEL,
-        api_key=_EMBED_API_KEY,
+        embed_invoke_url=embedding.host,
+        model_name=embedding.model,
+        api_key=embedding.api_key,
     )
 
 
 # ---------------------------------------------------------------------------
 # Client
 # ---------------------------------------------------------------------------
-
-# A keyless self-hosted NIM expects no Authorization header, and the client
-# only sends none when the header is omitted per request.
-_NO_AUTH = {"Authorization": Omit()}
 
 _clients: dict[tuple[str, str], OpenAI] = {}
 _clients_lock = threading.Lock()
@@ -135,9 +125,7 @@ def _base_url(endpoint: str) -> str:
 def _new_client(params: EmbedParams, http_client: httpx.Client | None = None) -> OpenAI:
     return OpenAI(
         base_url=_base_url(params.embed_invoke_url),
-        # The client refuses to start without a key; a keyless endpoint gets a
-        # placeholder here and no header at all, see _NO_AUTH.
-        api_key=params.api_key or "unused",
+        api_key=params.api_key,
         max_retries=_REQUEST_RETRIES,
         http_client=http_client,
     )
@@ -153,16 +141,9 @@ def _client(params: EmbedParams) -> OpenAI:
         return client
 
 
-def _text_prefix(model_name: str, input_type: InputType) -> str:
-    if any(model in model_name for model in _TEXT_PREFIXED_MODELS):
-        return f"{input_type}: "
-    return ""
-
-
 def embed_texts(
     texts: list[str],
     params: EmbedParams,
-    input_type: InputType,
     *,
     timeout: float | None = None,
     retries: int | None = None,
@@ -186,16 +167,14 @@ def embed_texts(
     if retries is not None:
         client = client.with_options(max_retries=retries)
     batches = list(itertools.batched(to_send, max(1, params.inference_batch_size)))
-    prefix = _text_prefix(params.model_name, input_type)
 
     def _embed_batch(indices: tuple[int, ...]) -> None:
         with _inflight:
             response = client.embeddings.create(
                 model=params.model_name,
-                input=[prefix + stripped[i] for i in indices],
+                input=[stripped[i] for i in indices],
                 encoding_format="float",
                 timeout=timeout or params.request_timeout_s,
-                extra_headers=None if params.api_key else _NO_AUTH,
             )
         returned = [item.index for item in response.data]
         if sorted(returned) != list(range(len(indices))):
@@ -212,7 +191,7 @@ def embed_texts(
     if len(batches) == 1:
         _embed_batch(batches[0])
     else:
-        workers = min(len(batches), max(1, params.nim_http_max_concurrent))
+        workers = min(len(batches), max(1, params.max_concurrent_requests))
         with ThreadPoolExecutor(max_workers=workers) as pool:
             # list() so the first failed batch re-raises here.
             list(pool.map(_embed_batch, batches))
@@ -236,7 +215,7 @@ def _is_fatal(exc: Exception) -> bool:
 
 
 def _embed_frame(frame: "pd.DataFrame", params: EmbedParams) -> "pd.DataFrame":
-    """Embed *frame*'s ``text`` column as passages into ``metadata["embedding"]``.
+    """Embed *frame*'s ``text`` column into ``metadata["embedding"]``.
 
     Never raises. A failure leaves every row without an embedding and the
     reason in ``frame.attrs``, which is what lets the caller retry the chunk,
@@ -249,7 +228,7 @@ def _embed_frame(frame: "pd.DataFrame", params: EmbedParams) -> "pd.DataFrame":
         for m in out.get("metadata", [None] * len(out))
     ]
     try:
-        vectors = embed_texts(list(out.get("text", [""] * len(out))), params, "passage")
+        vectors = embed_texts(list(out.get("text", [""] * len(out))), params)
     except Exception as exc:
         out.attrs[_ERROR_ATTR] = f"{type(exc).__name__}: {exc}"
         out.attrs[_FATAL_ATTR] = _is_fatal(exc)
@@ -271,7 +250,7 @@ def embed_chunk_size(params: EmbedParams) -> int:
     lost to — or redone by — a mid-run failure, larger ones mean less pgvector
     round-tripping.
     """
-    return max(1, params.inference_batch_size * params.nim_http_max_concurrent)
+    return max(1, params.inference_batch_size * params.max_concurrent_requests)
 
 
 def _embedded_row_count(frame: "pd.DataFrame") -> int:
@@ -378,7 +357,7 @@ def batch_embed_chunks(
         params.embed_invoke_url,
         params.model_name,
         params.inference_batch_size,
-        params.nim_http_max_concurrent,
+        params.max_concurrent_requests,
     )
 
     started = time.monotonic()
@@ -480,7 +459,6 @@ def embed_rows(
         vectors = embed_texts(
             [row.get("text") or "" for row in rows],
             params,
-            "passage",
             timeout=_INTERACTIVE_TIMEOUT_S,
             retries=_INTERACTIVE_RETRIES,
         )

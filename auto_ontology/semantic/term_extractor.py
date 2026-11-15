@@ -6,10 +6,8 @@ from typing import Any
 
 from auto_ontology.semantic.deterministic import to_term_name
 from auto_ontology.semantic.domain import DomainSummary
-from auto_ontology.utils.llm_invoke import (
-    get_llm_client,
-    invoke_with_structured_output,
-)
+from auto_ontology.utils.llm_client import get_llm_client
+from auto_ontology.utils.llm_invoke import invoke_with_structured_output
 from auto_ontology.utils.prompt_loader import load_chat_prompt_template, load_prompt
 
 from auto_ontology.semantic.models import (

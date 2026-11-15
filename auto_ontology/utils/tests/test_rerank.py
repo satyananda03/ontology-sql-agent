@@ -1,9 +1,8 @@
 """Tests for :func:`auto_ontology.utils.rerank.rerank_hits`.
 
-The two built-in endpoints speak different ranking schemas -- inference-api's
-``/rerank`` and NIM's ``/reranking`` -- so both are pinned here: a request in
-the wrong shape is rejected by the server and every bridge-table owner falls
-back to the first Term without anyone noticing.
+The request shape is pinned here: a request in the wrong shape is rejected by
+the gateway and every bridge-table owner falls back to the first Term without
+anyone noticing.
 """
 
 import json
@@ -47,7 +46,7 @@ def server(
     return _install
 
 
-def test_the_inference_api_schema(server: Server) -> None:
+def test_the_rerank_schema(server: Server) -> None:
     seen = server(
         {
             "results": [
@@ -82,34 +81,37 @@ def test_the_inference_api_schema(server: Server) -> None:
     ]
 
 
-def test_the_nim_schema(server: Server) -> None:
-    seen = server(
-        {"rankings": [{"index": 1, "logit": 4.0}, {"index": 0, "logit": -2.0}]}
+def test_top_n_keeps_only_the_best(server: Server) -> None:
+    server(
+        {
+            "results": [
+                {"index": 1, "relevance_score": 4.0},
+                {"index": 0, "relevance_score": -2.0},
+            ]
+        }
     )
 
     ranked = rerank_hits(
         "fruit",
         _HITS[:2],
-        rerank_invoke_url="https://nim.example/v1/retrieval/x/reranking",
+        rerank_invoke_url="https://gateway.example/v1/rerank/",
         model_name="m",
         top_n=1,
     )
 
-    [request] = seen
-    assert "authorization" not in request.headers
-    assert json.loads(request.content) == {
-        "model": "m",
-        "query": {"text": "fruit"},
-        "passages": [{"text": "apples"}, {"text": "bananas"}],
-        "truncate": "END",
-    }
     assert [h["id"] for h in ranked] == ["b"]
 
 
-def test_a_base_url_gets_the_nim_ranking_path(server: Server) -> None:
-    seen = server({"rankings": []})
-    rerank_hits("q", _HITS, rerank_invoke_url="http://localhost:8015/", model_name="m")
-    assert str(seen[0].url) == "http://localhost:8015/v1/ranking"
+def test_the_binding_supplies_the_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("RERANK_BINDING_HOST", "https://gateway.example/v1/rerank")
+    monkeypatch.setenv("RERANK_MODEL", "rerank-model")
+    monkeypatch.setenv("RERANK_BINDING_API_KEY", "sk-rerank")
+
+    assert rerank.get_rerank_kwargs() == {
+        "rerank_invoke_url": "https://gateway.example/v1/rerank",
+        "model_name": "rerank-model",
+        "api_key": "sk-rerank",
+    }
 
 
 def test_an_endpoint_error_reaches_the_caller(server: Server) -> None:

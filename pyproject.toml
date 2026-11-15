@@ -19,7 +19,6 @@ dependencies = [
     "alembic>=1.19.1",
     "langchain-postgres>=0.0.17",
     "openai==2.44.0",
-    "langchain-nvidia-ai-endpoints>=1.4.3",
     "langchain-core>=1.6.1",
     "sqlglot>=30.17.0",
     "numpy>=2.5.2",

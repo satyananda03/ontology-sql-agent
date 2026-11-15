@@ -5,10 +5,8 @@ from pathlib import Path
 from typing import Any
 
 from auto_ontology.semantic.deterministic import fk_source_columns
-from auto_ontology.utils.llm_invoke import (
-    get_llm_client,
-    invoke_with_structured_output,
-)
+from auto_ontology.utils.llm_client import get_llm_client
+from auto_ontology.utils.llm_invoke import invoke_with_structured_output
 from auto_ontology.utils.prompt_loader import load_chat_prompt_template
 from auto_ontology.utils.sample_values import stringify_sample_values
 from auto_ontology.semantic.models import (

@@ -606,10 +606,10 @@ def test_import_model_skips_flush_when_embed_false(
     assert mock_apply.call_args.kwargs["embed_buffer"] is None
 
 
-@patch("auto_ontology.server.model_interchange.embed.resolve", return_value="")
 def test_flush_import_embeddings_skips_without_api_key(
-    _mock_resolve: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.delenv("EMBEDDING_BINDING_API_KEY", raising=False)
     buffer = ImportEmbedBuffer(data_rows=[{"text": "x"}])
     result = flush_import_embeddings(buffer)
     assert result["skipped"] is True

@@ -25,10 +25,8 @@ from auto_ontology.dal.sql_attributes import (
 from auto_ontology.dal.terms import get_term_record_for_table
 from auto_ontology.semantic.constants import SQL_ATTR_SOURCE_BRIDGE
 from auto_ontology.server.sql_attributes.service import create_sql_attribute
-from auto_ontology.utils.llm_invoke import (
-    get_llm_client,
-    invoke_with_structured_output,
-)
+from auto_ontology.utils.llm_client import get_llm_client
+from auto_ontology.utils.llm_invoke import invoke_with_structured_output
 from auto_ontology.utils.prompt_loader import load_chat_prompt_template, load_prompt
 from auto_ontology.utils.rerank import get_rerank_kwargs, rerank_hits
 

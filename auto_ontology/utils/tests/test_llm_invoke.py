@@ -1,11 +1,10 @@
-"""Tests for LLM invocation helpers."""
+"""Tests for how a structured LLM call is made: preparation, format, retries."""
 
-import contextlib
-import threading
-import time
 from typing import Any
 from unittest.mock import MagicMock
 
+import httpx
+import openai
 import pytest
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
@@ -19,11 +18,9 @@ from auto_ontology.utils.llm_invoke import (
 
 
 @pytest.fixture(autouse=True)
-def _isolate_fallback_state(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Prevent client identities and cached fallback clients leaking across tests."""
-    monkeypatch.setattr(llm_invoke, "_NON_REASONING_IDS", set())
-    monkeypatch.setattr(llm_invoke, "_NON_REASONING_STRONG_REFS", {})
-    monkeypatch.setattr(llm_invoke, "_REASONING_FALLBACK_CLIENT", None)
+def _no_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Retries wait seconds between attempts; the tests only count them."""
+    monkeypatch.setattr(llm_invoke.time, "sleep", lambda _seconds: None)
 
 
 class _Model:
@@ -140,362 +137,6 @@ def test_validation_retry_note_reaches_claude_ahead_of_the_conversation() -> Non
     assert roles == ["system", "system", "human"]
 
 
-def _bound() -> int | None:
-    """Capacity of the bound currently in force, or None when unbounded."""
-    guard = llm_invoke._INFLIGHT
-    return None if guard is None else guard._initial_value  # type: ignore[attr-defined]
-
-
-def test_limit_inflight_applies_and_releases_a_bound() -> None:
-    assert _bound() is None
-    with llm_invoke.limit_inflight(6):
-        assert _bound() == 6
-    assert _bound() is None
-
-
-def test_overlapping_blocks_do_not_leak_a_bound() -> None:
-    """Two blocks that overlap without nesting exit in non-stack order.
-
-    A save/restore of one global has each block put back the value it captured,
-    which drops the bound of a block still running and then leaves a stale bound
-    installed with nothing active. Both are silent, and the second permanently
-    re-imposes the ceiling this module exists to avoid.
-    """
-    a_inside = threading.Event()
-    b_inside = threading.Event()
-    seen_by_b: list[int | None] = []
-
-    def first() -> None:
-        with llm_invoke.limit_inflight(6):
-            a_inside.set()
-            b_inside.wait(5)  # leave only once B is also inside
-
-    def second() -> None:
-        a_inside.wait(5)
-        with llm_invoke.limit_inflight(6):
-            b_inside.set()
-            time.sleep(0.2)  # outlive A
-            seen_by_b.append(_bound())
-
-    threads = [threading.Thread(target=first), threading.Thread(target=second)]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join(10)
-
-    assert seen_by_b == [6], "B lost its bound when A exited"
-    assert _bound() is None, "a bound survived with no block active"
-
-
-def test_the_most_restrictive_overlapping_bound_wins() -> None:
-    with llm_invoke.limit_inflight(8):
-        assert _bound() == 8
-        with llm_invoke.limit_inflight(2):
-            assert _bound() == 2
-        # Leaving the tighter block must not leave the process unbounded.
-        assert _bound() == 8
-    assert _bound() is None
-
-
-def test_a_non_positive_limit_leaves_another_blocks_bound_alone() -> None:
-    """ "I need no bound" must not mean "remove someone else's"."""
-    with llm_invoke.limit_inflight(4):
-        with llm_invoke.limit_inflight(0):
-            assert _bound() == 4
-        assert _bound() == 4
-    assert _bound() is None
-
-
-def test_an_exception_inside_the_block_still_releases_the_bound() -> None:
-    with contextlib.suppress(RuntimeError):
-        with llm_invoke.limit_inflight(3):
-            assert _bound() == 3
-            raise RuntimeError("boom")
-    assert _bound() is None
-
-
-class _Schema:
-    """Stand-in schema; the structured-invoke mock never validates it."""
-
-
-class _Binding:
-    """Stand-in for ``llm.bind()``, which wraps the client as ``bound``."""
-
-    def __init__(self, bound: object) -> None:
-        self.bound = bound
-
-
-def test_non_reasoning_client_is_marked(monkeypatch: Any) -> None:
-    sentinel = object()
-    monkeypatch.setattr(llm_invoke, "_NON_REASONING_API_KEY", "sk-test")
-    monkeypatch.setattr(llm_invoke, "_build_client", lambda **_kwargs: sentinel)
-
-    client = llm_invoke.get_non_reasoning_llm_client()
-
-    assert client is sentinel
-    assert llm_invoke._is_non_reasoning_client(client)
-    assert llm_invoke._is_non_reasoning_client(_Binding(client))
-    assert not llm_invoke._is_non_reasoning_client(object())
-    assert not llm_invoke._is_non_reasoning_client(_Binding(object()))
-
-
-def test_endless_bound_chain_is_not_followed_forever() -> None:
-    """A ``MagicMock`` has a fresh ``bound`` on every access; the walk must stop."""
-    assert not llm_invoke._is_non_reasoning_client(MagicMock())
-
-
-def test_non_weakref_client_id_cannot_match_an_unrelated_client(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    candidate = object()
-    registered = object()
-    monkeypatch.setattr(llm_invoke, "_NON_REASONING_IDS", {id(candidate)})
-    monkeypatch.setattr(
-        llm_invoke,
-        "_NON_REASONING_STRONG_REFS",
-        {id(candidate): registered},
-    )
-
-    assert not llm_invoke._is_non_reasoning_client(candidate)
-
-
-def test_structured_non_reasoning_call_falls_back_to_reasoning(
-    monkeypatch: Any,
-) -> None:
-    primary = object()
-    reasoning = object()
-    llm_invoke._remember_non_reasoning(primary)
-    calls: list[object] = []
-
-    def invoke(llm: object, _messages: object, _schema: object) -> str:
-        calls.append(llm)
-        if llm is primary:
-            raise RuntimeError("429 Too Many Requests")
-        return "from-reasoning"
-
-    monkeypatch.setattr(llm_invoke, "safe_invoke_with_structured_output", invoke)
-    monkeypatch.setattr(llm_invoke, "get_llm_client", lambda **_kwargs: reasoning)
-
-    result = llm_invoke.invoke_with_structured_output(primary, [], _Schema)
-
-    assert result == "from-reasoning"
-    assert calls == [primary, reasoning]
-
-
-def test_bound_non_reasoning_client_falls_back(monkeypatch: Any) -> None:
-    primary = object()
-    reasoning = object()
-    binding = _Binding(primary)
-    llm_invoke._remember_non_reasoning(primary)
-    calls: list[object] = []
-
-    def invoke(llm: object, _messages: object, _schema: object) -> str:
-        calls.append(llm)
-        if llm is not reasoning:
-            raise RuntimeError("down")
-        return "ok"
-
-    monkeypatch.setattr(llm_invoke, "safe_invoke_with_structured_output", invoke)
-    monkeypatch.setattr(llm_invoke, "get_llm_client", lambda **_kwargs: reasoning)
-
-    result = llm_invoke.invoke_with_structured_output(binding, [], _Schema)
-
-    assert result == "ok"
-    assert calls == [binding, reasoning]
-
-
-def test_reasoning_fallback_client_is_reused(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    first = object()
-    second = object()
-    reasoning = object()
-    builds: list[object] = []
-    llm_invoke._remember_non_reasoning(first)
-    llm_invoke._remember_non_reasoning(second)
-    monkeypatch.setattr(
-        llm_invoke,
-        "get_llm_client",
-        lambda **_kwargs: builds.append(reasoning) or reasoning,
-    )
-
-    assert llm_invoke._reasoning_fallback_client(first) is reasoning
-    assert llm_invoke._reasoning_fallback_client(second) is reasoning
-    assert builds == [reasoning]
-
-
-def test_structured_fallback_returns_none_when_reasoning_also_fails(
-    monkeypatch: Any,
-) -> None:
-    primary = object()
-    reasoning = object()
-    llm_invoke._remember_non_reasoning(primary)
-    calls: list[object] = []
-
-    def invoke(llm: object, _messages: object, _schema: object) -> None:
-        calls.append(llm)
-        raise RuntimeError("429")
-
-    monkeypatch.setattr(llm_invoke, "safe_invoke_with_structured_output", invoke)
-    monkeypatch.setattr(llm_invoke, "get_llm_client", lambda **_kwargs: reasoning)
-    monkeypatch.setattr(llm_invoke, "_NON_REASONING_API_KEY", "sk-test")
-    monkeypatch.setattr(llm_invoke, "_build_client", lambda **_kwargs: primary)
-
-    result = llm_invoke.safe_invoke_structured_nr([], _Schema)
-
-    assert result is None
-    assert calls == [primary, reasoning]
-
-
-def test_structured_nr_uses_reasoning_when_non_reasoning_client_is_unavailable(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    reasoning = object()
-    calls: list[object] = []
-
-    monkeypatch.setattr(
-        llm_invoke,
-        "get_non_reasoning_llm_client",
-        lambda **_kwargs: (_ for _ in ()).throw(EnvironmentError("missing key")),
-    )
-    monkeypatch.setattr(llm_invoke, "get_llm_client", lambda **_kwargs: reasoning)
-    monkeypatch.setattr(
-        llm_invoke,
-        "safe_invoke_with_structured_output",
-        lambda llm, _messages, _schema: calls.append(llm) or "ok",
-    )
-
-    assert llm_invoke.safe_invoke_structured_nr([], _Schema) == "ok"
-    assert calls == [reasoning]
-
-
-def test_structured_nr_returns_none_when_neither_client_is_available(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def unavailable(**_kwargs: object) -> object:
-        raise EnvironmentError("missing key")
-
-    monkeypatch.setattr(llm_invoke, "get_non_reasoning_llm_client", unavailable)
-    monkeypatch.setattr(llm_invoke, "get_llm_client", unavailable)
-
-    assert llm_invoke.safe_invoke_structured_nr([], _Schema) is None
-
-
-def test_reasoning_structured_call_does_not_switch_models(monkeypatch: Any) -> None:
-    reasoning = object()
-
-    def invoke(_llm: object, _messages: object, _schema: object) -> None:
-        raise RuntimeError("429")
-
-    def fail_client(**_kwargs: object) -> object:
-        raise AssertionError("reasoning call must not build a fallback client")
-
-    monkeypatch.setattr(llm_invoke, "safe_invoke_with_structured_output", invoke)
-    monkeypatch.setattr(llm_invoke, "get_llm_client", fail_client)
-
-    assert llm_invoke.invoke_with_structured_output(reasoning, [], _Schema) is None
-
-
-def test_text_non_reasoning_call_falls_back_once(monkeypatch: Any) -> None:
-    primary = object()
-    reasoning = object()
-    llm_invoke._remember_non_reasoning(primary)
-    calls: list[object] = []
-
-    def once(llm: object, _prompt: str) -> str:
-        calls.append(llm)
-        if llm is primary:
-            raise RuntimeError("connection error")
-        return "ok"
-
-    monkeypatch.setattr(llm_invoke, "_safe_invoke_text", once)
-    monkeypatch.setattr(llm_invoke, "get_llm_client", lambda **_kwargs: reasoning)
-
-    assert llm_invoke.safe_invoke_text(primary, "question") == "ok"
-    assert calls == [primary, reasoning]
-
-
-def test_text_nr_uses_reasoning_when_non_reasoning_client_is_unavailable(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    reasoning = object()
-    calls: list[object] = []
-
-    monkeypatch.setattr(
-        llm_invoke,
-        "get_non_reasoning_llm_client",
-        lambda **_kwargs: (_ for _ in ()).throw(EnvironmentError("missing key")),
-    )
-    monkeypatch.setattr(llm_invoke, "get_llm_client", lambda **_kwargs: reasoning)
-    monkeypatch.setattr(
-        llm_invoke,
-        "_safe_invoke_text",
-        lambda llm, _prompt: calls.append(llm) or "ok",
-    )
-
-    assert llm_invoke.safe_invoke_text_nr("question") == "ok"
-    assert calls == [reasoning]
-
-
-def test_text_fallback_is_not_attempted_twice(monkeypatch: Any) -> None:
-    primary = object()
-    reasoning = object()
-    calls: list[object] = []
-
-    def once(llm: object, _prompt: str) -> str:
-        calls.append(llm)
-        raise RuntimeError("429")
-
-    monkeypatch.setattr(llm_invoke, "_NON_REASONING_API_KEY", "sk-test")
-    monkeypatch.setattr(llm_invoke, "_build_client", lambda **_kwargs: primary)
-    monkeypatch.setattr(llm_invoke, "_safe_invoke_text", once)
-    monkeypatch.setattr(llm_invoke, "get_llm_client", lambda **_kwargs: reasoning)
-
-    try:
-        llm_invoke.safe_invoke_text_nr("question")
-    except RuntimeError as exc:
-        assert "429" in str(exc)
-    else:
-        raise AssertionError("both models failing must raise")
-
-    assert calls == [primary, reasoning]
-
-
-def test_invoke_text_falls_back_for_a_non_reasoning_client(monkeypatch: Any) -> None:
-    primary = object()
-    reasoning = object()
-    llm_invoke._remember_non_reasoning(primary)
-    calls: list[object] = []
-
-    def once(llm: object, _prompt: str) -> str:
-        calls.append(llm)
-        if llm is primary:
-            raise RuntimeError("down")
-        return "pql"
-
-    monkeypatch.setattr(llm_invoke, "_invoke_text_once", once)
-    monkeypatch.setattr(llm_invoke, "get_llm_client", lambda **_kwargs: reasoning)
-
-    assert llm_invoke.invoke_text(primary, "predict") == "pql"
-    assert calls == [primary, reasoning]
-
-
-def test_missing_reasoning_client_keeps_the_original_failure(monkeypatch: Any) -> None:
-    primary = object()
-    llm_invoke._remember_non_reasoning(primary)
-
-    def invoke(_llm: object, _messages: object, _schema: object) -> None:
-        raise RuntimeError("429")
-
-    def unavailable(**_kwargs: object) -> object:
-        raise EnvironmentError("REASONING_API_KEY is not set")
-
-    monkeypatch.setattr(llm_invoke, "safe_invoke_with_structured_output", invoke)
-    monkeypatch.setattr(llm_invoke, "get_llm_client", unavailable)
-
-    assert llm_invoke.invoke_with_structured_output(primary, [], _Schema) is None
-
-
 class _Answer(BaseModel):
     answer: str
 
@@ -536,15 +177,9 @@ def test_a_reply_that_does_not_fit_the_schema_is_none() -> None:
     assert llm_invoke._structured_llm(llm, _Answer).invoke("question") is None
 
 
-@pytest.mark.parametrize(
-    "model",
-    [
-        "claude-3-5-sonnet",  # rejects response_format
-        "openai/gpt-5",  # ChatOpenAI never sent guided_json
-    ],
-)
-def test_other_clients_keep_the_librarys_own_structured_output(model: str) -> None:
-    llm = MagicMock(model_name=model)
+def test_claude_keeps_the_librarys_own_structured_output() -> None:
+    """Claude rejects response_format, so it is asked through tool calling."""
+    llm = MagicMock(model_name="claude-3-5-sonnet")
 
     llm_invoke._structured_llm(llm, _Answer)
 
@@ -552,11 +187,68 @@ def test_other_clients_keep_the_librarys_own_structured_output(model: str) -> No
     llm.bind.assert_not_called()
 
 
-def test_a_chatnvidia_model_never_asks_for_guided_json() -> None:
-    """Behind LiteLLM, even a NIM-named model is asked with response_format."""
-    llm = MagicMock(model_name="meta/llama-3.1-70b-instruct")
+@pytest.mark.parametrize(
+    "model", ["moonshotai.kimi-k2.5", "openai/gpt-5", "meta/llama-3.1-70b-instruct"]
+)
+def test_every_other_model_is_asked_with_response_format(model: str) -> None:
+    """One path behind the gateway, whatever the model is called."""
+    llm = MagicMock(model_name=model)
 
     llm_invoke._structured_llm(llm, _Answer)
 
     llm.with_structured_output.assert_not_called()
     llm.bind.assert_called_once()
+
+
+def _timeout() -> openai.APITimeoutError:
+    return openai.APITimeoutError(httpx.Request("POST", "https://gateway.example"))
+
+
+class _FlakyChat(FakeListChatModel):
+    """Raises each queued error once, then answers from ``responses``."""
+
+    errors: list[Exception] = []
+    calls: int = 0
+
+    def _call(self, *args: Any, **kwargs: Any) -> str:
+        self.calls += 1
+        if self.errors:
+            raise self.errors.pop(0)
+        return super()._call(*args, **kwargs)
+
+
+def test_a_timed_out_request_is_retried() -> None:
+    """The client raises APITimeoutError; it is transient, like a 429 or a 503."""
+    llm = _FlakyChat(responses=['{"answer": "ok"}'], errors=[_timeout()])
+
+    result = llm_invoke.safe_invoke_with_structured_output(
+        llm, [HumanMessage(content="question")], _Answer
+    )
+
+    assert result == _Answer(answer="ok")
+    assert llm.calls == 2
+
+
+def test_a_call_that_keeps_failing_is_none_for_the_caller() -> None:
+    """Agents have their own fallback for a missing answer; an exception is not one."""
+    errors = [_timeout() for _ in range(llm_invoke.RETRY_MAX_ATTEMPTS)]
+    llm = _FlakyChat(responses=['{"answer": "ok"}'], errors=errors)
+
+    result = llm_invoke.invoke_with_structured_output(
+        llm, [HumanMessage(content="question")], _Answer
+    )
+
+    assert result is None
+    assert llm.calls == llm_invoke.RETRY_MAX_ATTEMPTS
+
+
+def test_a_request_the_gateway_refuses_is_not_retried() -> None:
+    """A wrong request stays wrong: retrying would only spend the attempts."""
+    llm = _FlakyChat(responses=['{"answer": "ok"}'], errors=[ValueError("bad request")])
+
+    with pytest.raises(ValueError, match="bad request"):
+        llm_invoke.safe_invoke_with_structured_output(
+            llm, [HumanMessage(content="question")], _Answer
+        )
+
+    assert llm.calls == 1

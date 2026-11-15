@@ -1,49 +1,27 @@
-"""Rerank candidate hits against a query with the configured ranking endpoint.
+"""Rerank candidate hits against a query with the gateway's ``/rerank`` route.
 
-Mirrors :mod:`auto_ontology.utils.embedding`: the endpoint, model, and API key
-are read from the environment here. Two request schemas are in use, picked by
-the URL, and each built-in default uses a different one:
-
-* ``…/rerank`` (inference-api, ``sk-`` keys) --
-  ``{"query": str, "documents": [str], "top_n"}``, scored by
-  ``results[].relevance_score``.
-* ``…/reranking`` or ``…/ranking`` (NIM, ``nvapi-`` keys) --
-  ``{"query": {"text"}, "passages": [{"text"}], "truncate"}``, scored by
-  ``rankings[].logit``.
-
-Any other URL is treated as a NIM base and gets ``/v1/ranking`` appended.
+``RERANK_BINDING_HOST`` is the full URL of that route. The request is
+``{"model", "query", "documents", "top_n"}`` and each document is scored by
+``results[].relevance_score``.
 """
 
 from typing import Any
 
 import httpx
 
-from auto_ontology.utils.model_config import resolve
-
-# Hosted NeMo reranking endpoint — no local GPU required. Override RERANK_ENDPOINT
-# to point at a self-hosted vLLM/NIM ranking server. Each field falls back to
-# DEFAULT_MODELS_<field> when unset.
-_RERANK_ENDPOINT = resolve("RERANK", "ENDPOINT")
-_RERANK_MODEL = resolve("RERANK", "MODEL")
-_RERANK_API_KEY = resolve("RERANK", "API_KEY")
+from auto_ontology.utils.model_config import binding
 
 _TIMEOUT_S = 30.0
 
 
 def get_rerank_kwargs() -> dict[str, str]:
-    """Keyword args for :func:`rerank_hits` (remote NeMo reranking endpoint)."""
+    """Keyword args for :func:`rerank_hits`, from the ``RERANK`` binding."""
+    rerank = binding("RERANK")
     return {
-        "rerank_invoke_url": _RERANK_ENDPOINT,
-        "model_name": _RERANK_MODEL,
-        "api_key": _RERANK_API_KEY,
+        "rerank_invoke_url": rerank.host,
+        "model_name": rerank.model,
+        "api_key": rerank.api_key,
     }
-
-
-def _ranking_url(endpoint: str) -> str:
-    url = endpoint.rstrip("/")
-    if url.endswith(("/reranking", "/ranking", "/rerank")):
-        return url
-    return f"{url}/v1/ranking"
 
 
 def _scores(
@@ -56,21 +34,12 @@ def _scores(
     timeout_s: float,
 ) -> list[float]:
     """One score per document, higher is better; ``-inf`` for any not returned."""
-    v1 = url.endswith("/rerank")
-    if v1:
-        payload: dict[str, Any] = {
-            "model": model_name,
-            "query": query,
-            "documents": documents,
-            "top_n": len(documents),
-        }
-    else:
-        payload = {
-            "model": model_name,
-            "query": {"text": query},
-            "passages": [{"text": d} for d in documents],
-            "truncate": "END",
-        }
+    payload: dict[str, Any] = {
+        "model": model_name,
+        "query": query,
+        "documents": documents,
+        "top_n": len(documents),
+    }
     headers = {"accept": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -79,14 +48,11 @@ def _scores(
     response.raise_for_status()
     data = response.json()
 
-    items = (
-        data.get("results" if v1 else "rankings") if isinstance(data, dict) else None
-    )
-    score_key = "relevance_score" if v1 else "logit"
+    items = data.get("results") if isinstance(data, dict) else None
     scores = [float("-inf")] * len(documents)
     for item in items if isinstance(items, list) else []:
         try:
-            index, score = int(item["index"]), float(item[score_key])
+            index, score = int(item["index"]), float(item["relevance_score"])
         except (KeyError, TypeError, ValueError):
             continue
         if 0 <= index < len(scores):
@@ -116,7 +82,7 @@ def rerank_hits(
     scores = _scores(
         query,
         [str(hit.get(text_key) or "") for hit in hits],
-        url=_ranking_url(rerank_invoke_url),
+        url=rerank_invoke_url.rstrip("/"),
         model_name=model_name,
         api_key=api_key,
         timeout_s=timeout_s,

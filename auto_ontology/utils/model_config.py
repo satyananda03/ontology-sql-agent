@@ -1,128 +1,40 @@
-"""Shared resolution of model-endpoint env var triplets.
+"""Model endpoints of auto_ontology: the one place their env vars are read.
 
-The env vars to set are the binding names in ``_BINDING_ENV`` below, the same
-ones ``sql_agent/core/config.py`` reads: one ``LLM_*`` binding serves both the
-reasoning and the non-reasoning role, ``EMBEDDING_*`` the embeddings and
-``RERANK_*`` the reranker.
+Every model is reached through an OpenAI-compatible gateway (LiteLLM), and each
+binding is three env vars, the same ones ``sql_agent/core/config.py`` reads::
 
-The older per-role names still work as a fallback. Every triplet
-(``REASONING``, ``NON_REASONING``, ``EMBED``, ``RERANK``) exposes
-three fields — ``ENDPOINT`` (URL), ``API_KEY``, and ``MODEL`` — as
-``<PREFIX>_<FIELD>`` env vars. Any field left unset falls back to the
-corresponding ``DEFAULT_MODELS_<FIELD>``, so a single ``DEFAULT_MODELS_*`` triplet
-can supply the shared endpoint/key/model for all of them. Each field also falls
-back to its legacy pre-triplet env var name (``NVIDIA_API_KEY`` / ``BASE_URL`` /
-``MODEL_NAME``) for backward compatibility.
+    LLM_MODEL        LLM_BINDING_HOST        LLM_BINDING_API_KEY
+    EMBEDDING_MODEL  EMBEDDING_BINDING_HOST  EMBEDDING_BINDING_API_KEY
+    RERANK_MODEL     RERANK_BINDING_HOST     RERANK_BINDING_API_KEY
 
-When even ``DEFAULT_MODELS_<FIELD>`` is unset, a built-in default is used. There
-are two sets — one for ``sk-`` inference-api keys and one for ``nvapi-``
-integrate/build.nvidia.com keys — and the set is chosen from the API key that
-applies to the same triplet.
+Only the client modules call :func:`binding` -- ``llm_client``, ``embedding``
+and ``rerank``. Everything else asks those modules for a ready client or its
+parameters, so a new setting has one place to be read from.
+
+An unset variable is an empty string. There is no default endpoint: a missing
+setting fails where it is used instead of quietly calling somewhere else.
 """
 
 import os
+from dataclasses import dataclass, field
+from typing import Literal
 
-# Built-in endpoint/model defaults, selected by the triplet's API key prefix.
-# Keyed by ``<PREFIX>_<FIELD>``. API keys are intentionally absent (they have no
-# safe hardcoded default and fall back to ``DEFAULT_MODELS_API_KEY`` /
-# ``NVIDIA_API_KEY`` instead).
-_DEFAULTS_BY_KEY_PREFIX: dict[str, dict[str, str]] = {
-    # inference-api.nvidia.com (sk-... keys).
-    "sk-": {
-        "REASONING_ENDPOINT": "https://inference-api.nvidia.com/v1",
-        "REASONING_MODEL": "azure/anthropic/claude-opus-5-5",
-        "NON_REASONING_ENDPOINT": "https://inference-api.nvidia.com/v1",
-        "NON_REASONING_MODEL": "azure/anthropic/claude-opus-5-5",
-        "EMBED_ENDPOINT": "https://inference-api.nvidia.com/v1",
-        "EMBED_MODEL": "nvidia/nvidia/nemotron-3.5-embed-1b-nvfp4",
-        "RERANK_ENDPOINT": "https://inference-api.nvidia.com/v1/rerank",
-        "RERANK_MODEL": "nvidia/nvidia/nemotron-3.5-rerank-8b-bf16",
-    },
-    # integrate.api.nvidia.com / build.nvidia.com (nvapi-... keys).
-    "nvapi-": {
-        "REASONING_ENDPOINT": "https://integrate.api.nvidia.com/v1",
-        "REASONING_MODEL": "nvidia/nemotron-3.5-lightning-30b-a3b",
-        "NON_REASONING_ENDPOINT": "https://integrate.api.nvidia.com/v1",
-        "NON_REASONING_MODEL": "nvidia/nemotron-3.5-lightning-30b-a3b",
-        "EMBED_ENDPOINT": "https://integrate.api.nvidia.com/v1",
-        "EMBED_MODEL": "nvidia/nemotron-3.5-embed-1b",
-        "RERANK_ENDPOINT": (
-            "https://ai.api.nvidia.com/v1/retrieval/nvidia/"
-            "nemotron-3.5-rerank-8b/reranking"
-        ),
-        "RERANK_MODEL": "nvidia/nemotron-3.5-rerank-8b",
-    },
-}
-
-# Default set to use when the API key matches no known prefix (or is unset).
-_FALLBACK_KEY_PREFIX = "sk-"
+BindingName = Literal["LLM", "EMBEDDING", "RERANK"]
 
 
-# The binding env var each triplet field is read from first.
-_BINDINGS = {
-    "REASONING": "LLM",
-    "NON_REASONING": "LLM",
-    "EMBED": "EMBEDDING",
-    "RERANK": "RERANK",
-}
-_BINDING_FIELDS = {"ENDPOINT": "BINDING_HOST", "API_KEY": "BINDING_API_KEY"}
+@dataclass(frozen=True)
+class Binding:
+    """One model endpoint. The key is kept out of ``repr`` and so out of logs."""
+
+    model: str
+    host: str
+    api_key: str = field(repr=False)
 
 
-def _binding(prefix: str, field: str) -> str:
-    """``LLM_BINDING_HOST`` / ``LLM_BINDING_API_KEY`` / ``LLM_MODEL`` and the like."""
-    if prefix not in _BINDINGS:
-        return ""
-    name = f"{_BINDINGS[prefix]}_{_BINDING_FIELDS.get(field, field)}"
-    return os.environ.get(name, "")
-
-
-# Legacy (pre-triplet) env var names, still honored so existing deployments and
-# --set nvidiaApiKey / BASE_URL / MODEL_NAME configs keep working.
-_LEGACY_ENV: dict[str, str] = {
-    "API_KEY": "NVIDIA_API_KEY",
-    "ENDPOINT": "BASE_URL",
-    "MODEL": "MODEL_NAME",
-}
-
-
-def _default(field: str) -> str:
-    """Shared default for *field*: ``DEFAULT_MODELS_<field>`` then the legacy name."""
-    value = os.environ.get(f"DEFAULT_MODELS_{field}", "")
-    if not value and field in _LEGACY_ENV:
-        value = os.environ.get(_LEGACY_ENV[field], "")
-    return value
-
-
-def _resolve_api_key(prefix: str) -> str:
-    """Effective API key for *prefix* (binding, own env var, else the shared default)."""
-    return (
-        _binding(prefix, "API_KEY")
-        or os.environ.get(f"{prefix}_API_KEY", "")
-        or _default("API_KEY")
-    )
-
-
-def _builtin_default(prefix: str, key: str) -> str:
-    """Built-in default for ``<prefix>_<field>``, chosen by the key prefix."""
-    api_key = _resolve_api_key(prefix)
-    for key_prefix, defaults in _DEFAULTS_BY_KEY_PREFIX.items():
-        if api_key.startswith(key_prefix):
-            return defaults.get(key, "")
-    return _DEFAULTS_BY_KEY_PREFIX[_FALLBACK_KEY_PREFIX].get(key, "")
-
-
-def resolve(prefix: str, field: str) -> str:
-    """Resolve one triplet field.
-
-    Order of precedence: the binding env var (``LLM_BINDING_HOST`` and the
-    like), the older ``<prefix>_<field>`` env var, then the shared
-    ``DEFAULT_MODELS_<field>``, then a built-in default chosen by whether the
-    triplet's API key is an ``sk-`` or ``nvapi-`` key.
-    """
-    key = f"{prefix}_{field}"
-    return (
-        _binding(prefix, field)
-        or os.environ.get(key, "")
-        or _default(field)
-        or _builtin_default(prefix, key)
+def binding(name: BindingName) -> Binding:
+    """The *name* binding as the environment currently sets it."""
+    return Binding(
+        model=os.environ.get(f"{name}_MODEL", ""),
+        host=os.environ.get(f"{name}_BINDING_HOST", ""),
+        api_key=os.environ.get(f"{name}_BINDING_API_KEY", ""),
     )

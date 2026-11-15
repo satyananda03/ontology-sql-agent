@@ -9,7 +9,8 @@ from auto_ontology.dal.sql_attributes import (
     get_full_sql_attribute_by_id,
     set_sql_attribute_description_suggestion,
 )
-from auto_ontology.utils.llm_invoke import get_llm_client, invoke_with_structured_output
+from auto_ontology.utils.llm_client import get_llm_client
+from auto_ontology.utils.llm_invoke import invoke_with_structured_output
 from auto_ontology.utils.prompt_loader import load_chat_prompt_template
 
 logger = logging.getLogger(__name__)

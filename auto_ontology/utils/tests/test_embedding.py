@@ -2,8 +2,7 @@
 
 The endpoint is replaced by an ``httpx.MockTransport`` under the real OpenAI
 client, so what is asserted is the request that actually goes over the wire:
-the NVIDIA fields riding in the body, the auth header, batching, ordering and
-which failures are retried.
+the body, the auth header, batching, ordering and which failures are retried.
 """
 
 import json
@@ -31,7 +30,7 @@ Handler = Callable[[httpx.Request], httpx.Response]
 
 def _params(**overrides: Any) -> EmbedParams:
     fields: dict[str, Any] = {
-        "model_name": "nvidia/embed",
+        "model_name": "embed-model",
         "embed_invoke_url": "https://embed.example/v1",
         "api_key": "sk-test",
     }
@@ -83,55 +82,45 @@ def endpoint(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("input_type", ["passage", "query"])
-def test_the_request_is_a_plain_openai_embedding_call(
-    endpoint, input_type: str
-) -> None:
+def test_the_binding_supplies_the_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("EMBEDDING_MODEL", "embed-model")
+    monkeypatch.setenv("EMBEDDING_BINDING_HOST", "https://gateway.example/v1")
+    monkeypatch.setenv("EMBEDDING_BINDING_API_KEY", "sk-embed")
+
+    params = embedding.get_embed_params()
+
+    assert (params.model_name, params.embed_invoke_url, params.api_key) == (
+        "embed-model",
+        "https://gateway.example/v1",
+        "sk-embed",
+    )
+
+
+def test_a_key_without_a_host_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The client library would send the key to its own default endpoint."""
+    monkeypatch.setenv("EMBEDDING_MODEL", "embed-model")
+    monkeypatch.setenv("EMBEDDING_BINDING_API_KEY", "sk-embed")
+    monkeypatch.delenv("EMBEDDING_BINDING_HOST", raising=False)
+
+    with pytest.raises(EnvironmentError, match="EMBEDDING_BINDING_HOST"):
+        embedding.get_embed_params()
+
+
+def test_the_request_is_a_plain_openai_embedding_call(endpoint) -> None:
     """The gateway rejects NVIDIA's input_type, truncate and modality fields."""
     seen = endpoint(_ok)
 
-    vectors = embed_texts(["  orders  "], _params(), input_type)
+    vectors = embed_texts(["  orders  "], _params())
 
     assert vectors == [_vector("orders")]
     [request] = seen
     assert request.url.path == "/v1/embeddings"
     assert request.headers["authorization"] == "Bearer sk-test"
     assert json.loads(request.content) == {
-        "model": "nvidia/embed",
+        "model": "embed-model",
         "input": ["orders"],
         "encoding_format": "float",
     }
-
-
-@pytest.mark.parametrize("input_type", ["passage", "query"])
-def test_a_model_that_ignores_input_type_gets_it_as_a_text_prefix(
-    endpoint, input_type: str
-) -> None:
-    seen = endpoint(_ok)
-
-    embed_texts(
-        ["  orders  "],
-        _params(model_name="nvidia/nvidia/nemotron-3.5-embed-1b-nvfp4"),
-        input_type,
-    )
-
-    body = json.loads(seen[0].content)
-    assert body["input"] == [f"{input_type}: orders"]
-
-
-def test_the_hosted_nemotron_3_5_model_gets_no_prefix(
-    endpoint: Callable[[Handler], list[httpx.Request]],
-) -> None:
-    seen = endpoint(_ok)
-
-    embed_texts(
-        ["  orders  "],
-        _params(model_name="nvidia/nemotron-3.5-embed-1b"),
-        "query",
-    )
-
-    body = json.loads(seen[0].content)
-    assert body["input"] == ["orders"]
 
 
 @pytest.mark.parametrize(
@@ -144,14 +133,8 @@ def test_the_hosted_nemotron_3_5_model_gets_no_prefix(
 )
 def test_both_endpoint_spellings_reach_the_same_url(endpoint, configured: str) -> None:
     seen = endpoint(_ok)
-    embed_texts(["x"], _params(embed_invoke_url=configured), "passage")
+    embed_texts(["x"], _params(embed_invoke_url=configured))
     assert str(seen[0].url) == "https://embed.example/v1/embeddings"
-
-
-def test_no_key_sends_no_authorization_header(endpoint) -> None:
-    seen = endpoint(_ok)
-    embed_texts(["x"], _params(api_key=""), "passage")
-    assert "authorization" not in seen[0].headers
 
 
 def test_the_key_stays_out_of_repr() -> None:
@@ -163,7 +146,7 @@ def test_batches_and_reassembles_in_input_order(endpoint) -> None:
     seen = endpoint(lambda request: _ok(request, reverse=True))
     texts = ["a", "bb", "ccc", "dddd", "eeeee"]
 
-    vectors = embed_texts(texts, _params(inference_batch_size=2), "passage")
+    vectors = embed_texts(texts, _params(inference_batch_size=2))
 
     assert vectors == [_vector(t) for t in texts]
     assert sorted(len(json.loads(r.content)["input"]) for r in seen) == [1, 2, 2]
@@ -180,7 +163,7 @@ def test_a_short_response_is_an_error_not_a_partial_batch(endpoint) -> None:
 
     endpoint(_short)
     with pytest.raises(RuntimeError, match="1 vector"):
-        embed_texts(["a", "b"], _params(), "passage")
+        embed_texts(["a", "b"], _params())
 
 
 def test_a_duplicated_index_is_an_error(endpoint) -> None:
@@ -193,13 +176,13 @@ def test_a_duplicated_index_is_an_error(endpoint) -> None:
 
     endpoint(_duplicated)
     with pytest.raises(RuntimeError, match="3 vector"):
-        embed_texts(["a", "b"], _params(), "passage")
+        embed_texts(["a", "b"], _params())
 
 
 def test_blank_texts_are_not_sent(endpoint) -> None:
     seen = endpoint(_ok)
 
-    vectors = embed_texts(["a", "  ", None, "b"], _params(), "passage")  # type: ignore[list-item]
+    vectors = embed_texts(["a", "  ", None, "b"], _params())  # type: ignore[list-item]
 
     assert vectors == [_vector("a"), None, None, _vector("b")]
     assert json.loads(seen[0].content)["input"] == ["a", "b"]
@@ -207,7 +190,7 @@ def test_blank_texts_are_not_sent(endpoint) -> None:
 
 def test_nothing_to_send_makes_no_request(endpoint) -> None:
     seen = endpoint(_ok)
-    assert embed_texts(["", " "], _params(), "passage") == [None, None]
+    assert embed_texts(["", " "], _params()) == [None, None]
     assert seen == []
 
 
@@ -220,7 +203,7 @@ def test_a_rate_limit_is_retried_by_the_client(endpoint) -> None:
         return responses.pop(0) if responses else _ok(request)
 
     seen = endpoint(_handler)
-    assert embed_texts(["a"], _params(), "passage") == [_vector("a")]
+    assert embed_texts(["a"], _params()) == [_vector("a")]
     assert len(seen) == 2
 
 
@@ -231,13 +214,13 @@ def test_retries_zero_leaves_retrying_to_the_caller(endpoint) -> None:
         )
     )
     with pytest.raises(RateLimitError):
-        embed_texts(["a"], _params(), "query", retries=0)
+        embed_texts(["a"], _params(), retries=0)
     assert len(seen) == 1
 
 
 def test_the_timeout_reaches_the_request(endpoint) -> None:
     seen = endpoint(_ok)
-    embed_texts(["a"], _params(), "query", timeout=7.0)
+    embed_texts(["a"], _params(), timeout=7.0)
     assert seen[0].extensions["timeout"]["read"] == 7.0
 
 
@@ -269,7 +252,7 @@ def test_only_a_wrong_request_is_fatal(status: int, fatal: bool) -> None:
 def test_a_bad_key_fails_at_once(endpoint) -> None:
     seen = endpoint(lambda request: httpx.Response(401, json={"error": "bad key"}))
     with pytest.raises(AuthenticationError):
-        embed_texts(["a"], _params(), "passage")
+        embed_texts(["a"], _params())
     assert len(seen) == 1
 
 
@@ -334,7 +317,7 @@ def test_embed_rows_is_bounded_for_interactive_callers(
     """A save in a request handler must fail in about a minute, not an hour."""
     seen: list[dict] = []
 
-    def _embed(texts: list[str], params: Any, input_type: str, **kw: Any) -> list:
+    def _embed(texts: list[str], params: Any, **kw: Any) -> list:
         seen.append(kw)
         return [[0.5] for _ in texts]
 
@@ -474,7 +457,7 @@ def test_the_in_flight_cap_applies_across_batches(endpoint, monkeypatch) -> None
     endpoint(handler)
 
     texts = [f"text {i}" for i in range(8)]
-    vectors = embed_texts(texts, _params(inference_batch_size=1), "passage")
+    vectors = embed_texts(texts, _params(inference_batch_size=1))
 
     assert all(vectors)
     assert peak == 1

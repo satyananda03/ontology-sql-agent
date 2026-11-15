@@ -26,7 +26,6 @@ _DIMENSIONS = 2048
 @pytest.fixture(autouse=True)
 def _default_vector_size(monkeypatch: pytest.MonkeyPatch) -> None:
     """These tests write 2048-dimension vectors, whatever a local .env selects."""
-    monkeypatch.delenv("EMBED_DIMENSIONS", raising=False)
     monkeypatch.delenv("EMBEDDING_DIM", raising=False)
 
 
@@ -146,10 +145,10 @@ def test_written_rows_come_back_from_a_search(
     )
     assert written == 2
 
-    sent: list[tuple[list[str], str, dict]] = []
+    sent: list[tuple[list[str], dict]] = []
 
-    def _embed(texts: list[str], params: Any, input_type: str, **kw: Any) -> list:
-        sent.append((texts, input_type, kw))
+    def _embed(texts: list[str], params: Any, **kw: Any) -> list:
+        sent.append((texts, kw))
         return [_unit(1)]
 
     monkeypatch.setattr(retriever_mod, "embed_texts", _embed)
@@ -161,7 +160,7 @@ def test_written_rows_come_back_from_a_search(
 
     # The caller's _query_with_retry is the only retry on this path, and each
     # attempt is bounded, so a dead endpoint cannot hold a question for long.
-    assert sent == [(["who buys"], "query", {"timeout": 60.0, "retries": 0})]
+    assert sent == [(["who buys"], {"timeout": 60.0, "retries": 0})]
     assert [hit["metadata"]["id"] for hit in hits] == ["customers", "orders"]
     best = hits[0]
     assert best["text"] == "customers table"

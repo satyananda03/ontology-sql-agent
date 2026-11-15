@@ -51,7 +51,6 @@ class Retriever:
         vector = embed_texts(
             [text],
             self.embed_params,
-            "query",
             timeout=_QUERY_TIMEOUT_S,
             retries=0,
         )[0]

@@ -12,7 +12,7 @@ from auto_ontology.retrieval.entity_coverage.state import (
     EntityCoveragePayload,
 )
 from auto_ontology.retrieval.text_to_sql.state import AgentState
-from auto_ontology.utils.llm_invoke import get_llm_client
+from auto_ontology.utils.llm_client import get_llm_client
 
 logger = logging.getLogger(__name__)
 

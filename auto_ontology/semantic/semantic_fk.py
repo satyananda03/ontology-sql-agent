@@ -37,13 +37,10 @@ from auto_ontology.dal.attributes import (
     set_semantic_fk_join_default,
 )
 from auto_ontology.retrieval.text_to_sql.db_probe.executor import ProbeExecutor
-from auto_ontology.utils.embedding import EmbedParams
-from auto_ontology.utils.llm_invoke import (
-    get_llm_client,
-    invoke_with_structured_output,
-)
+from auto_ontology.utils.embedding import get_embed_params
+from auto_ontology.utils.llm_client import get_llm_client
+from auto_ontology.utils.llm_invoke import invoke_with_structured_output
 from auto_ontology.utils.prompt_loader import load_chat_prompt_template
-from auto_ontology.utils.model_config import resolve
 from auto_ontology.utils.retriever import Retriever
 from auto_ontology.utils.sample_values import stringify_sample_values
 from auto_ontology.utils.sql_identifiers import quoted_identifier
@@ -55,9 +52,6 @@ from auto_ontology.vdb import get_semantic_vdb
 
 logger = logging.getLogger(__name__)
 
-_EMBED_ENDPOINT = resolve("EMBED", "ENDPOINT")
-_EMBED_MODEL = resolve("EMBED", "MODEL")
-_NVIDIA_API_KEY = resolve("EMBED", "API_KEY")
 _WORKERS = 2
 _PROMPTS_FILE = Path(__file__).with_name("prompts.yaml")
 _PICK_PROMPT = load_chat_prompt_template(_PROMPTS_FILE, "semantic_fk_pick")
@@ -208,7 +202,7 @@ def _resolve_semantic_fks(database_name: str) -> int:
     retriever = _build_retriever(database_name)
     if retriever is None:
         logger.warning(
-            "resolve_semantic_fks: EMBED_API_KEY not set — skipping LLM/VDB path "
+            "resolve_semantic_fks: EMBEDDING_BINDING_API_KEY not set — skipping LLM/VDB path "
             "for %d column(s)",
             len(llm_queue),
         )
@@ -401,17 +395,11 @@ def _resolve_connector(database_name: str) -> SQLDatabase | None:
 
 def _build_retriever(database_name: str) -> Retriever | None:
     """Build a Retriever backed by the semantic VDB, or None when the API key is absent."""
-    if not _NVIDIA_API_KEY:
+    embed_params = get_embed_params()
+    if not embed_params.api_key:
         return None
 
-    return Retriever(
-        get_semantic_vdb(database_name=database_name),
-        EmbedParams(
-            model_name=_EMBED_MODEL,
-            embed_invoke_url=_EMBED_ENDPOINT,
-            api_key=_NVIDIA_API_KEY,
-        ),
-    )
+    return Retriever(get_semantic_vdb(database_name=database_name), embed_params)
 
 
 def _build_query_text(col: dict[str, Any]) -> str:
