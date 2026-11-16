@@ -1,7 +1,8 @@
 """Postgres + pgvector vector store for the data and semantic layers.
 
-Backed by :class:`langchain_postgres.PGVectorStore` (the v2 vector store API).
-Records are carried as :class:`langchain_core.documents.Document` objects
+Backed by :class:`langchain_postgres.PGVectorStore` (the v2 vector store API),
+except retrieval, which searches through :mod:`auto_ontology.vdb.vector_query`
+on its own connection pool. Records are carried as :class:`langchain_core.documents.Document` objects
 throughout. Per-database identification is stored in a real ``database_name``
 column so it can be used as a delete/search filter.
 """
@@ -17,16 +18,22 @@ from typing import Any, Iterable, Optional
 
 import psycopg
 from psycopg import sql
+from psycopg_pool import ConnectionPool
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_postgres import Column, PGEngine, PGVectorStore
 
-from auto_ontology.vdb import bm25_index, vector_index
+from auto_ontology.vdb import bm25_index, vector_index, vector_query
 
 logger = logging.getLogger(__name__)
 
 _DATABASE_METADATA_COLUMN = "database_name"
 _LABEL_METADATA_COLUMN = "label"
+_METADATA_COLUMNS = (_DATABASE_METADATA_COLUMN, _LABEL_METADATA_COLUMN)
+
+#: Retrieval connections per collection. A question runs up to ~8 searches at
+#: once, and a few questions run side by side.
+_SEARCH_POOL_SIZE = 10
 
 
 class _UnusableEmbeddings(Embeddings):
@@ -169,6 +176,8 @@ class PostgresVDB:
 
         self._engine: Optional[PGEngine] = None
         self._store: Optional[PGVectorStore] = None
+        self._search_pool: Optional[ConnectionPool] = None
+        self._search_pool_lock = threading.Lock()
         self.vector_size: Optional[int] = kwargs.get(
             "vector_size",
             int(os.environ.get("EMBEDDING_DIM") or 2048),
@@ -279,7 +288,7 @@ class PostgresVDB:
             embedding_service=self.embeddings,
             table_name=self.collection_name,
             schema_name=self.schema_name,
-            metadata_columns=[_DATABASE_METADATA_COLUMN, _LABEL_METADATA_COLUMN],
+            metadata_columns=list(_METADATA_COLUMNS),
         )
         return self._store
 
@@ -500,8 +509,10 @@ class PostgresVDB:
 
         ``kwargs["where"]`` is a langchain-postgres filter dict
         (e.g. ``{"label": "CustomAnalysis", "database_name": "prod"}``)
-        applied to the declared metadata columns; passed straight through to
-        ``PGVectorStore.similarity_search_with_score_by_vector``.
+        applied to the declared metadata columns. A filter
+        :func:`vector_query.metadata_filter` can translate is searched directly;
+        any other goes through ``PGVectorStore``, unchanged. Both give the same
+        hits.
 
         Requires an ``embeddings`` instance from the constructor.
         """
@@ -516,24 +527,15 @@ class PostgresVDB:
         # level. The attributable number is the per-statement `vdb.sql` line.
         _started = time.perf_counter()
 
+        where = kwargs.get("where", None)
+        direct_filter = vector_query.metadata_filter(where, _METADATA_COLUMNS)
         results: list[list[dict]] = []
         for query in queries:
             try:
-                hits = store.similarity_search_with_score_by_vector(
-                    embedding=query,
-                    filter=kwargs.get("where", None),
-                    k=top_k,
-                )
-                results.append(
-                    [
-                        {
-                            "text": doc.page_content,
-                            "metadata": doc.metadata,
-                            "_distance": float(score),
-                        }
-                        for doc, score in hits
-                    ]
-                )
+                if direct_filter is not None:
+                    results.append(self._nearest(query, top_k, direct_filter))
+                else:
+                    results.append(_langchain_nearest(store, query, top_k, where))
             except Exception as e:
                 logger.error(f"Error in retrieval: {e}")
                 return [[] for _ in queries]
@@ -545,6 +547,37 @@ class PostgresVDB:
             _pool_status(self._get_engine()),
         )
         return results
+
+    def _nearest(
+        self, vector: list[float], top_k: int, where: tuple[sql.Composable, list]
+    ) -> list[dict]:
+        with self._query_pool().connection() as conn:
+            return vector_query.nearest(
+                conn,
+                self.schema_name,
+                self.collection_name,
+                vector,
+                top_k,
+                where,
+                _METADATA_COLUMNS,
+            )
+
+    def _query_pool(self) -> ConnectionPool:
+        """Connections for retrieval, opened on first search and kept.
+
+        Its own pool rather than the engine's: the engine's connections live
+        on langchain's event-loop thread, which is what retrieval avoids.
+        """
+        with self._search_pool_lock:
+            if self._search_pool is None:
+                self._search_pool = ConnectionPool(
+                    self.connection_string,
+                    min_size=1,
+                    max_size=_SEARCH_POOL_SIZE,
+                    kwargs={"autocommit": True},
+                    open=True,
+                )
+            return self._search_pool
 
     def run(self, records: list) -> int:
         """Create the collection if needed, then write records to it."""
@@ -579,6 +612,9 @@ class PostgresVDB:
         it cannot catch a hang.
         """
         self._store = None
+        search_pool, self._search_pool = self._search_pool, None
+        if search_pool is not None:
+            search_pool.close(timeout=self._DISPOSE_TIMEOUT)
         engine = self._engine
         if engine is None:
             return
@@ -625,3 +661,16 @@ class PostgresVDB:
             self.close()
         except Exception:
             pass
+
+
+def _langchain_nearest(
+    store: PGVectorStore, vector: list[float], top_k: int, where: Any
+) -> list[dict]:
+    """Retrieval through ``PGVectorStore``, for filters the direct search does not take."""
+    hits = store.similarity_search_with_score_by_vector(
+        embedding=vector, filter=where, k=top_k
+    )
+    return [
+        {"text": doc.page_content, "metadata": doc.metadata, "_distance": float(score)}
+        for doc, score in hits
+    ]
