@@ -5,6 +5,7 @@ is ``auto_ontology.infra.feature_flags``'s business; this module only stores
 the strings.
 """
 
+from functools import lru_cache
 from typing import Any
 
 from sqlalchemy import delete, func, select, update
@@ -28,10 +29,21 @@ def _taken(name: str) -> ValueError:
 
 
 def fetch_glossary() -> list[dict[str, str]]:
-    """The Glossary as ``[{"name", "description"}]``, for the SQL agent's prompt."""
-    return store().query_read(
-        select(s.glossary.c.name, s.glossary.c.description).order_by(
-            s.glossary.c.created_at
+    """The Glossary as ``[{"name", "description"}]``, for the SQL agent's prompt.
+
+    Read once and kept until a glossary write below clears it: every question
+    reads it, and this process holds the only writers (the settings routes).
+    """
+    return [dict(entry) for entry in _glossary()]
+
+
+@lru_cache(maxsize=1)
+def _glossary() -> tuple[dict[str, str], ...]:
+    return tuple(
+        store().query_read(
+            select(s.glossary.c.name, s.glossary.c.description).order_by(
+                s.glossary.c.created_at
+            )
         )
     )
 
@@ -51,6 +63,7 @@ def create_glossary_entry(name: str, description: str) -> dict[str, Any]:
         )
     except IntegrityError as exc:
         raise _taken(name) from exc
+    _glossary.cache_clear()
     return rows[0]
 
 
@@ -77,18 +90,17 @@ def update_glossary_entry(
         )
     except IntegrityError as exc:
         raise _taken(name or "") from exc
+    _glossary.cache_clear()
     return rows[0] if rows else None
 
 
 def delete_glossary_entry(entry_id: str) -> bool:
     """Remove one glossary entry; ``False`` when it did not exist."""
-    return bool(
-        store().query_write(
-            delete(s.glossary)
-            .where(s.glossary.c.id == entry_id)
-            .returning(s.glossary.c.id)
-        )
+    deleted = store().query_write(
+        delete(s.glossary).where(s.glossary.c.id == entry_id).returning(s.glossary.c.id)
     )
+    _glossary.cache_clear()
+    return bool(deleted)
 
 
 def read_configuration(key: str) -> str | None:
