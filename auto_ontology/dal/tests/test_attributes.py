@@ -1299,3 +1299,38 @@ def test_kept_table_bridges_respects_the_cap(bridged) -> None:
     )
     assert (bridge_tables, bridge_paths) == ([], [])
     assert skipped == 1
+
+
+def test_kept_table_bridges_query_count_does_not_grow_with_the_pairs(bridged) -> None:
+    """Every pair is walked in memory over edges loaded once.
+
+    Checking each pair against the store, as this used to, cost about seven
+    queries per pair: 184 for the 28 pairs of eight kept tables.
+    """
+    from sqlalchemy import event
+
+    from auto_ontology.dal.session import get_engine
+
+    for name in ("islands", "lakes", "rivers"):
+        bridged.table(name)
+        bridged.column(name, "id")
+    kept = [
+        bridged.tables[name]
+        for name in ("orders", "addresses", "islands", "lakes", "rivers")
+    ]
+    statements: list[str] = []
+
+    def count(conn, cursor, statement, *_) -> None:
+        statements.append(statement)
+
+    event.listen(get_engine(), "before_cursor_execute", count)
+    try:
+        bridge_tables, bridge_paths, _ = a.find_kept_table_bridges(kept)
+    finally:
+        event.remove(get_engine(), "before_cursor_execute", count)
+
+    assert [t["name"] for t in bridge_tables] == ["customers"]
+    assert len(bridge_paths) == 1
+    # Database ids, the edges, then one naming query each for columns, their
+    # tables and the bridge tables: the same for 10 pairs as for 1.
+    assert len(statements) == 5

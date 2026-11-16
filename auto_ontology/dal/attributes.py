@@ -5,9 +5,9 @@ relationships into undirected table edges (``_find_table_join_hops``), then
 run BFS over tables while retaining the exact join columns on every edge.
 """
 
-from collections import defaultdict, deque
 import itertools
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from sqlalchemy import (
@@ -25,7 +25,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import insert
 
 from auto_ontology.utils.column_types import VECTOR_TYPES
-from auto_ontology.dal import schema as s
+from auto_ontology.dal import join_graph, schema as s
 from auto_ontology.dal.datasources import fetch_col_table_contexts
 from auto_ontology.dal.session import store, write_transaction
 from auto_ontology.semantic.constants import SEMANTIC_SOURCE
@@ -42,6 +42,12 @@ logger = logging.getLogger(__name__)
 #: perfectly ordinary 4-hop path is 14, and a ceiling of 10 would have silently
 #: returned "no path" for it.
 MAX_PATH_DEPTH = 30
+
+
+def _max_hops() -> int:
+    """:data:`MAX_PATH_DEPTH` in table hops, which is what the BFS over tables
+    counts. Read on every call, so the bound stays a single setting."""
+    return (MAX_PATH_DEPTH + 2) // 4
 
 
 # ---------------------------------------------------------------------------
@@ -811,62 +817,103 @@ def _find_table_join_hops(
     can't reach (both endpoints are FK columns *into* the same identity hub,
     so there's no forward edge on either side to start from).
     """
-    rows = store().query_read(
-        _SEMANTIC_TABLE_EDGES,
-        {"database_id": database_id},
+    hops = join_graph.shortest_path(
+        _semantic_adjacency(database_id), anchor_table_id, dest_table_id, _max_hops()
     )
-    adjacency: dict[str, list[tuple[str, str, str]]] = defaultdict(list)
-    for row in rows:
-        fk_table_id = row["fk_table_id"]
-        owner_table_id = row["owner_table_id"]
-        if fk_table_id == owner_table_id:
-            continue
-        adjacency[fk_table_id].append(
-            (owner_table_id, row["fk_column_id"], row["owner_column_id"])
-        )
-        if row["owner_is_pk"]:
-            adjacency[owner_table_id].append(
-                (fk_table_id, row["owner_column_id"], row["fk_column_id"])
-            )
-    for edges in adjacency.values():
-        edges.sort()
-
-    max_hops = (MAX_PATH_DEPTH + 2) // 4
-    parents: dict[str, tuple[str, str, str] | None] = {anchor_table_id: None}
-    frontier: deque[tuple[str, int]] = deque([(anchor_table_id, 0)])
-    while frontier:
-        table_id, depth = frontier.popleft()
-        if depth >= max_hops:
-            continue
-        for next_table_id, source_col_id, target_col_id in adjacency.get(table_id, []):
-            if next_table_id in parents:
-                continue
-            parents[next_table_id] = (table_id, source_col_id, target_col_id)
-            if next_table_id == dest_table_id:
-                hops: list[tuple[str, str]] = []
-                current = dest_table_id
-                while parents[current] is not None:
-                    previous, source_col_id, target_col_id = parents[current]
-                    hops.append((source_col_id, target_col_id))
-                    current = previous
-                hops.reverse()
-                return hops
-            frontier.append((next_table_id, depth + 1))
-    return []
+    return [(source_col_id, target_col_id) for _, source_col_id, target_col_id in hops]
 
 
-def _table_database_id(table_id: str) -> str | None:
-    """The database a table belongs to, for scoping :func:`_find_table_join_hops`."""
+def _semantic_adjacency(database_id: str) -> join_graph.Adjacency:
+    """Every semantic table edge of one database, loaded in a single query."""
+    rows = store().query_read(_SEMANTIC_TABLE_EDGES, {"database_id": database_id})
+    return join_graph.build_adjacency(rows)
+
+
+def _table_database_ids(table_ids: list[str]) -> dict[str, str]:
+    """Table id -> its database id, for every table in one query."""
+    if not table_ids:
+        return {}
     rows = store().query_read(
-        select(s.catalog_schema.c.database_id)
+        select(s.catalog_table.c.id, s.catalog_schema.c.database_id)
         .select_from(
             s.catalog_table.join(
                 s.catalog_schema, s.catalog_table.c.schema_id == s.catalog_schema.c.id
             )
         )
-        .where(s.catalog_table.c.id == table_id)
+        .where(s.catalog_table.c.id.in_(list(dict.fromkeys(table_ids))))
     )
-    return rows[0]["database_id"] if rows else None
+    return {row["id"]: row["database_id"] for row in rows}
+
+
+def _join_router(table_ids: list[str]) -> Callable[[str, str], list[join_graph.Hop]]:
+    """``route(src, dst)``: the shortest semantic route between two of *table_ids*.
+
+    The tables' databases are resolved in one query, and each database's edges
+    are loaded once, on first use, then walked in memory for every pair. A
+    failed edge load is logged and reads as "no route", as before, and is
+    retried by the next pair.
+    """
+    database_ids = _table_database_ids(table_ids)
+    adjacency_by_database: dict[str, join_graph.Adjacency] = {}
+
+    def route(src: str, dst: str) -> list[join_graph.Hop]:
+        database_id = database_ids.get(src)
+        if not database_id:
+            return []
+        try:
+            if database_id not in adjacency_by_database:
+                adjacency_by_database[database_id] = _semantic_adjacency(database_id)
+        except Exception:
+            logger.warning(
+                "find_table_bridge: query failed for %s -> %s", src, dst, exc_info=True
+            )
+            return []
+        return join_graph.shortest_path(
+            adjacency_by_database[database_id], src, dst, _max_hops()
+        )
+
+    return route
+
+
+def _bridge_results(
+    paths: list[tuple[list[str], list[join_graph.Hop]]],
+) -> list[tuple[list[dict], list[dict]]]:
+    """``(bridge_tables, hops)`` per path, named with one query per kind of name."""
+    if not paths:
+        return []
+    col_ids = list(
+        dict.fromkeys(
+            col_id
+            for _, hops in paths
+            for _, source, target in hops
+            for col_id in (source, target)
+        )
+    )
+    names = _name_columns(col_ids)
+    col_ctx = fetch_col_table_contexts(col_ids)
+    table_names = _name_tables(
+        list(dict.fromkeys(tid for bridge_ids, _ in paths for tid in bridge_ids))
+    )
+
+    def hop_dict(source_id: str, target_id: str) -> dict:
+        source_context = col_ctx.get(source_id, {})
+        target_context = col_ctx.get(target_id, {})
+        return {
+            "source_schema": source_context.get("schema_name", ""),
+            "source_table": source_context.get("table_name", ""),
+            "source_column": names.get(source_id, ""),
+            "target_schema": target_context.get("schema_name", ""),
+            "target_table": target_context.get("table_name", ""),
+            "target_column": names.get(target_id, ""),
+        }
+
+    return [
+        (
+            [{"id": tid, "name": table_names.get(tid, "")} for tid in bridge_ids],
+            [hop_dict(source, target) for _, source, target in hops],
+        )
+        for bridge_ids, hops in paths
+    ]
 
 
 def _name_columns(node_ids: list[str]) -> dict[str, str]:
@@ -1340,10 +1387,11 @@ def find_table_bridge(
 ) -> tuple[list[dict], list[dict]]:
     """Find bridge tables AND their join hops (if any) needed to connect two tables.
 
-    Delegates to :func:`_find_table_join_hops`, the same table-level
-    traversal :func:`find_join_path` uses — table_a and table_b are already
-    table IDs, so there's no need for find_join_path's column-to-table
-    resolution step.
+    Uses the same table-level traversal as :func:`find_join_path`
+    (:mod:`auto_ontology.dal.join_graph`), and :func:`join_graph.bridge_path`
+    for which route counts as a bridge — table_a and table_b are already table
+    IDs, so there's no need for find_join_path's column-to-table resolution
+    step.
 
     Tried in both directions, same as before: the traversal isn't fully
     symmetric even now. A real outgoing FK (table_a -> owner) is always a
@@ -1381,69 +1429,13 @@ def find_table_bridge(
     either direction, or the only path found steps outside
     *allowed_table_ids*.
     """
-    for src, dst in ((table_a_id, table_b_id), (table_b_id, table_a_id)):
-        database_id = _table_database_id(src)
-        if not database_id:
-            continue
-        try:
-            hop_pairs = _find_table_join_hops(src, dst, database_id)
-        except Exception:
-            logger.warning(
-                "find_table_bridge: query failed for %s -> %s",
-                src,
-                dst,
-                exc_info=True,
-            )
-            continue
-        if not hop_pairs:
-            continue
-
-        col_ids = list(dict.fromkeys(cid for pair in hop_pairs for cid in pair))
-        names = _name_columns(col_ids)
-        col_ctx = fetch_col_table_contexts(col_ids)
-
-        # Every hop's target table is the next table on the path; the last
-        # hop's target is dst itself, so everything before it is a bridge.
-        bridge_ids = list(
-            dict.fromkeys(
-                col_ctx.get(target_id, {}).get("table_id")
-                for _, target_id in hop_pairs[:-1]
-            )
-        )
-        bridge_ids = [tid for tid in bridge_ids if tid]
-        if not bridge_ids:
-            continue
-        if allowed_table_ids is not None and not set(bridge_ids).issubset(
-            allowed_table_ids
-        ):
-            logger.info(
-                "find_table_bridge: discarding path %s -> %s — bridge table(s) "
-                "were never a candidate, not just restoring a dropped one",
-                src,
-                dst,
-            )
-            continue
-
-        hops: list[dict] = []
-        for source_id, target_id in hop_pairs:
-            source_context = col_ctx.get(source_id, {})
-            target_context = col_ctx.get(target_id, {})
-            hops.append(
-                {
-                    "source_schema": source_context.get("schema_name", ""),
-                    "source_table": source_context.get("table_name", ""),
-                    "source_column": names.get(source_id, ""),
-                    "target_schema": target_context.get("schema_name", ""),
-                    "target_table": target_context.get("table_name", ""),
-                    "target_column": names.get(target_id, ""),
-                }
-            )
-        table_names = _name_tables(bridge_ids)
-        bridge_tables = [
-            {"id": tid, "name": table_names.get(tid, "")} for tid in bridge_ids
-        ]
-        return bridge_tables, hops
-    return [], []
+    route = _join_router([table_a_id, table_b_id])
+    bridge_ids, hops = join_graph.bridge_path(
+        route, table_a_id, table_b_id, allowed_table_ids
+    )
+    if not bridge_ids:
+        return [], []
+    return _bridge_results([(bridge_ids, hops)])[0]
 
 
 def find_kept_table_bridges(
@@ -1490,20 +1482,24 @@ def find_kept_table_bridges(
 
     already_kept = set(table_ids)
     pairs = list(itertools.combinations(table_ids, 2))
-    found: dict[str, dict] = {}
-    bridge_paths: list[list[dict]] = []
+    route = _join_router(table_ids)
+    found_ids: dict[str, None] = {}
+    paths: list[tuple[list[str], list[join_graph.Hop]]] = []
     checked = 0
     for a_id, b_id in pairs:
-        if len(found) >= max_bridge_tables:
+        if len(found_ids) >= max_bridge_tables:
             break
         checked += 1
-        bridge_tables, hops = find_table_bridge(a_id, b_id, allowed_table_ids)
-        for t in bridge_tables:
-            if t["id"] in already_kept:
-                continue
-            found.setdefault(t["id"], t)
-        if bridge_tables and hops:
-            bridge_paths.append(hops)
+        bridge_ids, hops = join_graph.bridge_path(route, a_id, b_id, allowed_table_ids)
+        if not bridge_ids:
+            continue
+        found_ids.update(dict.fromkeys(t for t in bridge_ids if t not in already_kept))
+        paths.append((bridge_ids, hops))
+
+    results = _bridge_results(paths)
+    tables_by_id = {t["id"]: t for bridge_tables, _ in results for t in bridge_tables}
+    found = [tables_by_id[tid] for tid in found_ids]
+    bridge_paths = [hops for _, hops in results]
 
     skipped = len(pairs) - checked
     if skipped:
@@ -1514,4 +1510,4 @@ def find_kept_table_bridges(
             skipped,
             len(pairs),
         )
-    return list(found.values()), bridge_paths, skipped
+    return found, bridge_paths, skipped

@@ -90,6 +90,11 @@
     "fetch_table_zones_map": "(zone_ids: list[str] | None = None, data_ids_by_zone: dict[str, set[str]] | None = None, table_ids: list[str] | None = None) -> dict[str, list[dict[str, typing.Any]]]",
     "fetch_term_exploration_details": "(term_id: str, zone_ids: list[str] | None = None, *, skip: int = 0, limit: int | None = None) -> dict[str, typing.Any]"
   },
+  "join_graph": {
+    "bridge_path": "(route: collections.abc.Callable[[str, str], list[tuple[str, str, str]]], table_a_id: str, table_b_id: str, allowed_table_ids: set[str] | None = None) -> tuple[list[str], list[tuple[str, str, str]]]",
+    "build_adjacency": "(edge_rows: collections.abc.Iterable[dict[str, typing.Any]]) -> dict[str, list[tuple[str, str, str]]]",
+    "shortest_path": "(adjacency: dict[str, list[tuple[str, str, str]]], anchor_table_id: str, dest_table_id: str, max_hops: int) -> list[tuple[str, str, str]]"
+  },
   "model_interchange": {
     "ModelImportValidationError": "class(ModelInterchangeError)",
     "ModelInterchangeError": "class(Exception)",
