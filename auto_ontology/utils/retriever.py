@@ -1,6 +1,7 @@
 """Vector search over a pgvector collection, and the app's two singletons."""
 
 import logging
+from functools import lru_cache
 from typing import Any
 
 from auto_ontology.utils.embedding import EmbedParams, embed_texts, get_embed_params
@@ -15,6 +16,22 @@ logger = logging.getLogger(__name__)
 # is the only retry on this path -- the client's own are off -- so a dead
 # endpoint costs three 60s attempts, not three times six.
 _QUERY_TIMEOUT_S = 60.0
+
+
+# ponytail: process-wide LRU of 512 vectors (~8 KB each); bound it per question
+# if memory ever matters.
+@lru_cache(maxsize=512)
+def _embed_query(text: str, params: EmbedParams) -> tuple[float, ...] | None:
+    """*text*'s embedding, computed once per model and text.
+
+    One question searches with the same strings several times (the question
+    in two label searches and the table search, each entity in the column and
+    table searches), and an embedding depends only on the model and the text.
+    A tuple, so no caller can change the cached vector. Failures raise and are
+    not cached.
+    """
+    vector = embed_texts([text], params, timeout=_QUERY_TIMEOUT_S, retries=0)[0]
+    return None if vector is None else tuple(vector)
 
 
 class Retriever:
@@ -48,16 +65,11 @@ class Retriever:
         embedded, with the endpoint's HTTP status in the message, so callers
         can tell a transient failure from an empty result.
         """
-        vector = embed_texts(
-            [text],
-            self.embed_params,
-            timeout=_QUERY_TIMEOUT_S,
-            retries=0,
-        )[0]
+        vector = _embed_query(text, self.embed_params)
         if vector is None:
             raise ValueError("Cannot search for a blank query.")
         where = (vdb_kwargs or {}).get("where")
-        hits = self.vdb.retrieval([vector], top_k=top_k, where=where)[0]
+        hits = self.vdb.retrieval([list(vector)], top_k=top_k, where=where)[0]
         return [
             {
                 "text": (hit.get("text") or "").strip(),
