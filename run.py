@@ -21,5 +21,6 @@ if __name__ == "__main__":
         host=settings.bind_host,
         port=port,
         reload=args.reload,
+        timeout_graceful_shutdown=5 if args.reload else None,
         log_config=None,
     )
