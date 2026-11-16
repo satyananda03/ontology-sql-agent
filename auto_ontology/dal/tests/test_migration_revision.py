@@ -4,8 +4,8 @@ import pathlib
 import re
 
 
-ROOT = pathlib.Path(__file__).resolve().parents[3]
-VERSIONS = ROOT / "alembic" / "versions"
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+VERSIONS = ROOT / "migrations" / "versions"
 
 
 def _head_revisions() -> list[str]:

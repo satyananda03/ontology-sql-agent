@@ -27,7 +27,7 @@ this NOTICE. They are in:
 
     auto_ontology/          (most of the package, including its tests and
                              the prompt files under it)
-    alembic/                (migration environment and revisions)
+    auto_ontology/migrations/ (migration environment and revisions)
     sql_agent/openapi.py
     sql_agent/tests/test_openapi.py
     Makefile, pyproject.toml, alembic.ini, .env.example, .gitignore

@@ -111,7 +111,7 @@ def get_engine() -> Engine:
             # statement silently retargets to it; that is not hypothetical, it
             # is what happened when Auto Ontology's tables lived in a `auto_ontology` schema.
             #
-            # `alembic/env.py` issues an `ALTER ROLE ... SET search_path` too,
+            # `auto_ontology/migrations/env.py` issues an `ALTER ROLE ... SET search_path` too,
             # but that is not this guarantee and cannot stand in for it: it
             # applies to whichever role runs the migration, which need not be
             # the role the application connects as, and it deliberately swallows

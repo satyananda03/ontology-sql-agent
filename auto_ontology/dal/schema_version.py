@@ -19,7 +19,6 @@ fixing it is a decision the operator makes.
 import logging
 from dataclasses import dataclass
 from functools import lru_cache
-from pathlib import Path
 
 from sqlalchemy import text
 
@@ -27,10 +26,9 @@ from auto_ontology.dal.session import get_engine
 
 logger = logging.getLogger(__name__)
 
-#: Where the migrations live, relative to the installed package. The image
-#: copies `alembic/` and `alembic.ini` next to `auto_ontology/` (see the Dockerfile), and
-#: a source checkout has the same shape, so one path serves both.
-_REPO_ROOT = Path(__file__).resolve().parents[2]
+#: Where the migrations live: inside the package, so a source checkout and an
+#: installed wheel find them the same way. Same value as `alembic.ini`.
+_SCRIPT_LOCATION = "auto_ontology:migrations"
 
 _UPGRADE_COMMAND = "uv run alembic upgrade head"
 
@@ -65,7 +63,7 @@ class SchemaState:
         if self.expected is None:
             return (
                 "cannot determine the expected revision — no alembic migrations "
-                f"found under {_REPO_ROOT / 'alembic'}"
+                f"found under {_SCRIPT_LOCATION}"
             )
         if self.applied is None:
             return (
@@ -89,8 +87,8 @@ def head_revision() -> str | None:
         from alembic.config import Config
         from alembic.script import ScriptDirectory
 
-        config = Config(str(_REPO_ROOT / "alembic.ini"))
-        config.set_main_option("script_location", str(_REPO_ROOT / "alembic"))
+        config = Config()
+        config.set_main_option("script_location", _SCRIPT_LOCATION)
         heads = ScriptDirectory.from_config(config).get_heads()
     except Exception:
         logger.warning("Could not read the alembic head revision", exc_info=True)
